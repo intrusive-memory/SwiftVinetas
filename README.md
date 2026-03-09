@@ -6,7 +6,7 @@ Part of the [intrusive-memory](https://github.com/intrusive-memory) ecosystem.
 
 ## Overview
 
-SwiftVinetas generates sequential visual panels from text descriptions using FLUX.2 Klein models running entirely on-device via MLX. It ships as both a Swift library (for integration into [Produciesta](https://github.com/intrusive-memory/Produciesta)) and a standalone `vinetas` CLI.
+SwiftVinetas generates sequential visual panels from text descriptions using FLUX.2 Klein models running entirely on-device via MLX. It ships as both a Swift library (for integration into [Produciesta](https://produciesta.app)) and a standalone `vinetas` CLI.
 
 ### Key Features
 
