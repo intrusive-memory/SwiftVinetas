@@ -6,14 +6,12 @@ Part of the [intrusive-memory](https://github.com/intrusive-memory) ecosystem.
 
 ## Overview
 
-SwiftVinetas generates sequential visual panels from text descriptions using FLUX.2 Klein models running entirely on-device via MLX. It ships as both a Swift library (for integration into [Produciesta](https://produciesta.app)) and a standalone `vinetas` CLI.
+SwiftVinetas generates sequential visual panels from text descriptions using FLUX.2 Klein models running entirely on-device via MLX. It ships as both a Swift library (for integration into [Produciesta](https://github.com/intrusive-memory/Produciesta)) and a standalone `vinetas` CLI.
 
 ### Key Features
 
-- **Engine Abstraction** — Protocol-based `ImageGenerationEngine` with `EngineRouter` dispatcher, supporting multiple backends
 - **FLUX.2 Klein 4B/9B** — Fast generation (~26s/panel on Klein 4B) with 16 GB minimum RAM
-- **PixArt-Sigma Ready** — Stub engine for future PixArt-Sigma support via conditional compilation
-- **LoRA support** — Load style adapters in safetensors format with engine-tagged compatibility
+- **LoRA support** — Load style adapters in safetensors format with configurable scale
 - **Multi-image conditioning** — Up to 3 reference images for character consistency across panels
 - **YAML prompt files** — Batch-generate panel sequences from structured prompt definitions
 - **Memory-aware** — Automatically selects quantization and loading strategy based on available RAM
@@ -34,7 +32,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.5.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", branch: "main")
 ]
 ```
 
@@ -55,22 +53,24 @@ xcodebuild build -scheme vinetas -destination 'platform=macOS' -configuration Re
 ```swift
 import SwiftVinetas
 
-// Generate a single panel (v0.5.0+ VinetasClient API)
-let client = VinetasClient.shared
-let image = try await client.generate(prompt: "A detective in a rain-soaked alley at night")
+// Generate a single panel
+let image = try await Vinetas.generate("A detective in a rain-soaked alley at night")
 
-// With style configuration and model selection
-let image = try await client.generate(
-    prompt: "A detective in a rain-soaked alley at night",
+// With style configuration
+let image = try await Vinetas.generate(
+    "A detective in a rain-soaked alley at night",
     style: StyleConfig(stylePrompt: "noir comic, heavy inks, dramatic shadows"),
-    model: VinetasClient.klein4B
+    model: .klein4b
 )
 
-// Fast preview (FLUX.2-only, 512x512, 4 steps)
-let preview = try await client.preview(prompt: "A detective in a rain-soaked alley")
+// Batch from YAML prompt file
+let panels = try await Vinetas.generateFromFile(
+    URL(fileURLWithPath: "scene.yaml"),
+    progress: { current, total in print("Panel \(current)/\(total)") }
+)
 
-// Multi-panel sequence with character reference images
-let panels = try await client.generateSequence(
+// With character reference images
+let panels = try await Vinetas.generateSequence(
     prompts: ["Vale enters the bar", "Vale orders a drink", "Vale spots the stranger"],
     referenceImages: [valeRefImage],
     style: StyleConfig(stylePrompt: "noir comic")
@@ -158,13 +158,10 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Learning Document](docs/LEARNING.md) — Research findings on MLX, FLUX, and the image generation ecosystem
 - [Architecture](docs/ARCHITECTURE.md) — Technical design decisions and component architecture
 - [Requirements v1.0](docs/REQUIREMENTS_V1.md) — Prioritized feature requirements
-- [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 
 ## Status
 
-**v0.5.0** — Engine abstraction layer with `ImageGenerationEngine` protocol, `EngineRouter` dispatcher, `VinetasClient` public API, PixArt-Sigma stub, LoRA engine tagging, and deprecated compatibility shims.
-
-**v0.4.0** — iOS 26 platform support. Core generation pipeline, character-aware generation with LoRA training, image classification (ViT-B/16), feature extraction (DINOv2), and CLI.
+**Pre-release / Active Development** — Project scaffold and dependencies are in place. Core generation pipeline is not yet implemented.
 
 ## License
 
