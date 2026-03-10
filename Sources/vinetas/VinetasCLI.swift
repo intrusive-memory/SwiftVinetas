@@ -57,11 +57,14 @@ struct Generate: AsyncParsableCommand {
     @Option(name: .long, help: "Classifier-free guidance scale.")
     var guidance: Float?
 
-    @Option(name: .long, help: "Output image width in pixels.")
+    @Option(name: .long, help: "Output image width in pixels. Overrides --aspect width.")
     var width: Int?
 
-    @Option(name: .long, help: "Output image height in pixels.")
+    @Option(name: .long, help: "Output image height in pixels. Overrides --aspect height.")
     var height: Int?
+
+    @Option(name: .long, help: "Aspect ratio preset: square, wide, ultrawide, portrait, panel, strip.")
+    var aspect: String?
 
     @Option(name: .long, help: "Negative prompt to steer away from unwanted characteristics.")
     var negative: String?
@@ -79,8 +82,19 @@ struct Generate: AsyncParsableCommand {
         if let steps { styleConfig.steps = steps }
         if let guidance { styleConfig.guidanceScale = guidance }
         if let seed { styleConfig.seed = seed }
+
+        // Apply aspect ratio preset (explicit --width/--height take precedence)
+        if let aspectName = aspect {
+            guard let ratio = AspectRatio(rawValue: aspectName) else {
+                let validValues = AspectRatio.allCases.map(\.rawValue).joined(separator: ", ")
+                throw ValidationError("Unknown aspect ratio '\(aspectName)'. Valid values: \(validValues)")
+            }
+            styleConfig.width = ratio.width
+            styleConfig.height = ratio.height
+        }
         if let width { styleConfig.width = width }
         if let height { styleConfig.height = height }
+
         if let lora { styleConfig.loraPath = lora }
         styleConfig.loraScale = loraScale
 
@@ -219,6 +233,9 @@ struct Batch: AsyncParsableCommand {
     @Option(name: .long, help: "Model variant: klein4b (default) or klein9b.")
     var model: String = "klein4b"
 
+    @Option(name: .long, help: "Aspect ratio preset: square, wide, ultrawide, portrait, panel, strip.")
+    var aspect: String?
+
     @Flag(name: .long, help: "Fast preview mode (reduced quality and resolution).")
     var preview: Bool = false
 
@@ -234,9 +251,20 @@ struct Batch: AsyncParsableCommand {
             attributes: nil
         )
 
+        // Validate aspect ratio option if provided
+        if let aspectName = aspect {
+            guard AspectRatio(rawValue: aspectName) != nil else {
+                let validValues = AspectRatio.allCases.map(\.rawValue).joined(separator: ", ")
+                throw ValidationError("Unknown aspect ratio '\(aspectName)'. Valid values: \(validValues)")
+            }
+        }
+
         stderrPrint("[vinetas] Batch generating from: \(promptsFile)")
         stderrPrint("[vinetas] Output directory: \(outputDirURL.path)")
         stderrPrint("[vinetas] Model: \(vinetasModel.rawValue)")
+        if let aspectName = aspect, let ratio = AspectRatio(rawValue: aspectName) {
+            stderrPrint("[vinetas] Aspect ratio: \(aspectName) (\(ratio.width)x\(ratio.height))")
+        }
 
         // Download model if not cached (zero-config first run)
         stderrPrint("[vinetas] Checking model cache...")
@@ -344,8 +372,37 @@ struct ListModels: AsyncParsableCommand {
         abstract: "List downloaded models and their cache status."
     )
 
+    @Flag(name: .long, help: "Output model information as JSON.")
+    var json: Bool = false
+
     func run() async throws {
         let models = try Vinetas.listModels()
+
+        if json {
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime]
+
+            let jsonModels: [[String: Any]] = models.map { info in
+                var entry: [String: Any] = [
+                    "name": info.name,
+                    "size": info.size,
+                    "formattedSize": info.formattedSize,
+                    "isDownloaded": info.isDownloaded
+                ]
+                if let date = info.downloadDate {
+                    entry["downloadDate"] = isoFormatter.string(from: date)
+                }
+                return entry
+            }
+            let data = try JSONSerialization.data(
+                withJSONObject: jsonModels,
+                options: [.prettyPrinted, .sortedKeys]
+            )
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print(jsonString)
+            }
+            return
+        }
 
         let header = "%-40s  %-14s  %-24s  %s"
         print(String(format: header, "Name", "Size", "Downloaded", "Status"))

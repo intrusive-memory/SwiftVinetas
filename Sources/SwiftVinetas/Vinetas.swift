@@ -528,6 +528,48 @@ public enum Vinetas: Sendable {
         try await ImageClassifier.shared.classify(file: file, topK: topK)
     }
 
+    // MARK: - Feature Extraction
+
+    /// Extract a 768-dimensional feature vector from an image using DINOv2-B/14.
+    ///
+    /// Downloads model weights on the first call (idempotent). Subsequent calls
+    /// reuse the cached model loaded in memory.
+    ///
+    /// - Parameter image: The CGImage to extract features from.
+    /// - Returns: Array of 768 Float values representing the CLS token embedding.
+    /// - Throws: `VinetasError.downloadFailed` if weights cannot be fetched,
+    ///           `VinetasError.generationFailed` for runtime errors.
+    public static func extractFeatures(from image: CGImage) async throws -> [Float] {
+        try await FeatureExtractor.shared.extractFeatures(from: image)
+    }
+
+    /// Extract a 768-dimensional feature vector from an image loaded from a file URL.
+    ///
+    /// - Parameter url: File URL to the image (JPEG, PNG, HEIC, etc.).
+    /// - Returns: Array of 768 Float values representing the CLS token embedding.
+    /// - Throws: `VinetasError.generationFailed` if the image cannot be loaded,
+    ///           plus any errors from `extractFeatures(from:)`.
+    public static func extractFeatures(from url: URL) async throws -> [Float] {
+        try await FeatureExtractor.shared.extractFeatures(from: url)
+    }
+
+    /// Compute the cosine similarity between two images using DINOv2-B/14 features.
+    ///
+    /// Downloads model weights on the first call (idempotent). Extracts feature vectors
+    /// from both images and returns their cosine similarity.
+    ///
+    /// - Parameters:
+    ///   - image1: The first CGImage.
+    ///   - image2: The second CGImage.
+    /// - Returns: Cosine similarity in the range `[-1, 1]`.
+    /// - Throws: `VinetasError.downloadFailed` if weights cannot be fetched,
+    ///           `VinetasError.generationFailed` for runtime errors.
+    public static func similarity(between image1: CGImage, and image2: CGImage) async throws -> Float {
+        let features1 = try await FeatureExtractor.shared.extractFeatures(from: image1)
+        let features2 = try await FeatureExtractor.shared.extractFeatures(from: image2)
+        return cosineSimilarity(features1, features2)
+    }
+
     // MARK: - Model Management
 
     /// Download a FLUX.2 model, caching it at `~/Library/SharedModels/`.
@@ -622,6 +664,66 @@ public enum Vinetas: Sendable {
     /// - Throws: File I/O or YAML decoding errors.
     public static func loadCharacter(slug: String) throws -> Character {
         try CharacterManager().loadCharacter(slug: slug)
+    }
+
+    // MARK: - Reference Sheet Generation
+
+    /// Generate pencil-sketch turnaround reference sheets from a character's source photo.
+    ///
+    /// Loads the first source photo from the character's directory, then uses FLUX.2
+    /// img2img to generate pencil-sketch reference views at each requested angle.
+    /// Generated images are saved to `characters/<slug>/references/<view>.png`.
+    ///
+    /// - Parameters:
+    ///   - character: The character to generate reference sheets for. Must have at least
+    ///     one entry in `sourcePhotos`.
+    ///   - views: The turnaround angles to render (default: all four canonical views).
+    ///   - strength: How much to deviate from the source photo (0.0-1.0). Default: 0.65.
+    ///   - model: The FLUX.2 model variant to use (default: Klein 4B).
+    ///   - progress: Optional callback reporting `(currentView, totalViews)`.
+    /// - Returns: Array of generated CGImages, one per requested view.
+    /// - Throws: `VinetasError.generationFailed` if the character has no source photos or
+    ///           the photo cannot be loaded, `VinetasError.insufficientMemory` if system
+    ///           RAM is too low for the selected model.
+    public static func generateReferenceSheets(
+        for character: Character,
+        views: [ReferenceView] = ReferenceView.allCases.map { $0 },
+        strength: Float = 0.65,
+        model: VinetasModel = .klein4b,
+        progress: ((Int, Int) -> Void)? = nil
+    ) async throws -> [CGImage] {
+        guard let firstPhoto = character.sourcePhotos.first else {
+            throw VinetasError.generationFailed(
+                "Character '\(character.name)' has no source photos. "
+                    + "Add a source photo with createCharacter(name:photo:)."
+            )
+        }
+
+        let manager = CharacterManager()
+        let photoURL = manager.characterDirectory(slug: character.slug)
+            .appendingPathComponent(firstPhoto)
+
+        guard let dataProvider = CGDataProvider(url: photoURL as CFURL),
+            let sourceImage = CGImage(
+                pngDataProviderSource: dataProvider,
+                decode: nil,
+                shouldInterpolate: true,
+                intent: .defaultIntent
+            )
+        else {
+            throw VinetasError.generationFailed(
+                "Could not load source photo at \(photoURL.path)"
+            )
+        }
+
+        return try await ReferenceSheetGenerator.generate(
+            for: character,
+            views: views,
+            sourceImage: sourceImage,
+            strength: strength,
+            model: model,
+            progress: progress
+        )
     }
 }
 
