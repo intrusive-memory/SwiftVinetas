@@ -62,4 +62,44 @@ public enum Vinetas: Sendable {
 public enum VinetasModel: String, Sendable, CaseIterable {
     case klein4b = "klein4b"
     case klein9b = "klein9b"
+
+    /// The HuggingFace repository identifier for this model.
+    public var huggingFaceRepo: String {
+        switch self {
+        case .klein4b:
+            "black-forest-labs/FLUX.2-klein-4B"
+        case .klein9b:
+            "black-forest-labs/FLUX.2-klein-9B"
+        }
+    }
+
+    /// Minimum system memory in GB required to run this model.
+    public var minimumMemoryGB: Int {
+        switch self {
+        case .klein4b:
+            16
+        case .klein9b:
+            24
+        }
+    }
+
+    /// The quantization format used for inference.
+    public var quantization: String {
+        switch self {
+        case .klein4b:
+            "int4"
+        case .klein9b:
+            "qint8"
+        }
+    }
+
+    /// Estimated generation time per image in seconds on M3/M4 Pro.
+    public var estimatedSecondsPerImage: Int {
+        switch self {
+        case .klein4b:
+            26
+        case .klein9b:
+            62
+        }
+    }
 }

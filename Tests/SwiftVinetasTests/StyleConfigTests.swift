@@ -8,8 +8,8 @@ struct StyleConfigTests {
     @Test("Default values are sensible")
     func defaultValues() {
         let config = StyleConfig()
-        #expect(config.steps == 30)
-        #expect(config.guidanceScale == 7.5)
+        #expect(config.steps == 20)
+        #expect(config.guidanceScale == 3.5)
         #expect(config.width == 1024)
         #expect(config.height == 1024)
         #expect(config.seed == nil)

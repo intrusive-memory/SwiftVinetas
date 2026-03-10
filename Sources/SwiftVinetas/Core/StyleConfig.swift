@@ -26,8 +26,8 @@ public struct StyleConfig: Codable, Sendable {
     public init(
         stylePrompt: String = "",
         negativePrompt: String? = nil,
-        steps: Int = 30,
-        guidanceScale: Float = 7.5,
+        steps: Int = 20,
+        guidanceScale: Float = 3.5,
         seed: UInt64? = nil,
         width: Int = 1024,
         height: Int = 1024
