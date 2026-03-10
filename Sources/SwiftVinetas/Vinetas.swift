@@ -345,6 +345,35 @@ public enum Vinetas: Sendable {
             progress: progress
         )
     }
+
+    // MARK: - Training Data Preparation
+
+    /// Prepare a training dataset for LoRA fine-tuning from a character's reference sheets.
+    ///
+    /// Scans the character's `references/` directory for generated reference images
+    /// (front.png, left.png, right.png, back.png), resizes each to VAE-compatible
+    /// dimensions (divisible by 16), and creates matching caption text files in
+    /// `training/`. Optionally includes the character's source photos as well.
+    ///
+    /// - Parameters:
+    ///   - character: The character whose training data to prepare.
+    ///   - includeSourcePhotos: Whether to include the character's source photos
+    ///     in addition to reference sheets. Default: `false`.
+    /// - Returns: Array of `TrainingDataPreparer.TrainingPair`, one per processed image.
+    /// - Throws: File I/O or image processing errors.
+    public static func prepareTrainingData(
+        for character: Character,
+        includeSourcePhotos: Bool = false
+    ) throws -> [TrainingDataPreparer.TrainingPair] {
+        let manager = CharacterManager()
+        let characterDir = manager.characterDirectory(slug: character.slug)
+        let preparer = TrainingDataPreparer()
+        return try preparer.prepare(
+            for: character,
+            includeSourcePhotos: includeSourcePhotos,
+            characterDirectory: characterDir
+        )
+    }
 }
 
 /// Available FLUX.2 model variants.
