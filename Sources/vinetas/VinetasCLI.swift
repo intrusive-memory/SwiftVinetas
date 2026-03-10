@@ -11,6 +11,13 @@ private func stderrPrint(_ message: String) {
     FileHandle.standardError.write(data)
 }
 
+/// Load a CGImage from a file path using ImageIO.
+private func loadCGImage(from path: String) -> CGImage? {
+    let url = URL(fileURLWithPath: path)
+    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+    return CGImageSourceCreateImageAtIndex(source, 0, nil)
+}
+
 // MARK: - Root Command
 
 @main
@@ -18,7 +25,18 @@ struct VinetasCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "vinetas",
         abstract: "Generate storyboard panels and comic art from text prompts using FLUX.2 on Apple Silicon.",
-        subcommands: [Generate.self, Batch.self, Download.self, ListModels.self, Info.self, Preview.self],
+        subcommands: [
+            Generate.self,
+            Batch.self,
+            Download.self,
+            ListModels.self,
+            Info.self,
+            Preview.self,
+            CharacterCommand.self,
+            Classify.self,
+            Features.self,
+            Similarity.self,
+        ],
         defaultSubcommand: Generate.self
     )
 }
@@ -906,4 +924,476 @@ struct Similarity: AsyncParsableCommand {
       print("Interpretation: Different subjects")
     }
   }
+}
+
+// MARK: - Character Command Group
+
+struct CharacterCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "character",
+        abstract: "Manage characters for consistent actor rendering across panels.",
+        subcommands: [
+            Create.self,
+            ListCharacters.self,
+            CharacterInfo.self,
+            Delete.self,
+            Reference.self,
+            Prepare.self,
+            Train.self,
+            Verify.self,
+        ]
+    )
+
+    // MARK: - character create
+
+    struct Create: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Create a new character with optional source photo."
+        )
+
+        @Argument(help: "Human-readable character name (e.g., 'Detective Vale').")
+        var name: String
+
+        @Option(name: .long, help: "Path to a source photograph (JPEG, PNG, HEIC).")
+        var photo: String?
+
+        @Option(name: .long, help: "Plain-text description of the character's appearance.")
+        var description: String = ""
+
+        func run() async throws {
+            var sourceImage: CGImage?
+            if let photoPath = photo {
+                guard let image = loadCGImage(from: photoPath) else {
+                    throw ValidationError("Could not load image from '\(photoPath)'.")
+                }
+                sourceImage = image
+            }
+
+            let character = try Vinetas.createCharacter(
+                name: name,
+                photo: sourceImage,
+                description: description
+            )
+
+            print("Character created:")
+            print("  Name:         \(character.name)")
+            print("  Slug:         \(character.slug)")
+            print("  Trigger word: \(character.triggerWord)")
+            if !character.sourcePhotos.isEmpty {
+                print("  Source photo:  \(character.sourcePhotos.first ?? "-")")
+            }
+            if !character.description.isEmpty {
+                print("  Description:  \(character.description)")
+            }
+        }
+    }
+
+    // MARK: - character list
+
+    struct ListCharacters: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "list",
+            abstract: "List all characters."
+        )
+
+        func run() async throws {
+            let characters = try Vinetas.listCharacters()
+
+            if characters.isEmpty {
+                print("No characters found.")
+                return
+            }
+
+            let header = "%-24s  %-24s  %-10s  %s"
+            print(String(format: header, "Name", "Slug", "Has LoRA", "Created"))
+            print(String(repeating: "-", count: 72))
+
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .medium
+            dateFormatter.timeStyle = .none
+
+            for character in characters {
+                let hasLora = character.lora != nil ? "yes" : "no"
+                let created = dateFormatter.string(from: character.created)
+                print(String(format: "%-24s  %-24s  %-10s  %s",
+                             String(character.name.prefix(24)),
+                             String(character.slug.prefix(24)),
+                             hasLora,
+                             created))
+            }
+        }
+    }
+
+    // MARK: - character info
+
+    struct CharacterInfo: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "info",
+            abstract: "Display detailed information about a character."
+        )
+
+        @Argument(help: "The character's slug identifier (e.g., 'detective-vale').")
+        var slug: String
+
+        func run() async throws {
+            let character = try Vinetas.loadCharacter(slug: slug)
+
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .medium
+            dateFormatter.timeStyle = .short
+
+            print("Name:           \(character.name)")
+            print("Slug:           \(character.slug)")
+            print("Trigger word:   \(character.triggerWord)")
+            print("Created:        \(dateFormatter.string(from: character.created))")
+            print("Description:    \(character.description.isEmpty ? "-" : character.description)")
+
+            if character.sourcePhotos.isEmpty {
+                print("Source photos:  none")
+            } else {
+                print("Source photos:")
+                for photo in character.sourcePhotos {
+                    print("  - \(photo)")
+                }
+            }
+
+            if let lora = character.lora {
+                print("LoRA:")
+                print("  Path:     \(lora.path)")
+                print("  Scale:    \(lora.scale)")
+                print("  Version:  \(lora.version)")
+                if let steps = lora.trainingSteps {
+                    print("  Steps:    \(steps)")
+                }
+                if let model = lora.model {
+                    print("  Model:    \(model.rawValue)")
+                }
+                if let trainedAt = lora.trainedAt {
+                    print("  Trained:  \(dateFormatter.string(from: trainedAt))")
+                }
+            } else {
+                print("LoRA:           none")
+            }
+        }
+    }
+
+    // MARK: - character delete
+
+    struct Delete: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Delete a character and all its data."
+        )
+
+        @Argument(help: "The character's slug identifier.")
+        var slug: String
+
+        @Flag(name: .shortAndLong, help: "Skip confirmation prompt.")
+        var force: Bool = false
+
+        func run() async throws {
+            let character = try Vinetas.loadCharacter(slug: slug)
+
+            if !force {
+                stderrPrint("Delete character '\(character.name)' (\(slug))? This cannot be undone.")
+                stderrPrint("Type 'yes' to confirm: ")
+                guard let response = readLine(), response.lowercased() == "yes" else {
+                    print("Aborted.")
+                    return
+                }
+            }
+
+            let manager = CharacterManager()
+            try manager.deleteCharacter(slug: slug)
+            print("Character '\(character.name)' deleted.")
+        }
+    }
+
+    // MARK: - character reference
+
+    struct Reference: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Generate pencil-sketch reference sheets from a character's source photo."
+        )
+
+        @Argument(help: "The character's slug identifier.")
+        var slug: String
+
+        @Option(name: .long, help: "Comma-separated views to generate: front,left,right,back.")
+        var views: String = "front,left,right,back"
+
+        @Option(name: .long, help: "Img2img deviation strength (0.0-1.0).")
+        var strength: Float = 0.65
+
+        @Option(name: .long, help: "Model variant: klein4b (default) or klein9b.")
+        var model: String = "klein4b"
+
+        func run() async throws {
+            let character = try Vinetas.loadCharacter(slug: slug)
+            let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
+
+            let viewNames = views.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
+            var referenceViews: [ReferenceView] = []
+            for name in viewNames {
+                guard let view = ReferenceView(rawValue: name) else {
+                    let valid = ReferenceView.allCases.map(\.rawValue).joined(separator: ", ")
+                    throw ValidationError("Unknown view '\(name)'. Valid views: \(valid)")
+                }
+                referenceViews.append(view)
+            }
+
+            stderrPrint("[vinetas] Generating reference sheets for '\(character.name)'...")
+            stderrPrint("[vinetas] Views: \(referenceViews.map(\.rawValue).joined(separator: ", "))")
+            stderrPrint("[vinetas] Strength: \(strength)")
+            stderrPrint("[vinetas] Model: \(vinetasModel.rawValue)")
+
+            // Download model if not cached
+            stderrPrint("[vinetas] Checking model cache...")
+            try await Vinetas.download(model: vinetasModel) { progress in
+                stderrPrint("[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+            }
+
+            let images = try await Vinetas.generateReferenceSheets(
+                for: character,
+                views: referenceViews,
+                strength: strength,
+                model: vinetasModel,
+                progress: { current, total in
+                    stderrPrint("[vinetas] Reference \(current)/\(total)...")
+                }
+            )
+
+            print("Generated \(images.count) reference sheet(s) for '\(character.name)'.")
+        }
+    }
+
+    // MARK: - character prepare
+
+    struct Prepare: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Prepare training data from reference sheets."
+        )
+
+        @Argument(help: "The character's slug identifier.")
+        var slug: String
+
+        @Flag(name: .long, help: "Include source photos in addition to reference sheets.")
+        var includeSource: Bool = false
+
+        func run() async throws {
+            let character = try Vinetas.loadCharacter(slug: slug)
+
+            stderrPrint("[vinetas] Preparing training data for '\(character.name)'...")
+
+            let pairs = try Vinetas.prepareTrainingData(
+                for: character,
+                includeSourcePhotos: includeSource
+            )
+
+            print("Prepared \(pairs.count) training pair(s) for '\(character.name)'.")
+            for pair in pairs {
+                let imageName = URL(fileURLWithPath: pair.imagePath).lastPathComponent
+                let captionName = URL(fileURLWithPath: pair.captionPath).lastPathComponent
+                print("  - \(imageName) + \(captionName)")
+            }
+        }
+    }
+
+    // MARK: - character train
+
+    struct Train: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Train a LoRA adapter for a character."
+        )
+
+        @Argument(help: "The character's slug identifier.")
+        var slug: String
+
+        @Option(name: .long, help: "Number of training steps.")
+        var steps: Int = 1500
+
+        @Option(name: .long, help: "LoRA rank (8-64).")
+        var rank: Int = 48
+
+        @Option(name: .long, help: "Model variant: klein4b (default) or klein9b.")
+        var model: String = "klein4b"
+
+        func run() async throws {
+            let character = try Vinetas.loadCharacter(slug: slug)
+            let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
+            let config = TrainingConfig(rank: rank, steps: steps)
+
+            stderrPrint("[vinetas] Training LoRA for '\(character.name)'...")
+            stderrPrint("[vinetas] Steps: \(steps), Rank: \(rank), Model: \(vinetasModel.rawValue)")
+
+            // Download model if not cached
+            stderrPrint("[vinetas] Checking model cache...")
+            try await Vinetas.download(model: vinetasModel) { progress in
+                stderrPrint("[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+            }
+
+            let outputURL = try await Vinetas.trainCharacterLoRA(
+                for: character,
+                config: config,
+                model: vinetasModel,
+                progress: { currentStep, totalSteps, loss in
+                    stderrPrint("[vinetas] Step \(currentStep)/\(totalSteps) — loss: \(String(format: "%.4f", loss))")
+                }
+            )
+
+            print("LoRA trained: \(outputURL.path)")
+        }
+    }
+
+    // MARK: - character verify
+
+    struct Verify: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Verify character consistency via DINOv2 similarity scoring."
+        )
+
+        @Argument(help: "The character's slug identifier.")
+        var slug: String
+
+        @Option(name: .long, help: "Minimum cosine similarity threshold (default: 0.6).")
+        var threshold: Float = 0.6
+
+        func run() async throws {
+            let character = try Vinetas.loadCharacter(slug: slug)
+
+            stderrPrint("[vinetas] Verifying character '\(character.name)'...")
+            stderrPrint("[vinetas] Threshold: \(threshold)")
+
+            let report = try await Vinetas.verifyCharacter(character, threshold: threshold)
+
+            print("Character verification: \(report.passed ? "PASSED" : "FAILED")")
+            print("Threshold:              \(String(format: "%.2f", report.threshold))")
+            print("Average similarity:     \(String(format: "%.4f", report.averageSimilarity))")
+            print("")
+
+            let header = "%-12s  %-12s  %s"
+            print(String(format: header, "View 1", "View 2", "Similarity"))
+            print(String(repeating: "-", count: 40))
+
+            for pair in report.pairs {
+                let status = pair.similarity >= report.threshold ? "" : " < threshold"
+                print(String(format: "%-12s  %-12s  %.4f%s",
+                             pair.view1, pair.view2,
+                             pair.similarity, status))
+            }
+        }
+    }
+}
+
+// MARK: - Classify: ViT-B/16 image classification
+
+struct Classify: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "classify",
+        abstract: "Classify an image using ViT-B/16 (ImageNet-1K)."
+    )
+
+    @Argument(help: "Path to the image file to classify.")
+    var imagePath: String
+
+    @Option(name: .long, help: "Number of top predictions to display.")
+    var topK: Int = 5
+
+    func run() async throws {
+        let fileURL = URL(fileURLWithPath: imagePath)
+
+        stderrPrint("[vinetas] Classifying image: \(imagePath)")
+
+        let results = try await Vinetas.classify(file: fileURL, topK: topK)
+
+        if results.isEmpty {
+            print("No classifications returned.")
+            return
+        }
+
+        let header = "%-40s  %s"
+        print(String(format: header, "Label", "Confidence"))
+        print(String(repeating: "-", count: 56))
+
+        for classification in results {
+            let confidence = String(format: "%.2f%%", classification.confidence * 100)
+            print(String(format: "%-40s  %s",
+                         String(classification.label.prefix(40)),
+                         confidence))
+        }
+    }
+}
+
+// MARK: - Features: DINOv2 feature extraction
+
+struct Features: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "features",
+        abstract: "Extract DINOv2-B/14 feature vector from an image."
+    )
+
+    @Argument(help: "Path to the image file.")
+    var imagePath: String
+
+    func run() async throws {
+        let fileURL = URL(fileURLWithPath: imagePath)
+
+        stderrPrint("[vinetas] Extracting features: \(imagePath)")
+
+        let features = try await Vinetas.extractFeatures(from: fileURL)
+
+        print("Feature vector dimensions: \(features.count)")
+        let previewCount = min(10, features.count)
+        let previewValues = features.prefix(previewCount).map { String(format: "%.6f", $0) }.joined(separator: ", ")
+        print("First \(previewCount) values: [\(previewValues)]")
+
+        // Summary statistics
+        let minVal = features.min() ?? 0
+        let maxVal = features.max() ?? 0
+        let mean = features.reduce(0, +) / Float(features.count)
+        print("Min: \(String(format: "%.6f", minVal))")
+        print("Max: \(String(format: "%.6f", maxVal))")
+        print("Mean: \(String(format: "%.6f", mean))")
+    }
+}
+
+// MARK: - Similarity: DINOv2 cosine similarity between two images
+
+struct Similarity: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "similarity",
+        abstract: "Compute DINOv2 cosine similarity between two images."
+    )
+
+    @Argument(help: "Path to the first image.")
+    var image1Path: String
+
+    @Argument(help: "Path to the second image.")
+    var image2Path: String
+
+    func run() async throws {
+        guard let image1 = loadCGImage(from: image1Path) else {
+            throw ValidationError("Could not load image from '\(image1Path)'.")
+        }
+        guard let image2 = loadCGImage(from: image2Path) else {
+            throw ValidationError("Could not load image from '\(image2Path)'.")
+        }
+
+        stderrPrint("[vinetas] Computing similarity between:")
+        stderrPrint("[vinetas]   \(image1Path)")
+        stderrPrint("[vinetas]   \(image2Path)")
+
+        let score = try await Vinetas.similarity(between: image1, and: image2)
+
+        print("Cosine similarity: \(String(format: "%.6f", score))")
+
+        if score >= 0.8 {
+            print("Interpretation: Very similar (likely same subject)")
+        } else if score >= 0.6 {
+            print("Interpretation: Similar (possibly same subject, different angle)")
+        } else if score >= 0.4 {
+            print("Interpretation: Somewhat similar")
+        } else {
+            print("Interpretation: Different subjects")
+        }
+    }
 }

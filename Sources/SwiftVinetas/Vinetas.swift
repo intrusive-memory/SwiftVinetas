@@ -600,6 +600,89 @@ public enum Vinetas: Sendable {
         return cosineSimilarity(features1, features2)
     }
 
+    // MARK: - Character Verification
+
+    /// Verify character consistency by computing pairwise DINOv2 similarity
+    /// across all reference sheet images.
+    ///
+    /// Loads all PNG images from `characters/<slug>/references/`, extracts
+    /// DINOv2 feature vectors, and computes cosine similarity between every
+    /// pair. The character passes verification if all pairwise similarities
+    /// meet or exceed the threshold.
+    ///
+    /// - Parameters:
+    ///   - character: The character whose reference sheets to verify.
+    ///   - threshold: Minimum cosine similarity required for each pair (default: 0.6).
+    /// - Returns: A `VerificationReport` with pairwise scores and pass/fail status.
+    /// - Throws: `VinetasError.generationFailed` if no reference images are found or
+    ///           images cannot be loaded.
+    public static func verifyCharacter(
+        _ character: Character,
+        threshold: Float = 0.6
+    ) async throws -> VerificationReport {
+        let manager = CharacterManager()
+        let referencesDir = manager.characterDirectory(slug: character.slug)
+            .appendingPathComponent("references", isDirectory: true)
+
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: referencesDir.path) else {
+            throw VinetasError.generationFailed(
+                "No references directory found for character '\(character.name)'. "
+                    + "Generate reference sheets first with Vinetas.generateReferenceSheets(for:)."
+            )
+        }
+
+        let contents = try fm.contentsOfDirectory(
+            at: referencesDir,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+
+        let pngFiles = contents
+            .filter { $0.pathExtension.lowercased() == "png" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+
+        guard pngFiles.count >= 2 else {
+            throw VinetasError.generationFailed(
+                "Need at least 2 reference images for verification, found \(pngFiles.count). "
+                    + "Generate reference sheets first with Vinetas.generateReferenceSheets(for:)."
+            )
+        }
+
+        // Extract features for each image
+        var featuresByName: [(name: String, features: [Float])] = []
+        for url in pngFiles {
+            let features = try await FeatureExtractor.shared.extractFeatures(from: url)
+            let name = url.deletingPathExtension().lastPathComponent
+            featuresByName.append((name: name, features: features))
+        }
+
+        // Compute pairwise similarities
+        var pairs: [(view1: String, view2: String, similarity: Float)] = []
+        for i in 0 ..< featuresByName.count {
+            for j in (i + 1) ..< featuresByName.count {
+                let sim = cosineSimilarity(featuresByName[i].features, featuresByName[j].features)
+                pairs.append((
+                    view1: featuresByName[i].name,
+                    view2: featuresByName[j].name,
+                    similarity: sim
+                ))
+            }
+        }
+
+        let allAboveThreshold = pairs.allSatisfy { $0.similarity >= threshold }
+        let avgSimilarity: Float = pairs.isEmpty
+            ? 0.0
+            : pairs.map(\.similarity).reduce(0, +) / Float(pairs.count)
+
+        return VerificationReport(
+            pairs: pairs,
+            passed: allAboveThreshold,
+            threshold: threshold,
+            averageSimilarity: avgSimilarity
+        )
+    }
+
     // MARK: - Model Management
 
     /// Download a FLUX.2 model, caching it at `~/Library/SharedModels/`.
@@ -893,5 +976,41 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
         case .klein9b:
             62
         }
+    }
+}
+
+// MARK: - VerificationReport
+
+/// Report from character verification via pairwise DINOv2 similarity scoring.
+///
+/// Contains the similarity score for every pair of reference sheet images,
+/// whether the character passed the threshold check, and summary statistics.
+public struct VerificationReport: Sendable {
+
+    /// Pairwise similarity scores between reference sheet images.
+    ///
+    /// Each tuple contains the view names (e.g., "front", "left") and their
+    /// cosine similarity in the range `[-1, 1]`.
+    public let pairs: [(view1: String, view2: String, similarity: Float)]
+
+    /// Whether all pairwise similarities met or exceeded the threshold.
+    public let passed: Bool
+
+    /// The minimum cosine similarity threshold used for this verification.
+    public let threshold: Float
+
+    /// The mean cosine similarity across all pairs.
+    public let averageSimilarity: Float
+
+    public init(
+        pairs: [(view1: String, view2: String, similarity: Float)],
+        passed: Bool,
+        threshold: Float,
+        averageSimilarity: Float
+    ) {
+        self.pairs = pairs
+        self.passed = passed
+        self.threshold = threshold
+        self.averageSimilarity = averageSimilarity
     }
 }
