@@ -931,110 +931,47 @@ public enum Vinetas: Sendable {
 // MARK: - Deprecated VinetasModel Enum
 
 /// Available FLUX.2 model variants.
-///
-/// - Important: Use ``ModelDescriptor`` types directly (e.g., ``VinetasClient/klein4B``,
-///   ``VinetasClient/klein9B``). This enum is preserved for backward compatibility.
-@available(*, deprecated, message: "Use ModelDescriptor types directly (e.g., VinetasClient.klein4B)")
-public enum VinetasModel: String, Sendable, Codable, CaseIterable {
-  case klein4b = "klein4b"
-  case klein9b = "klein9b"
-  case pixartSigma = "pixart-sigma"
+public enum VinetasModel: String, Sendable, CaseIterable {
+    case klein4b = "klein4b"
+    case klein9b = "klein9b"
 
-  /// Bridge to ``ModelDescriptor``.
-  ///
-  /// Converts this legacy enum case to the corresponding concrete ``ModelDescriptor``.
-  public var descriptor: any ModelDescriptor {
-    switch self {
-    case .klein4b:
-      Flux2ModelDescriptor.klein4B
-    case .klein9b:
-      Flux2ModelDescriptor.klein9B
-    case .pixartSigma:
-      PixArtModelDescriptor.sigmaXL
+    /// The HuggingFace repository identifier for this model.
+    public var huggingFaceRepo: String {
+        switch self {
+        case .klein4b:
+            "black-forest-labs/FLUX.2-klein-4B"
+        case .klein9b:
+            "black-forest-labs/FLUX.2-klein-9B"
+        }
     }
-  }
 
-  /// The HuggingFace repository identifier for this model.
-  public var huggingFaceRepo: String {
-    switch self {
-    case .klein4b:
-      "black-forest-labs/FLUX.2-klein-4B"
-    case .klein9b:
-      "black-forest-labs/FLUX.2-klein-9B"
-    case .pixartSigma:
-      "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS"
+    /// Minimum system memory in GB required to run this model.
+    public var minimumMemoryGB: Int {
+        switch self {
+        case .klein4b:
+            16
+        case .klein9b:
+            24
+        }
     }
-  }
 
-  /// Minimum system memory in GB required to run this model.
-  public var minimumMemoryGB: Int {
-    switch self {
-    case .klein4b:
-      16
-    case .klein9b:
-      24
-    case .pixartSigma:
-      8
+    /// The quantization format used for inference.
+    public var quantization: String {
+        switch self {
+        case .klein4b:
+            "int4"
+        case .klein9b:
+            "qint8"
+        }
     }
-  }
 
-  /// The quantization format used for inference.
-  public var quantization: String {
-    switch self {
-    case .klein4b:
-      "int4"
-    case .klein9b:
-      "qint8"
-    case .pixartSigma:
-      "int4"
+    /// Estimated generation time per image in seconds on M3/M4 Pro.
+    public var estimatedSecondsPerImage: Int {
+        switch self {
+        case .klein4b:
+            26
+        case .klein9b:
+            62
+        }
     }
-  }
-
-  /// Estimated generation time per image in seconds on M3/M4 Pro.
-  public var estimatedSecondsPerImage: Int {
-    switch self {
-    case .klein4b:
-      26
-    case .klein9b:
-      62
-    case .pixartSigma:
-      10
-    }
-  }
-}
-
-// MARK: - VerificationReport
-
-/// Report from character verification via pairwise DINOv2 similarity scoring.
-///
-/// Contains the similarity score for every pair of reference sheet images,
-/// whether the character passed the threshold check, and summary statistics.
-public struct VerificationReport: Sendable {
-
-  /// Pairwise similarity scores between reference sheet images.
-  ///
-  /// Each tuple contains the view names (e.g., "front", "left") and their
-  /// cosine similarity in the range `[-1, 1]`.
-  public let pairs: [(view1: String, view2: String, similarity: Float)]
-
-  /// Whether all pairwise similarities met or exceeded the threshold.
-  public let passed: Bool
-
-  /// The minimum cosine similarity threshold used for this verification.
-  public let threshold: Float
-
-  /// The mean cosine similarity across all pairs.
-  public let averageSimilarity: Float
-
-  public init(
-    pairs: [(view1: String, view2: String, similarity: Float)],
-    passed: Bool,
-    threshold: Float,
-    averageSimilarity: Float
-  ) {
-    self.pairs = pairs
-    self.passed = passed
-    self.threshold = threshold
-    self.averageSimilarity = averageSimilarity
-  }
 }
