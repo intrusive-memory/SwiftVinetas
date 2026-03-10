@@ -726,6 +726,68 @@ public enum Vinetas: Sendable {
         )
     }
 
+    // MARK: - LoRA Training
+
+    /// Train a LoRA adapter for a character using on-device FLUX.2 fine-tuning.
+    ///
+    /// Loads the character's training data (image/caption pairs from `training/`),
+    /// validates system memory, runs LoRA training via Flux2Core, and saves the
+    /// resulting `.safetensors` file to `characters/<slug>/lora/<slug>-v<N>.safetensors`
+    /// with auto-incrementing version numbers.
+    ///
+    /// After training completes, the character's `lora` metadata is updated and
+    /// the manifest is re-saved.
+    ///
+    /// **Prerequisites**: Call `prepareTrainingData(for:)` before training to
+    /// populate the `training/` directory.
+    ///
+    /// **Memory**: Klein 4B nf4 requires minimum 8 GB system RAM for training.
+    ///
+    /// - Parameters:
+    ///   - character: The character to train a LoRA for.
+    ///   - config: Training hyperparameters (default: rank 48, 1500 steps, nf4).
+    ///   - model: The FLUX.2 model variant to train against (default: Klein 4B).
+    ///   - progress: Optional callback reporting `(currentStep, totalSteps, loss)`.
+    /// - Returns: The URL of the saved `.safetensors` file.
+    /// - Throws: `VinetasError.insufficientMemory` if system RAM is too low,
+    ///           `VinetasError.generationFailed` if training data is missing.
+    public static func trainCharacterLoRA(
+        for character: Character,
+        config: TrainingConfig = TrainingConfig(),
+        model: VinetasModel = .klein4b,
+        progress: ((Int, Int, Float) -> Void)? = nil
+    ) async throws -> URL {
+        let manager = CharacterManager()
+        let characterDir = manager.characterDirectory(slug: character.slug)
+        let trainer = CharacterTrainer()
+
+        let outputURL = try await trainer.train(
+            character: character,
+            config: config,
+            model: model,
+            characterDirectory: characterDir,
+            progress: progress
+        )
+
+        // Update character manifest with new LoRA metadata
+        let loraDir = characterDir.appendingPathComponent("lora", isDirectory: true)
+        let version = trainer.nextVersion(slug: character.slug, in: loraDir) - 1
+        let relativePath = "lora/\(outputURL.lastPathComponent)"
+
+        var updatedCharacter = character
+        updatedCharacter.lora = LoRAMetadata(
+            path: relativePath,
+            scale: 0.8,
+            version: version,
+            trainedAt: Date(),
+            trainingSteps: config.steps,
+            model: model
+        )
+        try manager.saveCharacter(updatedCharacter)
+
+        return outputURL
+    }
+
     // MARK: - Training Data Preparation
 
     /// Prepare a training dataset for LoRA fine-tuning from a character's reference sheets.
