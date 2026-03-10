@@ -113,6 +113,41 @@ public enum Vinetas: Sendable {
         return output.image
     }
 
+    // MARK: - Understanding
+
+    /// Classify an image using ViT-B/16 and return top-K predictions.
+    ///
+    /// Downloads model weights on the first call (idempotent). Subsequent calls
+    /// reuse the cached model loaded in memory.
+    ///
+    /// - Parameters:
+    ///   - image: The CGImage to classify.
+    ///   - topK: Maximum number of classifications to return (default 5).
+    /// - Returns: Array of `Classification` sorted by confidence, highest first.
+    /// - Throws: `VinetasError.downloadFailed` if weights cannot be fetched,
+    ///           `VinetasError.generationFailed` for runtime errors.
+    public static func classify(
+        image: CGImage,
+        topK: Int = 5
+    ) async throws -> [Classification] {
+        try await ImageClassifier.shared.classify(image: image, topK: topK)
+    }
+
+    /// Classify an image loaded from a file URL using ViT-B/16.
+    ///
+    /// - Parameters:
+    ///   - file: File URL to the image (JPEG, PNG, HEIC, etc.).
+    ///   - topK: Maximum number of classifications to return (default 5).
+    /// - Returns: Array of `Classification` sorted by confidence, highest first.
+    /// - Throws: `VinetasError.generationFailed` if the image cannot be loaded,
+    ///           plus any errors from `classify(image:topK:)`.
+    public static func classify(
+        file: URL,
+        topK: Int = 5
+    ) async throws -> [Classification] {
+        try await ImageClassifier.shared.classify(file: file, topK: topK)
+    }
+
     // MARK: - Model Management
 
     /// Download a FLUX.2 model, caching it at `~/Library/SharedModels/`.
@@ -159,10 +194,59 @@ public enum Vinetas: Sendable {
         }
         return true
     }
+
+    // MARK: - Character Pipeline
+
+    /// Create a new character with directory structure and optional source photo.
+    ///
+    /// Sets up `~/Library/SwiftVinetas/characters/<slug>/` with `source/`,
+    /// `references/`, `training/`, and `lora/` subdirectories, writes a
+    /// `character.yaml` manifest, and optionally saves the source photo as PNG.
+    ///
+    /// - Parameters:
+    ///   - name: Human-readable character name (e.g., "Detective Vale").
+    ///   - photo: Optional source photograph. Written to `source/<slug>-photo-01.png`.
+    ///   - slug: Optional slug; derived from `name` if omitted (e.g., "detective-vale").
+    ///   - description: Plain-text description of the character's appearance.
+    /// - Returns: The newly created `Character` value.
+    /// - Throws: File I/O or serialization errors.
+    public static func createCharacter(
+        name: String,
+        photo: CGImage? = nil,
+        slug: String? = nil,
+        description: String = ""
+    ) throws -> Character {
+        let manager = CharacterManager()
+        return try manager.createCharacter(
+            name: name,
+            photo: photo,
+            slug: slug,
+            description: description
+        )
+    }
+
+    /// List all characters stored under `~/Library/SwiftVinetas/characters/`.
+    ///
+    /// Characters with a missing or malformed `character.yaml` are silently skipped.
+    ///
+    /// - Returns: Array of `Character` values sorted by name.
+    /// - Throws: File I/O errors reading the characters directory.
+    public static func listCharacters() throws -> [Character] {
+        try CharacterManager().listCharacters()
+    }
+
+    /// Load a character by slug from `~/Library/SwiftVinetas/characters/<slug>/`.
+    ///
+    /// - Parameter slug: The character's slug identifier (e.g., "detective-vale").
+    /// - Returns: The decoded `Character`.
+    /// - Throws: File I/O or YAML decoding errors.
+    public static func loadCharacter(slug: String) throws -> Character {
+        try CharacterManager().loadCharacter(slug: slug)
+    }
 }
 
 /// Available FLUX.2 model variants.
-public enum VinetasModel: String, Sendable, CaseIterable {
+public enum VinetasModel: String, Sendable, Codable, CaseIterable {
     case klein4b = "klein4b"
     case klein9b = "klein9b"
 
