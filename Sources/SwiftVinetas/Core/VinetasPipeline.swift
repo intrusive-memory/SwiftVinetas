@@ -161,6 +161,170 @@ internal enum VinetasPipeline {
         return output
     }
 
+    // MARK: - Character-Aware Generation
+
+    /// Generates a single panel image with character LoRA support.
+    ///
+    /// When a character is provided, its trigger word is prepended to the prompt
+    /// and its LoRA adapter (if available) is loaded before generation and unloaded
+    /// after generation to prevent bleeding into subsequent calls.
+    ///
+    /// - Parameters:
+    ///   - prompt: The text description for the panel.
+    ///   - character: The character whose trigger word and LoRA to apply.
+    ///   - style: Style configuration (steps, guidance, seed, dimensions, style/negative prompts).
+    ///   - model: The FLUX.2 model variant to use.
+    /// - Returns: A `PanelOutput` containing the generated image and metadata.
+    /// - Throws: `VinetasError.insufficientMemory` if the system lacks sufficient RAM,
+    ///           `VinetasError.generationFailed` if image generation fails,
+    ///           `VinetasError.modelNotFound` if the character's LoRA file does not exist.
+    internal static func generatePanelWithCharacter(
+        prompt: String,
+        character: Character,
+        style: StyleConfig,
+        model: VinetasModel
+    ) async throws -> PanelOutput {
+        // 1. Validate memory
+        let memoryOK = VinetasMemory.validate(for: model)
+        if !memoryOK {
+            throw VinetasError.insufficientMemory(
+                required: VinetasMemory.requiredMemoryBytes(for: model),
+                available: VinetasMemory.systemMemoryBytes
+            )
+        }
+
+        // 2. Log loading strategy
+        let strategy = VinetasMemory.loadingStrategy()
+        let availableGB = VinetasMemory.systemMemoryGB
+        log("Loading strategy: \(strategy) (\(availableGB) GB available)")
+        log("Character: \(character.name) (trigger: \(character.triggerWord))")
+
+        // 3. Create pipeline
+        let flux2 = flux2Model(for: model)
+        let quantization = quantizationConfig(for: model)
+        let memoryOpt = memoryOptimizationConfig()
+
+        let pipeline = Flux2Pipeline(
+            model: flux2,
+            quantization: quantization,
+            memoryOptimization: memoryOpt
+        )
+
+        // 4. Load models
+        log("Loading models for \(model.rawValue)...")
+        try await pipeline.loadModels(progressCallback: { progress, message in
+            log("Download: \(Int(progress * 100))% — \(message)")
+        })
+
+        // 5. Load character LoRA if available
+        if let lora = character.lora {
+            let manager = CharacterManager()
+            let charDir = manager.characterDirectory(slug: character.slug)
+            let loraPath = charDir.appendingPathComponent(lora.path).path
+            log("Loading character LoRA: \(lora.path) (scale: \(lora.scale))")
+            try VinetasLoRAManager.load(
+                path: loraPath,
+                scale: lora.scale,
+                activationKeyword: character.triggerWord,
+                on: pipeline
+            )
+        }
+
+        // 6. Compose prompt: trigger word + style + panel prompt
+        let composedPrompt = composeCharacterPrompt(
+            panelPrompt: prompt,
+            character: character,
+            style: style
+        )
+
+        // 7. Resolve seed
+        let resolvedSeed: UInt64
+        if let userSeed = style.seed {
+            resolvedSeed = userSeed
+        } else {
+            resolvedSeed = UInt64.random(in: 0...UInt64.max)
+        }
+
+        // 8. Measure generation time
+        let clock = ContinuousClock()
+        let startTime = clock.now
+
+        // 9. Generate
+        log("Generating image: \(style.width)x\(style.height), \(style.steps) steps, seed \(resolvedSeed)")
+
+        let result: Flux2GenerationResult
+        do {
+            result = try await pipeline.generateTextToImageWithResult(
+                prompt: composedPrompt,
+                height: style.height,
+                width: style.width,
+                steps: style.steps,
+                guidance: style.guidanceScale,
+                seed: resolvedSeed,
+                onProgress: { currentStep, totalSteps in
+                    log("Step \(currentStep)/\(totalSteps)")
+                }
+            )
+        } catch {
+            throw VinetasError.generationFailed(
+                "Pipeline generation failed: \(error.localizedDescription)"
+            )
+        }
+
+        let elapsed = clock.now - startTime
+        let durationSeconds = Double(elapsed.components.seconds)
+            + Double(elapsed.components.attoseconds) / 1e18
+
+        log("Generation complete in \(String(format: "%.1f", durationSeconds))s")
+
+        // 10. Unload LoRA to prevent bleeding
+        if character.lora != nil {
+            VinetasLoRAManager.unloadAll(from: pipeline)
+        }
+
+        // 11. Build PanelOutput
+        let output = PanelOutput(
+            image: result.image,
+            prompt: composedPrompt,
+            seed: resolvedSeed,
+            durationSeconds: durationSeconds,
+            model: model,
+            width: style.width,
+            height: style.height
+        )
+
+        return output
+    }
+
+    // MARK: - Character Prompt Composition
+
+    /// Compose a prompt with character trigger word injection.
+    ///
+    /// The trigger word is always prepended at the START of the prompt,
+    /// followed by the style prompt (if any), followed by the panel prompt.
+    /// Format: `"<triggerWord>, <stylePrompt>, <panelPrompt>"`
+    ///
+    /// - Parameters:
+    ///   - panelPrompt: The panel-specific text prompt.
+    ///   - character: The character whose trigger word to inject.
+    ///   - style: The style configuration.
+    /// - Returns: The composed prompt string.
+    internal static func composeCharacterPrompt(
+        panelPrompt: String,
+        character: Character,
+        style: StyleConfig
+    ) -> String {
+        var composed = ""
+        if !character.triggerWord.isEmpty {
+            composed += "\(character.triggerWord), "
+        }
+        if !style.stylePrompt.isEmpty {
+            composed += "\(style.stylePrompt), "
+        }
+        composed += panelPrompt
+        return composed
+    }
+
     // MARK: - Batch Generation
 
     /// Progress callback providing step-level detail during generation.

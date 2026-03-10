@@ -3,8 +3,10 @@ import YAML
 
 /// A parsed YAML prompt file describing a project with style configuration and panels.
 ///
-/// Supports the v1 prompt file format where panels inherit project-level style
-/// settings and can override individual values (dimensions, seed, etc.).
+/// Supports v1 and v2 prompt file formats. In v1, panels inherit project-level style
+/// settings and can override individual values (dimensions, seed, etc.). In v2, an
+/// optional `characters` array at the project level defines character slugs, and
+/// individual panels can reference a character by slug for character-aware generation.
 public struct PromptFile: Sendable, Equatable {
     /// File format version.
     public let version: Int
@@ -15,13 +17,22 @@ public struct PromptFile: Sendable, Equatable {
     /// Ordered array of panels to generate.
     public let panels: [Panel]
 
-    /// Project-level metadata including title and default style.
+    /// A character reference within a prompt file, identified by slug.
+    public struct CharacterRef: Sendable, Equatable {
+        /// The slug identifier for the character (e.g., "detective-vale").
+        public let slug: String
+    }
+
+    /// Project-level metadata including title, default style, and optional characters.
     public struct Project: Sendable, Equatable {
         /// The project title.
         public let title: String
 
         /// Default style configuration applied to all panels unless overridden.
         public let style: PromptFileStyle?
+
+        /// Optional array of character references available for this project (v2+).
+        public let characters: [CharacterRef]?
     }
 
     /// Style configuration as specified in a prompt file.
@@ -66,6 +77,9 @@ public struct PromptFile: Sendable, Equatable {
 
         /// Optional per-panel height override.
         public let height: Int?
+
+        /// Optional character slug referencing a character from the project's characters array (v2+).
+        public let character: String?
     }
 
     /// Parse a prompt file from a YAML string.
@@ -118,7 +132,18 @@ public struct PromptFile: Sendable, Equatable {
             style = nil
         }
 
-        let project = Project(title: title, style: style)
+        // Project characters (optional, v2+)
+        let characters: [CharacterRef]?
+        if let charsArray = projectNode["characters"]?.array {
+            characters = charsArray.compactMap { node -> CharacterRef? in
+                guard let slug = node["slug"]?.string else { return nil }
+                return CharacterRef(slug: slug)
+            }
+        } else {
+            characters = nil
+        }
+
+        let project = Project(title: title, style: style, characters: characters)
 
         // Panels (required, must be non-empty array)
         guard let panelsArray = yamlNode["panels"]?.array, !panelsArray.isEmpty else {
@@ -146,7 +171,8 @@ public struct PromptFile: Sendable, Equatable {
                 prompt: prompt,
                 seed: seed,
                 width: panelNode["width"]?.integer,
-                height: panelNode["height"]?.integer
+                height: panelNode["height"]?.integer,
+                character: panelNode["character"]?.string
             )
             panels.append(panel)
         }
