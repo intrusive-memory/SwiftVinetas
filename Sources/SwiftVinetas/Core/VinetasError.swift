@@ -11,15 +11,17 @@ public enum VinetasError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .modelNotFound(let model):
-            "Model not found: \(model). Run `vinetas download --model \(model)` first."
+            return "Model not found: '\(model)'. Run `vinetas download --model \(model)` to download it, or run `vinetas list` to see available models."
         case .insufficientMemory(let required, let available):
-            "Insufficient memory: model needs \(required / 1_073_741_824) GB but only \(available / 1_073_741_824) GB available."
+            let requiredGB = required / 1_073_741_824
+            let availableGB = available / 1_073_741_824
+            return "Insufficient memory: model requires \(requiredGB) GB but only \(availableGB) GB available. Close other applications to free memory, or try the Klein 4B model (`--model klein4b`) which requires 16 GB."
         case .generationFailed(let reason):
-            "Generation failed: \(reason)"
+            return "Generation failed: \(reason). If this persists, try reducing image dimensions with `--aspect square` or lowering `--steps`."
         case .invalidPromptFile(let url):
-            "Could not parse prompt file: \(url.path)"
+            return "Could not parse prompt file at '\(url.path)'. Ensure the file exists, is valid YAML, and follows the SwiftVinetas prompt format."
         case .downloadFailed(let reason):
-            "Model download failed: \(reason)"
+            return "Model download failed: \(reason). Check your network connection and try again with `vinetas download --model <model>`."
         }
     }
 }
