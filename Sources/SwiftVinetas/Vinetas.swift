@@ -470,6 +470,36 @@ public enum Vinetas: Sendable {
         )
     }
 
+    // MARK: - Character-Aware Generation
+
+    /// Generate a single panel image with character LoRA and trigger word injection.
+    ///
+    /// Loads the character's LoRA adapter (if available), prepends the character's
+    /// trigger word to the prompt, generates the image, and unloads the LoRA
+    /// to prevent bleeding into subsequent generations.
+    ///
+    /// - Parameters:
+    ///   - prompt: Text description of the panel to generate.
+    ///   - character: The character whose LoRA and trigger word to apply.
+    ///   - style: Optional style configuration for consistent look across panels.
+    ///   - model: The FLUX.2 model variant to use (default: Klein 4B).
+    /// - Returns: The generated image as a CGImage.
+    public static func generate(
+        prompt: String,
+        character: Character,
+        style: StyleConfig? = nil,
+        model: VinetasModel = .klein4b
+    ) async throws -> CGImage {
+        let effectiveStyle = style ?? StyleConfig()
+        let output = try await VinetasPipeline.generatePanelWithCharacter(
+            prompt: prompt,
+            character: character,
+            style: effectiveStyle,
+            model: model
+        )
+        return output.image
+    }
+
     // MARK: - Preview
 
     /// Generate a fast, low-quality preview image for rapid prompt iteration.
