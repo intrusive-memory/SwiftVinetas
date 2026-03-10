@@ -217,7 +217,7 @@ public struct ImagePreprocessor: Sendable {
             bitmapInfo: bitmapInfo
         ) else {
             // Return a zero tensor on failure
-            return MLXArray(zeros: [1, h, w, 3])
+            return MLXArray.zeros([1, h, w, 3])
         }
 
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
