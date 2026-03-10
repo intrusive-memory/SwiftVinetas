@@ -22,8 +22,13 @@ public enum Vinetas: Sendable {
         style: StyleConfig? = nil,
         model: VinetasModel = .klein4b
     ) async throws -> CGImage {
-        // TODO: Initialize Flux2Pipeline, configure, generate
-        fatalError("Not yet implemented")
+        let effectiveStyle = style ?? StyleConfig()
+        let output = try await VinetasPipeline.generatePanel(
+            prompt: prompt,
+            style: effectiveStyle,
+            model: model
+        )
+        return output.image
     }
 
     /// Generate a sequence of panels from an array of prompts.
