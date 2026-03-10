@@ -32,37 +32,62 @@ public enum Vinetas: Sendable {
     }
 
     /// Generate a sequence of panels from an array of prompts.
+    ///
+    /// If `referenceImages` are provided, uses image-to-image generation
+    /// for character consistency across all panels. Otherwise, uses text-to-image.
+    ///
     /// - Parameters:
     ///   - prompts: Ordered text descriptions for each panel.
     ///   - referenceImages: Optional reference images for character consistency (up to 3).
     ///   - style: Optional style configuration applied to all panels.
     ///   - model: The FLUX.2 model variant to use.
     ///   - progress: Callback reporting (currentPanel, totalPanels).
+    ///   - stepProgress: Callback reporting step-level progress (currentStep, totalSteps, elapsed).
     /// - Returns: Array of generated CGImages, one per prompt.
     public static func generateSequence(
         prompts: [String],
         referenceImages: [CGImage]? = nil,
         style: StyleConfig? = nil,
         model: VinetasModel = .klein4b,
-        progress: ((Int, Int) -> Void)? = nil
+        progress: ((Int, Int) -> Void)? = nil,
+        stepProgress: (@Sendable (_ currentStep: Int, _ totalSteps: Int, _ elapsed: TimeInterval) -> Void)? = nil
     ) async throws -> [CGImage] {
-        // TODO: Batch generation with optional image-to-image conditioning
-        fatalError("Not yet implemented")
+        let effectiveStyle = style ?? StyleConfig()
+        let outputs = try await VinetasPipeline.generateSequence(
+            prompts: prompts,
+            referenceImages: referenceImages,
+            style: effectiveStyle,
+            model: model,
+            panelProgress: progress,
+            stepProgress: stepProgress
+        )
+        return outputs.map(\.image)
     }
 
     /// Generate panels from a YAML prompt file.
+    ///
+    /// Reads and parses the YAML file at the given URL, then iterates each panel
+    /// sequentially, using the project-level style as defaults with per-panel overrides.
+    ///
     /// - Parameters:
     ///   - url: Path to the YAML prompt file.
     ///   - model: The FLUX.2 model variant to use.
     ///   - progress: Callback reporting (currentPanel, totalPanels).
+    ///   - stepProgress: Callback reporting step-level progress (currentStep, totalSteps, elapsed).
     /// - Returns: Array of PanelOutput containing images and metadata.
     public static func generateFromFile(
         _ url: URL,
         model: VinetasModel = .klein4b,
-        progress: ((Int, Int) -> Void)? = nil
+        progress: ((Int, Int) -> Void)? = nil,
+        stepProgress: (@Sendable (_ currentStep: Int, _ totalSteps: Int, _ elapsed: TimeInterval) -> Void)? = nil
     ) async throws -> [PanelOutput] {
-        // TODO: Parse YAML, generate sequence
-        fatalError("Not yet implemented")
+        let promptFile = try PromptFile.parse(url: url)
+        return try await VinetasPipeline.generateFromPromptFile(
+            promptFile,
+            model: model,
+            panelProgress: progress,
+            stepProgress: stepProgress
+        )
     }
 
     // MARK: - Model Management
