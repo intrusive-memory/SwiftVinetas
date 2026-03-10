@@ -411,30 +411,63 @@ public enum Vinetas: Sendable {
         return output.image
     }
 
-    let contents = try fm.contentsOfDirectory(
-      at: referencesDir,
-      includingPropertiesForKeys: nil,
-      options: [.skipsHiddenFiles]
-    )
-
-    let pngFiles =
-      contents
-      .filter { $0.pathExtension.lowercased() == "png" }
-      .sorted { $0.lastPathComponent < $1.lastPathComponent }
-
-    guard pngFiles.count >= 2 else {
-      throw VinetasError.generationFailed(
-        "Need at least 2 reference images for verification, found \(pngFiles.count). "
-          + "Generate reference sheets first with Vinetas.generateReferenceSheets(for:)."
-      )
+    /// Generate a sequence of panels from an array of prompts.
+    ///
+    /// If `referenceImages` are provided, uses image-to-image generation
+    /// for character consistency across all panels. Otherwise, uses text-to-image.
+    ///
+    /// - Parameters:
+    ///   - prompts: Ordered text descriptions for each panel.
+    ///   - referenceImages: Optional reference images for character consistency (up to 3).
+    ///   - style: Optional style configuration applied to all panels.
+    ///   - model: The FLUX.2 model variant to use.
+    ///   - progress: Callback reporting (currentPanel, totalPanels).
+    ///   - stepProgress: Callback reporting step-level progress (currentStep, totalSteps, elapsed).
+    /// - Returns: Array of generated CGImages, one per prompt.
+    public static func generateSequence(
+        prompts: [String],
+        referenceImages: [CGImage]? = nil,
+        style: StyleConfig? = nil,
+        model: VinetasModel = .klein4b,
+        progress: ((Int, Int) -> Void)? = nil,
+        stepProgress: (@Sendable (_ currentStep: Int, _ totalSteps: Int, _ elapsed: TimeInterval) -> Void)? = nil
+    ) async throws -> [CGImage] {
+        let effectiveStyle = style ?? StyleConfig()
+        let outputs = try await VinetasPipeline.generateSequence(
+            prompts: prompts,
+            referenceImages: referenceImages,
+            style: effectiveStyle,
+            model: model,
+            panelProgress: progress,
+            stepProgress: stepProgress
+        )
+        return outputs.map(\.image)
     }
 
-    // Extract features for each image
-    var featuresByName: [(name: String, features: [Float])] = []
-    for url in pngFiles {
-      let features = try await FeatureExtractor.shared.extractFeatures(from: url)
-      let name = url.deletingPathExtension().lastPathComponent
-      featuresByName.append((name: name, features: features))
+    /// Generate panels from a YAML prompt file.
+    ///
+    /// Reads and parses the YAML file at the given URL, then iterates each panel
+    /// sequentially, using the project-level style as defaults with per-panel overrides.
+    ///
+    /// - Parameters:
+    ///   - url: Path to the YAML prompt file.
+    ///   - model: The FLUX.2 model variant to use.
+    ///   - progress: Callback reporting (currentPanel, totalPanels).
+    ///   - stepProgress: Callback reporting step-level progress (currentStep, totalSteps, elapsed).
+    /// - Returns: Array of PanelOutput containing images and metadata.
+    public static func generateFromFile(
+        _ url: URL,
+        model: VinetasModel = .klein4b,
+        progress: ((Int, Int) -> Void)? = nil,
+        stepProgress: (@Sendable (_ currentStep: Int, _ totalSteps: Int, _ elapsed: TimeInterval) -> Void)? = nil
+    ) async throws -> [PanelOutput] {
+        let promptFile = try PromptFile.parse(url: url)
+        return try await VinetasPipeline.generateFromPromptFile(
+            promptFile,
+            model: model,
+            panelProgress: progress,
+            stepProgress: stepProgress
+        )
     }
 
     // MARK: - Model Management

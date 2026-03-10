@@ -160,4 +160,333 @@ internal enum VinetasPipeline {
 
         return output
     }
+
+    // MARK: - Batch Generation
+
+    /// Progress callback providing step-level detail during generation.
+    ///
+    /// - Parameters:
+    ///   - currentStep: The current inference step within the current panel.
+    ///   - totalSteps: Total inference steps for the current panel.
+    ///   - elapsed: Wall-clock time elapsed since generation of the current panel started.
+    internal typealias StepProgressCallback = @Sendable (
+        _ currentStep: Int,
+        _ totalSteps: Int,
+        _ elapsed: TimeInterval
+    ) -> Void
+
+    /// Generates a sequence of panels from an array of prompts.
+    ///
+    /// If `referenceImages` are provided, uses image-to-image generation for each panel.
+    /// Otherwise, uses text-to-image generation.
+    ///
+    /// - Parameters:
+    ///   - prompts: Ordered text descriptions for each panel.
+    ///   - referenceImages: Optional reference images for character consistency.
+    ///   - style: Style configuration applied to all panels.
+    ///   - model: The FLUX.2 model variant to use.
+    ///   - panelProgress: Callback reporting (currentPanel, totalPanels).
+    ///   - stepProgress: Callback reporting step-level progress within each panel.
+    /// - Returns: Array of PanelOutput containing generated images and metadata.
+    internal static func generateSequence(
+        prompts: [String],
+        referenceImages: [CGImage]? = nil,
+        style: StyleConfig,
+        model: VinetasModel,
+        panelProgress: ((Int, Int) -> Void)? = nil,
+        stepProgress: StepProgressCallback? = nil
+    ) async throws -> [PanelOutput] {
+        guard !prompts.isEmpty else { return [] }
+
+        // 1. Validate memory
+        let memoryOK = VinetasMemory.validate(for: model)
+        if !memoryOK {
+            throw VinetasError.insufficientMemory(
+                required: VinetasMemory.requiredMemoryBytes(for: model),
+                available: VinetasMemory.systemMemoryBytes
+            )
+        }
+
+        // 2. Log loading strategy
+        let strategy = VinetasMemory.loadingStrategy()
+        let availableGB = VinetasMemory.systemMemoryGB
+        log("Loading strategy: \(strategy) (\(availableGB) GB available)")
+
+        // 3. Create pipeline
+        let flux2 = flux2Model(for: model)
+        let quantization = quantizationConfig(for: model)
+        let memoryOpt = memoryOptimizationConfig()
+
+        let pipeline = Flux2Pipeline(
+            model: flux2,
+            quantization: quantization,
+            memoryOptimization: memoryOpt
+        )
+
+        // 4. Load models
+        log("Loading models for \(model.rawValue)...")
+        try await pipeline.loadModels(progressCallback: { progress, message in
+            log("Download: \(Int(progress * 100))% — \(message)")
+        })
+
+        // 5. Load LoRA if configured
+        let activationKeyword = try VinetasLoRAManager.loadIfConfigured(
+            style: style,
+            on: pipeline
+        )
+
+        // 6. Iterate panels sequentially
+        var outputs: [PanelOutput] = []
+        let totalPanels = prompts.count
+        let useImageToImage = referenceImages != nil && !referenceImages!.isEmpty
+
+        for (index, prompt) in prompts.enumerated() {
+            panelProgress?(index + 1, totalPanels)
+
+            // Compose prompt: activation keyword + style + panel prompt
+            var composedPrompt = ""
+            if let keyword = activationKeyword, !keyword.isEmpty {
+                composedPrompt += "\(keyword), "
+            }
+            if !style.stylePrompt.isEmpty {
+                composedPrompt += "\(style.stylePrompt), "
+            }
+            composedPrompt += prompt
+
+            // Resolve seed
+            let resolvedSeed: UInt64
+            if let userSeed = style.seed {
+                resolvedSeed = userSeed
+            } else {
+                resolvedSeed = UInt64.random(in: 0...UInt64.max)
+            }
+
+            // Measure generation time
+            let clock = ContinuousClock()
+            let startTime = clock.now
+
+            log("Generating panel \(index + 1)/\(totalPanels): \(style.width)x\(style.height), \(style.steps) steps, seed \(resolvedSeed)")
+
+            let result: Flux2GenerationResult
+            do {
+                if useImageToImage {
+                    result = try await pipeline.generateImageToImageWithResult(
+                        prompt: composedPrompt,
+                        images: referenceImages!,
+                        height: style.height,
+                        width: style.width,
+                        steps: style.steps,
+                        guidance: style.guidanceScale,
+                        seed: resolvedSeed,
+                        strength: 0.7,
+                        onProgress: { currentStep, totalSteps in
+                            let elapsed = Double((clock.now - startTime).components.seconds)
+                                + Double((clock.now - startTime).components.attoseconds) / 1e18
+                            stepProgress?(currentStep, totalSteps, elapsed)
+                            log("Panel \(index + 1) — Step \(currentStep)/\(totalSteps)")
+                        }
+                    )
+                } else {
+                    result = try await pipeline.generateTextToImageWithResult(
+                        prompt: composedPrompt,
+                        height: style.height,
+                        width: style.width,
+                        steps: style.steps,
+                        guidance: style.guidanceScale,
+                        seed: resolvedSeed,
+                        onProgress: { currentStep, totalSteps in
+                            let elapsed = Double((clock.now - startTime).components.seconds)
+                                + Double((clock.now - startTime).components.attoseconds) / 1e18
+                            stepProgress?(currentStep, totalSteps, elapsed)
+                            log("Panel \(index + 1) — Step \(currentStep)/\(totalSteps)")
+                        }
+                    )
+                }
+            } catch {
+                throw VinetasError.generationFailed(
+                    "Panel \(index + 1) generation failed: \(error.localizedDescription)"
+                )
+            }
+
+            let elapsed = clock.now - startTime
+            let durationSeconds = Double(elapsed.components.seconds)
+                + Double(elapsed.components.attoseconds) / 1e18
+
+            log("Panel \(index + 1) complete in \(String(format: "%.1f", durationSeconds))s")
+
+            let output = PanelOutput(
+                image: result.image,
+                prompt: composedPrompt,
+                seed: resolvedSeed,
+                durationSeconds: durationSeconds,
+                model: model,
+                width: style.width,
+                height: style.height
+            )
+            outputs.append(output)
+        }
+
+        // 7. Clean up LoRAs
+        if style.loraPath != nil {
+            VinetasLoRAManager.unloadAll(from: pipeline)
+        }
+
+        return outputs
+    }
+
+    // MARK: - Prompt File Generation
+
+    /// Generates panels from a parsed `PromptFile`.
+    ///
+    /// Iterates panels sequentially, resolving per-panel style overrides,
+    /// and reports progress at both panel and step levels.
+    ///
+    /// - Parameters:
+    ///   - promptFile: The parsed prompt file with project metadata and panels.
+    ///   - model: The FLUX.2 model variant to use.
+    ///   - panelProgress: Callback reporting (currentPanel, totalPanels).
+    ///   - stepProgress: Callback reporting step-level progress within each panel.
+    /// - Returns: Array of PanelOutput, one per panel in the prompt file.
+    internal static func generateFromPromptFile(
+        _ promptFile: PromptFile,
+        model: VinetasModel,
+        panelProgress: ((Int, Int) -> Void)? = nil,
+        stepProgress: StepProgressCallback? = nil
+    ) async throws -> [PanelOutput] {
+        guard !promptFile.panels.isEmpty else { return [] }
+
+        // 1. Validate memory
+        let memoryOK = VinetasMemory.validate(for: model)
+        if !memoryOK {
+            throw VinetasError.insufficientMemory(
+                required: VinetasMemory.requiredMemoryBytes(for: model),
+                available: VinetasMemory.systemMemoryBytes
+            )
+        }
+
+        // 2. Log loading strategy
+        let strategy = VinetasMemory.loadingStrategy()
+        let availableGB = VinetasMemory.systemMemoryGB
+        log("Loading strategy: \(strategy) (\(availableGB) GB available)")
+        log("Project: \(promptFile.project.title)")
+
+        // 3. Create pipeline
+        let flux2 = flux2Model(for: model)
+        let quantization = quantizationConfig(for: model)
+        let memoryOpt = memoryOptimizationConfig()
+
+        let pipeline = Flux2Pipeline(
+            model: flux2,
+            quantization: quantization,
+            memoryOptimization: memoryOpt
+        )
+
+        // 4. Load models
+        log("Loading models for \(model.rawValue)...")
+        try await pipeline.loadModels(progressCallback: { progress, message in
+            log("Download: \(Int(progress * 100))% — \(message)")
+        })
+
+        // 5. Load project-level LoRA if configured
+        let projectStyle = promptFile.resolvedStyle(for: 0)
+        var activationKeyword: String? = nil
+        if projectStyle.loraPath != nil {
+            activationKeyword = try VinetasLoRAManager.loadIfConfigured(
+                style: projectStyle,
+                on: pipeline
+            )
+        }
+
+        // 6. Iterate panels sequentially
+        var outputs: [PanelOutput] = []
+        let totalPanels = promptFile.panels.count
+
+        for index in 0..<totalPanels {
+            panelProgress?(index + 1, totalPanels)
+
+            let panel = promptFile.panels[index]
+            let panelStyle = promptFile.resolvedStyle(for: index)
+
+            // Check if this panel has a different LoRA than what's loaded
+            if panelStyle.loraPath != projectStyle.loraPath {
+                VinetasLoRAManager.unloadAll(from: pipeline)
+                if panelStyle.loraPath != nil {
+                    activationKeyword = try VinetasLoRAManager.loadIfConfigured(
+                        style: panelStyle,
+                        on: pipeline
+                    )
+                } else {
+                    activationKeyword = nil
+                }
+            }
+
+            // Compose prompt: activation keyword + style + panel prompt
+            var composedPrompt = ""
+            if let keyword = activationKeyword, !keyword.isEmpty {
+                composedPrompt += "\(keyword), "
+            }
+            if !panelStyle.stylePrompt.isEmpty {
+                composedPrompt += "\(panelStyle.stylePrompt), "
+            }
+            composedPrompt += panel.prompt
+
+            // Resolve seed
+            let resolvedSeed: UInt64
+            if let userSeed = panelStyle.seed {
+                resolvedSeed = userSeed
+            } else {
+                resolvedSeed = UInt64.random(in: 0...UInt64.max)
+            }
+
+            // Measure generation time
+            let clock = ContinuousClock()
+            let startTime = clock.now
+
+            log("Generating panel \(index + 1)/\(totalPanels): \(panelStyle.width)x\(panelStyle.height), \(panelStyle.steps) steps, seed \(resolvedSeed)")
+
+            let result: Flux2GenerationResult
+            do {
+                result = try await pipeline.generateTextToImageWithResult(
+                    prompt: composedPrompt,
+                    height: panelStyle.height,
+                    width: panelStyle.width,
+                    steps: panelStyle.steps,
+                    guidance: panelStyle.guidanceScale,
+                    seed: resolvedSeed,
+                    onProgress: { currentStep, totalSteps in
+                        let elapsed = Double((clock.now - startTime).components.seconds)
+                            + Double((clock.now - startTime).components.attoseconds) / 1e18
+                        stepProgress?(currentStep, totalSteps, elapsed)
+                        log("Panel \(index + 1) — Step \(currentStep)/\(totalSteps)")
+                    }
+                )
+            } catch {
+                throw VinetasError.generationFailed(
+                    "Panel \(index + 1) generation failed: \(error.localizedDescription)"
+                )
+            }
+
+            let elapsed = clock.now - startTime
+            let durationSeconds = Double(elapsed.components.seconds)
+                + Double(elapsed.components.attoseconds) / 1e18
+
+            log("Panel \(index + 1) complete in \(String(format: "%.1f", durationSeconds))s")
+
+            let output = PanelOutput(
+                image: result.image,
+                prompt: composedPrompt,
+                seed: resolvedSeed,
+                durationSeconds: durationSeconds,
+                model: model,
+                width: panelStyle.width,
+                height: panelStyle.height
+            )
+            outputs.append(output)
+        }
+
+        // 7. Clean up LoRAs
+        VinetasLoRAManager.unloadAll(from: pipeline)
+
+        return outputs
+    }
 }
