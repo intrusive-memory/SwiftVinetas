@@ -1,12 +1,15 @@
 import CoreGraphics
 import Flux2Core
 import Foundation
+import SwiftAcervo
 
 /// SwiftVinetas - Storyboard and comic panel generation from text prompts.
 ///
 /// Generates sequential visual panels from text descriptions using
 /// FLUX.2 Klein models on Apple Silicon via MLX.
 public enum Vinetas: Sendable {
+
+    // MARK: - Generation
 
     /// Generate a single panel image from a text prompt.
     /// - Parameters:
@@ -55,6 +58,53 @@ public enum Vinetas: Sendable {
     ) async throws -> [PanelOutput] {
         // TODO: Parse YAML, generate sequence
         fatalError("Not yet implemented")
+    }
+
+    // MARK: - Model Management
+
+    /// Download a FLUX.2 model, caching it at `~/Library/SharedModels/`.
+    ///
+    /// Idempotent: if the model is already cached, returns immediately.
+    ///
+    /// - Parameters:
+    ///   - model: The model variant to download.
+    ///   - progress: Optional callback reporting download progress.
+    /// - Throws: `VinetasError.downloadFailed` if the download fails.
+    public static func download(
+        model: VinetasModel,
+        progress: (@Sendable (AcervoDownloadProgress) -> Void)? = nil
+    ) async throws {
+        try await VinetasModelManager.download(model: model, progress: progress)
+    }
+
+    /// List all known FLUX.2 models with their cache status.
+    ///
+    /// Returns one entry per known model variant, including whether it has
+    /// been downloaded, its size on disk, and its download date.
+    ///
+    /// - Returns: An array of `VinetasModelInfo` for each known model.
+    /// - Throws: If the shared models directory cannot be read.
+    public static func listModels() throws -> [VinetasModelInfo] {
+        try VinetasModelManager.listAllModels()
+    }
+
+    /// Validate whether the system has sufficient memory for a model.
+    ///
+    /// Checks the system's physical memory against the model's minimum
+    /// requirement (Klein 4B: 16 GB, Klein 9B: 24 GB).
+    ///
+    /// - Parameter model: The model to validate against.
+    /// - Returns: `true` if the system has enough memory to load the model.
+    /// - Throws: `VinetasError.insufficientMemory` if validation fails.
+    public static func validateMemory(for model: VinetasModel) throws -> Bool {
+        let sufficient = VinetasMemory.validate(for: model)
+        if !sufficient {
+            throw VinetasError.insufficientMemory(
+                required: VinetasMemory.requiredMemoryBytes(for: model),
+                available: VinetasMemory.systemMemoryBytes
+            )
+        }
+        return true
     }
 }
 
