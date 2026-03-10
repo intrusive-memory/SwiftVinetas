@@ -90,6 +90,29 @@ public enum Vinetas: Sendable {
         )
     }
 
+    // MARK: - Preview
+
+    /// Generate a fast, low-quality preview image for rapid prompt iteration.
+    ///
+    /// Forces Klein 4B, 4 inference steps, and 512×512 output for quick turnaround.
+    /// Use this to validate prompt composition before committing to a full generation run.
+    ///
+    /// - Parameter prompt: Text description of the panel to preview.
+    /// - Returns: The generated image as a CGImage at 512×512.
+    public static func preview(prompt: String) async throws -> CGImage {
+        let previewStyle = StyleConfig(
+            steps: 4,
+            width: 512,
+            height: 512
+        )
+        let output = try await VinetasPipeline.generatePanel(
+            prompt: prompt,
+            style: previewStyle,
+            model: .klein4b
+        )
+        return output.image
+    }
+
     // MARK: - Model Management
 
     /// Download a FLUX.2 model, caching it at `~/Library/SharedModels/`.
