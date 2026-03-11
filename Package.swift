@@ -59,6 +59,9 @@ let package = Package(
             name: "SwiftVinetasTests",
             dependencies: [
                 "SwiftVinetas",
+            ],
+            resources: [
+                .copy("Fixtures"),
             ]
         ),
     ]

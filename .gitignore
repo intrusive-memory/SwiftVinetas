@@ -7,3 +7,4 @@ DerivedData/
 .netrc
 bin/
 dist/
+*.profraw

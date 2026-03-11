@@ -442,7 +442,6 @@ internal enum VinetasPipeline {
                         steps: style.steps,
                         guidance: style.guidanceScale,
                         seed: resolvedSeed,
-                        strength: 0.7,
                         onProgress: { currentStep, totalSteps in
                             let elapsed = Double((clock.now - startTime).components.seconds)
                                 + Double((clock.now - startTime).components.attoseconds) / 1e18

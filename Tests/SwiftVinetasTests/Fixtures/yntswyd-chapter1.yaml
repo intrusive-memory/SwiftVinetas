@@ -1,0 +1,23 @@
+version: 1
+project:
+  title: "YNTSWYD Chapter 1 - Bernard's Descent"
+  style:
+    prompt: "Black and white gritty noir line art, 16:9, heavy shadows, high contrast, crime noir"
+    negative: "color, photorealistic, blurry, low quality, watermark"
+    steps: 20
+    guidance: 3.5
+    width: 1536
+    height: 640
+
+panels:
+  - prompt: "Close-up on a man's face in thick steam. His eyebrows are raised, mouth slightly open in disbelief. Heavy shadows from the steam room lighting cut across his face. He looks incredulous, almost amused despite himself."
+    seed: 1001
+
+  - prompt: "A man stands before a full-length mirror in tiny translucent running shorts. He pinches his belly fat with one hand, scowling at his reflection. His body language radiates self-doubt — shoulders slightly hunched, chin down. The mirror creates a stark doubled image. High contrast lighting from one side."
+    seed: 1002
+
+  - prompt: "Over-the-shoulder shot from behind a woman — she is a dark silhouette filling the left side of frame, hands on hips, housecoat like armor. A man faces her, small in frame by contrast. His expression is forced innocence masking pure contempt. The power dynamic is visible in the composition — she dominates the frame."
+    seed: 1003
+
+  - prompt: "A man alone at a microphone on a dark stage, caught in a single harsh spotlight. His face is hollow — singing but not present. Eyes unfocused, staring past the audience into nothing. The spotlight makes his face stark white against the pure black void behind him. The audience is barely suggested shapes in darkness."
+    seed: 1004

@@ -154,7 +154,6 @@ internal struct ReferenceSheetGenerator: Sendable {
                     images: [sourceImage],
                     height: 1024,
                     width: 1024,
-                    strength: strength,
                     onProgress: { currentStep, totalSteps in
                         log("Reference \(view.rawValue) — Step \(currentStep)/\(totalSteps)")
                     }
