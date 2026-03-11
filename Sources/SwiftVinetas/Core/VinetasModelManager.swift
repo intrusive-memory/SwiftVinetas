@@ -9,8 +9,9 @@ import SwiftAcervo
 public enum VinetasModelManager: Sendable {
 
     /// The core model files required for a FLUX.2 model to be usable.
+    /// Klein models use `model_index.json` at the repo root (not `config.json`).
     private static let requiredModelFiles: [String] = [
-        "config.json",
+        "model_index.json",
     ]
 
     /// Downloads a FLUX.2 model if not already cached.
