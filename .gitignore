@@ -9,3 +9,4 @@ bin/
 dist/
 *.profraw
 Package.resolved
+/Package.resolved
