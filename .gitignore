@@ -7,3 +7,6 @@ DerivedData/
 .netrc
 bin/
 dist/
+*.profraw
+Package.resolved
+/Package.resolved

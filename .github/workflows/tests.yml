@@ -1,8 +1,19 @@
 name: Tests
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main, development]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Models to download for CI testing (keep total under 10GB for GH Actions cache limit)
+  # Format: "huggingface-repo-id|local-dir-name" per line
+  CI_MODELS: |
+    black-forest-labs/FLUX.2-klein-4B|black-forest-labs_FLUX.2-klein-4B
 
 jobs:
   unit-tests:
@@ -18,7 +29,72 @@ jobs:
         run: swift --version
 
       - name: Resolve dependencies
-        run: xcodebuild -resolvePackageDependencies -scheme SwiftVinetas-Package
+        run: make resolve
 
       - name: Run unit tests
-        run: xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
+        run: make test-unit
+
+  download-models:
+    name: Download Models
+    runs-on: macos-26
+    outputs:
+      cache-hit: ${{ steps.model-cache.outputs.cache-hit }}
+
+    steps:
+      - name: Restore model cache
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/SharedModels
+          key: vinetas-models-v1
+          lookup-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Download models (cache miss - priming for next run)
+        if: steps.model-cache.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
+        run: |
+          python3 -m venv /tmp/hf-venv
+          /tmp/hf-venv/bin/pip install --quiet huggingface_hub
+          mkdir -p ~/Library/SharedModels
+
+          echo "$CI_MODELS" | while IFS='|' read -r repo local_dir; do
+            [ -z "$repo" ] && continue
+            repo=$(echo "$repo" | xargs)
+            local_dir=$(echo "$local_dir" | xargs)
+            echo "Downloading $repo → ~/Library/SharedModels/$local_dir"
+            /tmp/hf-venv/bin/huggingface-cli download "$repo" \
+              --local-dir ~/Library/SharedModels/"$local_dir" \
+              --include "*.safetensors" "*.json" "*.txt" "*.model" \
+              --quiet || echo "::warning::Failed to download $repo"
+          done
+
+          echo "Cache contents:"
+          du -sh ~/Library/SharedModels/*/ 2>/dev/null || echo "No models downloaded"
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: macos-26
+    needs: [unit-tests, download-models]
+    if: needs.download-models.outputs.cache-hit == 'true'
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Restore model cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/Library/SharedModels
+          key: vinetas-models-v1
+
+      - name: Show cached models
+        run: |
+          echo "Cached models:"
+          ls -la ~/Library/SharedModels/ 2>/dev/null || echo "No cache directory"
+          du -sh ~/Library/SharedModels/*/ 2>/dev/null || echo "No models cached"
+
+      - name: Resolve dependencies
+        run: make resolve
+
+      - name: Run integration tests
+        run: make test-integration
