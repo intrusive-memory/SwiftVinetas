@@ -6,15 +6,15 @@ import Testing
 @Suite("StyleConfig Tests")
 struct StyleConfigTests {
 
-    @Test("Default values are sensible")
-    func defaultValues() {
-        let config = StyleConfig()
-        #expect(config.steps == 20)
-        #expect(config.guidanceScale == 3.5)
-        #expect(config.width == 1024)
-        #expect(config.height == 1024)
-        #expect(config.seed == nil)
-    }
+  @Test("Default values are sensible")
+  func defaultValues() {
+    let config = StyleConfig()
+    #expect(config.steps == 20)
+    #expect(config.guidanceScale == 3.5)
+    #expect(config.width == 1024)
+    #expect(config.height == 1024)
+    #expect(config.seed == nil)
+  }
 
   @Test("Codable round-trip")
   func codableRoundTrip() throws {

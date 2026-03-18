@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.5.0
+**Version**: 0.3.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -8,17 +8,14 @@
 
 **SwiftVinetas** — On-device storyboard and comic panel generation from text prompts using FLUX.2 Klein models via MLX on Apple Silicon.
 
-**Platforms**: macOS 26.0+ (Apple Silicon), iOS 26.0+.
+**Platforms**: macOS 26.0+ (Apple Silicon only). No iOS support (MLX is macOS-only).
 
 ## Architecture
 
-- **Library**: `SwiftVinetas` wraps `Flux2Core` (from flux-2-swift-mlx) via an engine abstraction layer
-- **Engine Layer**: `ImageGenerationEngine` protocol + `EngineRouter` dispatcher — supports multiple backends
-- **Engines**: `Flux2Engine` (production, wraps Flux2Core), `PixArtEngine` (stub, gated behind `#if canImport(PixArtCore)`)
-- **Public API**: `VinetasClient` (instance-based, `.shared` singleton) — replaces deprecated static `Vinetas` enum
+- **Library**: `SwiftVinetas` wraps `Flux2Core` (from flux-2-swift-mlx) for image generation
 - **CLI**: `vinetas` for testing and standalone use
-- **Models**: FLUX.2 Klein 4B (fast, default) and Klein 9B (quality), extensible via `ModelDescriptor` protocol
-- **Style**: LoRA adapters in safetensors format, tagged with `compatibleEngines: [String]`
+- **Models**: FLUX.2 Klein 4B (fast, default) and Klein 9B (quality)
+- **Style**: LoRA adapters in safetensors format, single LoRA per generation
 - **Prompt files**: YAML parsed via `marcprux/universal`
 - **Model cache**: `~/Library/SharedModels/` via SwiftAcervo
 
@@ -33,50 +30,37 @@ See [docs/LEARNING.md](docs/LEARNING.md) for research findings.
 ```bash
 # Using Makefile (preferred)
 make build          # Debug build + copy to ./bin/vinetas
-make test           # Run all macOS tests
-make test-unit      # macOS unit tests only (no GPU)
-make test-ios       # Run all iOS Simulator tests
-make test-unit-ios  # iOS unit tests only (no GPU)
-make build-ios      # Build library for iOS Simulator
+make test           # Run all tests
+make test-unit      # Unit tests only (no GPU)
 make release        # Release build
 make install        # Release build + copy to ./bin/vinetas
 
 # Using xcodebuild directly
-xcodebuild build -scheme SwiftVinetas -destination 'platform=macOS,arch=arm64'
-xcodebuild build -scheme SwiftVinetas -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=26.1'
-xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS,arch=arm64'
-xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=26.1'
+xcodebuild build -scheme SwiftVinetas -destination 'platform=macOS'
+xcodebuild build -scheme vinetas -destination 'platform=macOS'
+xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 ```
 
 ## Key Types
 
 ```swift
-// Primary API (v0.5.0+) — instance-based
-let client = VinetasClient.shared
-client.generate(prompt:style:model:)               // Single panel (routes through EngineRouter)
-client.generateSequence(prompts:referenceImages:style:model:progress:)  // Multi-panel
-client.generate(prompt:character:style:model:)     // Character-aware (LoRA compatibility check)
-client.preview(prompt:)                            // FLUX.2-only fast path (Klein 4B, 4 steps, 512x512)
+// Public API (static)
+Vinetas.version                                     // "0.3.0"
+Vinetas.generate(prompt:style:model:)               // Single panel
+Vinetas.generateSequence(prompts:referenceImages:style:model:progress:)  // Multi-panel
+Vinetas.generateFromFile(_:model:progress:)         // From YAML prompt file
+Vinetas.generate(prompt:character:style:model:)     // Character-aware
+Vinetas.preview(prompt:)                            // Fast 512x512 preview
+Vinetas.classify(image:topK:)                       // ViT-B/16 classification
+Vinetas.extractFeatures(from:)                      // DINOv2 feature extraction
+Vinetas.similarity(between:and:)                    // Cosine similarity
+Vinetas.verifyCharacter(_:threshold:)               // Character consistency check
 
-// Engine Abstraction
-ImageGenerationEngine  // Protocol: generate, loadModel, loadLoRA, download, validateMemory
-EngineRouter           // Actor: dispatches to registered engines by model's engineID
-Flux2Engine            // Actor: wraps Flux2Pipeline, engineID "flux2"
-PixArtEngine           // Actor: stub, engineID "pixart-sigma", gated behind #if canImport(PixArtCore)
-ModelDescriptor        // Protocol: id, displayName, engineID, minimumMemoryGB, etc.
-Flux2ModelDescriptor   // .klein4B ("flux2-klein-4b"), .klein9B ("flux2-klein-9b")
-PixArtModelDescriptor  // .sigmaXL ("pixart-sigma-xl")
-
-// Deprecated API (still functional, forwards to VinetasClient.shared)
-Vinetas                // @available(*, deprecated) — static enum, use VinetasClient instead
-VinetasModel           // @available(*, deprecated) — use ModelDescriptor types directly
-
-// Configuration & Output
+// Configuration
 StyleConfig         // steps, guidance, seed, dimensions, style/negative prompts
-PanelOutput         // CGImage + metadata (prompt, seed, duration, modelID: String)
-VinetasError        // modelNotFound, insufficientMemory, generationFailed, engineNotFound, etc.
-GenerationRequest   // mode (.textToImage / .imageToImage), prompt, steps, guidance
-GenerationResult    // image, seed, duration
+VinetasModel        // .klein4b, .klein9b
+PanelOutput         // CGImage + metadata (prompt, seed, duration, dimensions)
+VinetasError        // modelNotFound, insufficientMemory, generationFailed, invalidPromptFile, downloadFailed
 ```
 
 ## Dependencies
@@ -115,15 +99,8 @@ pipeline.unloadAllLoRAs()
 SwiftVinetas/
 ├── Sources/
 │   ├── SwiftVinetas/           # Library
-│   │   ├── Vinetas.swift       # VinetasClient (primary API) + deprecated Vinetas enum
-│   │   ├── Core/               # StyleConfig, VinetasError, PanelOutput, Pipeline, Memory
-│   │   ├── Engine/             # Engine abstraction layer (v0.5.0+)
-│   │   │   ├── ImageGenerationEngine.swift  # Protocol
-│   │   │   ├── ModelDescriptor.swift        # Protocol + ModelLicense
-│   │   │   ├── EngineTypes.swift            # GenerationRequest, GenerationResult, etc.
-│   │   │   ├── EngineRouter.swift           # Actor dispatcher
-│   │   │   ├── Flux2Engine.swift            # FLUX.2 conformance
-│   │   │   └── PixArtEngine.swift           # PixArt-Sigma stub
+│   │   ├── Vinetas.swift       # Public API (static) + version
+│   │   ├── Core/               # StyleConfig, VinetasError, PanelOutput, Pipeline
 │   │   ├── Character/          # Character pipeline, LoRA training
 │   │   └── Understanding/      # ViT-B/16, DINOv2, image preprocessing
 │   └── vinetas/                # CLI
@@ -133,8 +110,7 @@ SwiftVinetas/
 ├── docs/
 │   ├── LEARNING.md
 │   ├── ARCHITECTURE.md
-│   ├── REQUIREMENTS_V1.md
-│   └── ENGINE_ABSTRACTION_REQUIREMENTS.md
+│   └── REQUIREMENTS_V1.md
 └── .github/workflows/tests.yml
 ```
 
@@ -142,14 +118,14 @@ SwiftVinetas/
 
 - Branch: `development` -> PR -> `main`
 - Never commit directly to `main`
-- CI: Unit tests (macOS + iOS) must pass before merge to main
-- Required status checks: "Unit Tests (macOS)", "Unit Tests (iOS Simulator)"
+- CI: Unit Tests must pass before merge to main
+- Required status check: "Unit Tests"
 
 ## Platform Constraints
 
-- **macOS 26.0+** — never add `@available` for older versions
-- **iOS 26.0+** — supported via MLX on iOS
-- **Apple Silicon ONLY** — M-series / A-series chips required (MLX/Metal)
+- **macOS 26.0+ ONLY** — never add `@available` for older versions
+- **Apple Silicon ONLY** — M1/M2/M3/M4/M5 required (MLX/Metal)
+- **No iOS** — MLX does not support iOS; do not add iOS platform targets
 
 ## Memory Constraints
 
@@ -162,8 +138,9 @@ SwiftVinetas/
 
 1. NEVER use `swift build` or `swift test` — use `xcodebuild` or `make` targets
 2. NEVER commit directly to `main` — always PR from `development`
-3. NEVER add `@available` for macOS versions older than 26.0 or iOS versions older than 26.0
-4. ALWAYS validate memory before loading models
-5. ALWAYS read files before editing
-6. NEVER create files unless necessary
-7. Follow agent-specific instructions — see [CLAUDE.md](CLAUDE.md) or [GEMINI.md](GEMINI.md)
+3. NEVER add iOS platform targets — MLX is macOS-only
+4. NEVER add `@available` for macOS versions older than 26.0
+5. ALWAYS validate memory before loading models
+6. ALWAYS read files before editing
+7. NEVER create files unless necessary
+8. Follow agent-specific instructions — see [CLAUDE.md](CLAUDE.md) or [GEMINI.md](GEMINI.md)
