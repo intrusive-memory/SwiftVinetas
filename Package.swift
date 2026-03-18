@@ -21,7 +21,7 @@ let package = Package(
     ],
     dependencies: [
         // FLUX.2 image generation pipeline (MIT license, includes mlx-swift transitively)
-        .package(url: "https://github.com/VincentGourbin/flux-2-swift-mlx.git", from: "2.1.0"),
+        .package(url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", branch: "fix/missing-hub-dependency"),
 
         // Shared model management (download, cache, discovery)
         .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", branch: "main"),
