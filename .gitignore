@@ -8,3 +8,4 @@ DerivedData/
 bin/
 dist/
 *.profraw
+Package.resolved

@@ -1,7 +1,6 @@
 import CoreGraphics
 import Flux2Core
 import Foundation
-import SwiftAcervo
 
 // MARK: - VinetasClient
 
@@ -695,7 +694,7 @@ public enum Vinetas: Sendable {
     /// - Throws: `VinetasError.downloadFailed` if the download fails.
     public static func download(
         model: VinetasModel,
-        progress: (@Sendable (AcervoDownloadProgress) -> Void)? = nil
+        progress: (@Sendable (VinetasDownloadProgress) -> Void)? = nil
     ) async throws {
         try await VinetasModelManager.download(model: model, progress: progress)
     }

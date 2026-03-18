@@ -1,23 +1,25 @@
 import Foundation
-import SwiftAcervo
+import Flux2Core
 
-/// Manages FLUX.2 model downloads, caching, and availability via SwiftAcervo.
+/// Progress information for model downloads.
+public struct VinetasDownloadProgress: Sendable {
+    /// Overall progress from 0.0 to 1.0.
+    public let overallProgress: Double
+    /// Human-readable status message.
+    public let message: String
+}
+
+/// Manages FLUX.2 model downloads, caching, and availability via Flux2Core.
 ///
-/// Wraps SwiftAcervo's `Acervo` API to provide model management specific
-/// to SwiftVinetas' FLUX.2 models, including download, listing, and
-/// validation of cached models at `~/Library/SharedModels/`.
+/// Wraps `Flux2ModelDownloader` and `ModelRegistry` to provide model management
+/// specific to SwiftVinetas' FLUX.2 models. Models are stored at
+/// `~/Library/Caches/models/` where the Flux2 pipeline can find them.
 public enum VinetasModelManager: Sendable {
 
-    /// The core model files required for a FLUX.2 model to be usable.
-    /// Klein models use `model_index.json` at the repo root (not `config.json`).
-    private static let requiredModelFiles: [String] = [
-        "model_index.json",
-    ]
-
-    /// Downloads a FLUX.2 model if not already cached.
+    /// Downloads required model components (transformer + VAE) for a FLUX.2 model.
     ///
-    /// Uses `Acervo.ensureAvailable` for idempotent downloading -- if the model
-    /// is already cached, this returns immediately without re-downloading.
+    /// Uses `Flux2ModelDownloader` so models are stored where the pipeline expects them.
+    /// Idempotent: if the model is already cached, returns immediately.
     ///
     /// - Parameters:
     ///   - model: The FLUX.2 model variant to download.
@@ -25,93 +27,85 @@ public enum VinetasModelManager: Sendable {
     /// - Throws: `VinetasError.downloadFailed` if the download fails.
     public static func download(
         model: VinetasModel,
-        progress: (@Sendable (AcervoDownloadProgress) -> Void)? = nil
+        progress: (@Sendable (VinetasDownloadProgress) -> Void)? = nil
     ) async throws {
-        do {
-            try await Acervo.ensureAvailable(
-                model.huggingFaceRepo,
-                files: requiredModelFiles,
-                token: nil,
-                progress: progress
-            )
-        } catch {
-            throw VinetasError.downloadFailed(
-                "Failed to download \(model.rawValue) from \(model.huggingFaceRepo): \(error.localizedDescription)"
-            )
+        let downloader = Flux2ModelDownloader()
+        let components = modelComponents(for: model)
+        let total = Double(components.count)
+
+        for (index, component) in components.enumerated() {
+            let componentProgress: Flux2DownloadProgressCallback = { p, msg in
+                let overall = (Double(index) + p) / total
+                progress?(VinetasDownloadProgress(overallProgress: overall, message: msg))
+            }
+            do {
+                _ = try await downloader.download(component, progress: componentProgress)
+            } catch {
+                throw VinetasError.downloadFailed(
+                    "Failed to download \(component.displayName): \(error.localizedDescription)"
+                )
+            }
         }
     }
 
-    /// Checks whether a model is locally available.
+    /// Checks whether all required components for a model are downloaded.
     ///
     /// - Parameter model: The model to check.
     /// - Returns: `true` if the model is cached and ready to use.
     public static func isAvailable(_ model: VinetasModel) -> Bool {
-        Acervo.isModelAvailable(model.huggingFaceRepo)
+        modelComponents(for: model).allSatisfy { ModelRegistry.isDownloaded($0) }
     }
 
-    /// Returns the local filesystem directory for a cached model.
+    /// Returns the local filesystem directory for the transformer component.
     ///
     /// - Parameter model: The model to locate.
     /// - Returns: The URL of the model's local directory.
     /// - Throws: `VinetasError.modelNotFound` if the model directory cannot be resolved.
     public static func modelDirectory(for model: VinetasModel) throws -> URL {
-        do {
-            return try Acervo.modelDirectory(for: model.huggingFaceRepo)
-        } catch {
+        let variant = transformerVariant(for: model)
+        guard let path = Flux2ModelDownloader.findModelPath(for: .transformer(variant)) else {
             throw VinetasError.modelNotFound(model.rawValue)
         }
+        return path
     }
 
-    /// Lists all FLUX.2 models currently cached in `~/Library/SharedModels/`.
+    /// Deletes the downloaded model components from local storage.
     ///
-    /// Returns information about each cached model that matches a known
-    /// `VinetasModel` HuggingFace repository ID.
-    ///
-    /// - Returns: An array of `VinetasModelInfo` for each cached model.
-    /// - Throws: If the shared models directory cannot be read.
-    public static func listCachedModels() throws -> [VinetasModelInfo] {
-        let allModels = try Acervo.listModels()
-        let knownRepos = Set(VinetasModel.allCases.map(\.huggingFaceRepo))
-
-        return allModels
-            .filter { knownRepos.contains($0.id) }
-            .map { acervoModel in
-                VinetasModelInfo(
-                    name: acervoModel.id,
-                    size: acervoModel.sizeBytes,
-                    downloadDate: acervoModel.downloadDate,
-                    isDownloaded: true
-                )
-            }
+    /// - Parameter model: The model to delete.
+    /// - Throws: If the deletion fails.
+    public static func delete(model: VinetasModel) throws {
+        for component in modelComponents(for: model) {
+            try Flux2ModelDownloader.delete(component)
+        }
     }
 
     /// Lists all known FLUX.2 models with their availability status.
     ///
     /// Returns one `VinetasModelInfo` per known `VinetasModel` case, including
-    /// models that have not yet been downloaded. For downloaded models, includes
-    /// size and download date from SwiftAcervo.
+    /// models that have not yet been downloaded.
     ///
     /// - Returns: An array of `VinetasModelInfo`, one per known model.
     public static func listAllModels() throws -> [VinetasModelInfo] {
-        let cachedModels = try Acervo.listModels()
-        let cachedByID = Dictionary(uniqueKeysWithValues: cachedModels.map { ($0.id, $0) })
-
-        return VinetasModel.allCases.map { model in
-            if let cached = cachedByID[model.huggingFaceRepo] {
-                VinetasModelInfo(
-                    name: model.huggingFaceRepo,
-                    size: cached.sizeBytes,
-                    downloadDate: cached.downloadDate,
-                    isDownloaded: true
-                )
-            } else {
-                VinetasModelInfo(
-                    name: model.huggingFaceRepo,
-                    size: 0,
-                    downloadDate: nil,
-                    isDownloaded: false
-                )
-            }
+        VinetasModel.allCases.map { model in
+            VinetasModelInfo(
+                name: model.huggingFaceRepo,
+                size: 0,
+                downloadDate: nil,
+                isDownloaded: isAvailable(model)
+            )
         }
+    }
+
+    // MARK: - Private
+
+    private static func transformerVariant(for model: VinetasModel) -> ModelRegistry.TransformerVariant {
+        switch model {
+        case .klein4b: .klein4B_bf16
+        case .klein9b: .klein9B_bf16
+        }
+    }
+
+    private static func modelComponents(for model: VinetasModel) -> [ModelRegistry.ModelComponent] {
+        [.transformer(transformerVariant(for: model)), .vae(.standard)]
     }
 }
