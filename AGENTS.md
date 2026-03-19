@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.3.0
+**Version**: 0.4.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -49,7 +49,7 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=iOS Simulato
 
 ```swift
 // Public API (static)
-Vinetas.version                                     // "0.3.0"
+Vinetas.version                                     // "0.4.0"
 Vinetas.generate(prompt:style:model:)               // Single panel
 Vinetas.generateSequence(prompts:referenceImages:style:model:progress:)  // Multi-panel
 Vinetas.generateFromFile(_:model:progress:)         // From YAML prompt file
@@ -122,8 +122,8 @@ SwiftVinetas/
 
 - Branch: `development` -> PR -> `main`
 - Never commit directly to `main`
-- CI: Unit Tests must pass before merge to main
-- Required status check: "Unit Tests"
+- CI: Unit tests (macOS + iOS) must pass before merge to main
+- Required status checks: "Unit Tests (macOS)", "Unit Tests (iOS Simulator)"
 
 ## Platform Constraints
 
