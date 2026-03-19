@@ -32,7 +32,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.3.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.4.0")
 ]
 ```
 
@@ -161,7 +161,7 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 
 ## Status
 
-**v0.3.0** — Core generation pipeline, character-aware generation with LoRA training, image classification (ViT-B/16), feature extraction (DINOv2), and CLI are implemented.
+**v0.4.0** — Adds iOS 26 platform support. Core generation pipeline, character-aware generation with LoRA training, image classification (ViT-B/16), feature extraction (DINOv2), and CLI.
 
 ## License
 

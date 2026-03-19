@@ -389,7 +389,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.3.0"
+  public static let version = "0.4.0"
 
   // MARK: - Generation
 
