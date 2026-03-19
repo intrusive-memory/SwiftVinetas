@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.3.0
+**Version**: 0.4.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -8,7 +8,7 @@
 
 **SwiftVinetas** — On-device storyboard and comic panel generation from text prompts using FLUX.2 Klein models via MLX on Apple Silicon.
 
-**Platforms**: macOS 26.0+ (Apple Silicon only). No iOS support (MLX is macOS-only).
+**Platforms**: macOS 26.0+ (Apple Silicon), iOS 26.0+.
 
 ## Architecture
 
@@ -30,22 +30,26 @@ See [docs/LEARNING.md](docs/LEARNING.md) for research findings.
 ```bash
 # Using Makefile (preferred)
 make build          # Debug build + copy to ./bin/vinetas
-make test           # Run all tests
-make test-unit      # Unit tests only (no GPU)
+make test           # Run all macOS tests
+make test-unit      # macOS unit tests only (no GPU)
+make test-ios       # Run all iOS Simulator tests
+make test-unit-ios  # iOS unit tests only (no GPU)
+make build-ios      # Build library for iOS Simulator
 make release        # Release build
 make install        # Release build + copy to ./bin/vinetas
 
 # Using xcodebuild directly
-xcodebuild build -scheme SwiftVinetas -destination 'platform=macOS'
-xcodebuild build -scheme vinetas -destination 'platform=macOS'
-xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
+xcodebuild build -scheme SwiftVinetas -destination 'platform=macOS,arch=arm64'
+xcodebuild build -scheme SwiftVinetas -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=26.1'
+xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS,arch=arm64'
+xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=26.1'
 ```
 
 ## Key Types
 
 ```swift
 // Public API (static)
-Vinetas.version                                     // "0.3.0"
+Vinetas.version                                     // "0.4.0"
 Vinetas.generate(prompt:style:model:)               // Single panel
 Vinetas.generateSequence(prompts:referenceImages:style:model:progress:)  // Multi-panel
 Vinetas.generateFromFile(_:model:progress:)         // From YAML prompt file
@@ -118,14 +122,14 @@ SwiftVinetas/
 
 - Branch: `development` -> PR -> `main`
 - Never commit directly to `main`
-- CI: Unit Tests must pass before merge to main
-- Required status check: "Unit Tests"
+- CI: Unit tests (macOS + iOS) must pass before merge to main
+- Required status checks: "Unit Tests (macOS)", "Unit Tests (iOS Simulator)"
 
 ## Platform Constraints
 
-- **macOS 26.0+ ONLY** — never add `@available` for older versions
-- **Apple Silicon ONLY** — M1/M2/M3/M4/M5 required (MLX/Metal)
-- **No iOS** — MLX does not support iOS; do not add iOS platform targets
+- **macOS 26.0+** — never add `@available` for older versions
+- **iOS 26.0+** — supported via MLX on iOS
+- **Apple Silicon ONLY** — M-series / A-series chips required (MLX/Metal)
 
 ## Memory Constraints
 
@@ -138,9 +142,8 @@ SwiftVinetas/
 
 1. NEVER use `swift build` or `swift test` — use `xcodebuild` or `make` targets
 2. NEVER commit directly to `main` — always PR from `development`
-3. NEVER add iOS platform targets — MLX is macOS-only
-4. NEVER add `@available` for macOS versions older than 26.0
-5. ALWAYS validate memory before loading models
-6. ALWAYS read files before editing
-7. NEVER create files unless necessary
-8. Follow agent-specific instructions — see [CLAUDE.md](CLAUDE.md) or [GEMINI.md](GEMINI.md)
+3. NEVER add `@available` for macOS versions older than 26.0 or iOS versions older than 26.0
+4. ALWAYS validate memory before loading models
+5. ALWAYS read files before editing
+6. NEVER create files unless necessary
+7. Follow agent-specific instructions — see [CLAUDE.md](CLAUDE.md) or [GEMINI.md](GEMINI.md)

@@ -16,14 +16,16 @@ env:
     black-forest-labs/FLUX.2-klein-4B|black-forest-labs_FLUX.2-klein-4B
 
 jobs:
-  unit-tests:
-    name: Unit Tests
+  unit-tests-macos:
+    name: Unit Tests (macOS)
     runs-on: macos-26
     timeout-minutes: 30
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Show Swift version
         run: swift --version
@@ -33,6 +35,27 @@ jobs:
 
       - name: Run unit tests
         run: make test-unit
+
+  unit-tests-ios:
+    name: Unit Tests (iOS Simulator)
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Resolve dependencies
+        run: make resolve
+
+      - name: Run unit tests
+        run: make test-unit-ios
+        # Uses iPad Pro 13-inch (M5) simulator on iOS 26.1
 
   download-models:
     name: Download Models
@@ -73,13 +96,15 @@ jobs:
   integration-tests:
     name: Integration Tests
     runs-on: macos-26
-    needs: [unit-tests, download-models]
+    needs: [unit-tests-macos, download-models]
     if: needs.download-models.outputs.cache-hit == 'true'
     timeout-minutes: 30
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Restore model cache
         uses: actions/cache/restore@v4

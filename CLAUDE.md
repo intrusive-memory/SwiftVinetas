@@ -12,8 +12,10 @@ Prefer Makefile targets when available:
 
 ```bash
 make build          # Debug build
-make test           # All tests
-make test-unit      # Unit tests only (no GPU)
+make test           # All macOS tests
+make test-unit      # macOS unit tests only (no GPU)
+make test-ios       # All iOS Simulator tests
+make test-unit-ios  # iOS unit tests only (no GPU)
 make install        # Release build + install
 ```
 
