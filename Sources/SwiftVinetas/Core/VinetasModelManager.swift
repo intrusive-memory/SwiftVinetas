@@ -96,6 +96,21 @@ public enum VinetasModelManager: Sendable {
     }
   }
 
+  // MARK: - CDN Configuration
+
+  /// Configures a CDN base URL for model downloads.
+  ///
+  /// When set, the downloader fetches models from the CDN instead of
+  /// HuggingFace, eliminating authentication requirements. Falls back
+  /// to HuggingFace if the CDN download fails.
+  ///
+  /// Call this once at app startup before any download operations.
+  ///
+  /// - Parameter baseURL: The CDN base URL (e.g. `https://cdn.example.com`).
+  public static func configureCDN(baseURL: URL) {
+    ModelRegistry.cdnBaseURL = baseURL
+  }
+
   // MARK: - Private
 
   private static func transformerVariant(for model: VinetasModel)
