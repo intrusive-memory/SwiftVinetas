@@ -5,7 +5,8 @@ import PackageDescription
 let package = Package(
     name: "SwiftVinetas",
     platforms: [
-        .macOS(.v26)
+        .macOS(.v26),
+        .iOS(.v26),
     ],
     products: [
         // Library for programmatic access (embed in Produciesta)

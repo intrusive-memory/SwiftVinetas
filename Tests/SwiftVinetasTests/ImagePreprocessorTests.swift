@@ -4,6 +4,11 @@ import Testing
 
 @testable import SwiftVinetas
 
+// MLX Metal backend crashes during process teardown on iOS Simulator
+// (nullptr in C++ static destructor for Metal device name).
+// These tests work on real devices and macOS.
+#if !targetEnvironment(simulator)
+
 // MARK: - Helpers
 
 /// Creates a solid-color CGImage of the given size.
@@ -230,3 +235,5 @@ struct ImagePreprocessorTests {
     #expect(abs(config.std[2] - 0.225) < 1e-6)
   }
 }
+
+#endif  // !targetEnvironment(simulator)

@@ -2,7 +2,8 @@ import CoreGraphics
 import Foundation
 
 /// Manages the on-disk lifecycle of characters stored under
-/// `~/Library/SwiftVinetas/characters/<slug>/`.
+/// `~/Library/SwiftVinetas/characters/<slug>/` (macOS) or
+/// `<Documents>/SwiftVinetas/characters/<slug>/` (iOS).
 ///
 /// Each character directory contains:
 /// ```
@@ -20,14 +21,24 @@ public struct CharacterManager: Sendable {
   /// The root characters directory: `~/Library/SwiftVinetas/characters/`.
   public let baseDirectory: URL
 
-  /// Create a manager rooted at the standard library characters directory.
+  /// Create a manager rooted at the standard characters directory.
+  ///
+  /// On macOS this is `~/Library/SwiftVinetas/characters/`.
+  /// On iOS this is `<Documents>/SwiftVinetas/characters/`.
   public init() {
-    let libraryURL = FileManager.default.urls(
-      for: .libraryDirectory,
-      in: .userDomainMask
-    ).first!
+    #if os(iOS) || os(tvOS) || os(visionOS)
+      let rootURL = FileManager.default.urls(
+        for: .documentDirectory,
+        in: .userDomainMask
+      ).first!
+    #else
+      let rootURL = FileManager.default.urls(
+        for: .libraryDirectory,
+        in: .userDomainMask
+      ).first!
+    #endif
     self.baseDirectory =
-      libraryURL
+      rootURL
       .appendingPathComponent("SwiftVinetas", isDirectory: true)
       .appendingPathComponent("characters", isDirectory: true)
   }
