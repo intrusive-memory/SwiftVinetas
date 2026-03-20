@@ -8,6 +8,18 @@ public enum VinetasError: Error, LocalizedError {
   case invalidPromptFile(URL)
   case downloadFailed(String)
 
+  /// No engine registered with the given engine ID.
+  case engineNotFound(engineID: String)
+
+  /// The specified model is not supported by the given engine.
+  case modelNotSupported(modelID: String, engineID: String)
+
+  /// A LoRA adapter trained for one engine was used with a different engine.
+  case loraIncompatible(loraEngine: String, currentEngine: String)
+
+  /// The requested feature is not supported by the given engine.
+  case engineFeatureUnsupported(feature: EngineFeature, engineID: String)
+
   public var errorDescription: String? {
     switch self {
     case .modelNotFound(let model):
@@ -27,6 +39,18 @@ public enum VinetasError: Error, LocalizedError {
     case .downloadFailed(let reason):
       return
         "Model download failed: \(reason). Check your network connection and try again with `vinetas download --model <model>`."
+    case .engineNotFound(let engineID):
+      return
+        "No engine registered with ID '\(engineID)'. Available engines can be listed via VinetasClient.shared.router."
+    case .modelNotSupported(let modelID, let engineID):
+      return
+        "Model '\(modelID)' is not supported by engine '\(engineID)'."
+    case .loraIncompatible(let loraEngine, let currentEngine):
+      return
+        "LoRA adapter trained for engine '\(loraEngine)' is incompatible with current engine '\(currentEngine)'. Generation will proceed without LoRA."
+    case .engineFeatureUnsupported(let feature, let engineID):
+      return
+        "Feature '\(feature)' is not supported by engine '\(engineID)'."
     }
   }
 }
