@@ -9,91 +9,57 @@ public struct VinetasDownloadProgress: Sendable {
   public let message: String
 }
 
-/// Manages FLUX.2 model downloads, caching, and availability via Flux2Core.
+/// Manages model downloads, caching, and availability via the engine router.
 ///
-/// Wraps `Flux2ModelDownloader` and `ModelRegistry` to provide model management
-/// specific to SwiftVinetas' FLUX.2 models. Models are stored at
-/// `~/Library/Caches/models/` where the Flux2 pipeline can find them.
+/// `VinetasModelManager` routes all operations through `VinetasClient.shared.router`,
+/// delegating to the appropriate engine for each model. This replaces the previous
+/// direct coupling to `Flux2ModelDownloader`.
+///
+/// For new code, prefer calling `VinetasClient.shared.download(model:progress:)`,
+/// `VinetasClient.shared.isAvailable(_:)`, etc. directly.
 public enum VinetasModelManager: Sendable {
 
-  /// Downloads required model components (transformer + VAE) for a FLUX.2 model.
-  ///
-  /// Uses `Flux2ModelDownloader` so models are stored where the pipeline expects them.
-  /// Idempotent: if the model is already cached, returns immediately.
+  // MARK: - Primary API (any ModelDescriptor)
+
+  /// Downloads a model by routing through the engine responsible for it.
   ///
   /// - Parameters:
-  ///   - model: The FLUX.2 model variant to download.
-  ///   - progress: Optional progress callback reporting download status.
-  /// - Throws: `VinetasError.downloadFailed` if the download fails.
+  ///   - model: The model descriptor to download.
+  ///   - progress: Optional callback reporting download progress.
+  /// - Throws: ``VinetasError/engineNotFound(engineID:)`` if no engine handles the model,
+  ///           ``VinetasError/downloadFailed(_:)`` if the download fails.
   public static func download(
-    model: VinetasModel,
+    model: any ModelDescriptor,
     progress: (@Sendable (VinetasDownloadProgress) -> Void)? = nil
   ) async throws {
-    let downloader = Flux2ModelDownloader()
-    let components = modelComponents(for: model)
-    let total = Double(components.count)
-
-    for (index, component) in components.enumerated() {
-      let componentProgress: Flux2DownloadProgressCallback = { p, msg in
-        let overall = (Double(index) + p) / total
-        progress?(VinetasDownloadProgress(overallProgress: overall, message: msg))
-      }
-      do {
-        _ = try await downloader.download(component, progress: componentProgress)
-      } catch {
-        throw VinetasError.downloadFailed(
-          "Failed to download \(component.displayName): \(error.localizedDescription)"
-        )
-      }
-    }
+    try await VinetasClient.shared.download(model: model, progress: progress)
   }
 
-  /// Checks whether all required components for a model are downloaded.
+  /// Checks whether a model's weights are available on disk.
   ///
-  /// - Parameter model: The model to check.
+  /// Routes through the engine registered for the model's `engineID`.
+  ///
+  /// - Parameter model: The model descriptor to check.
   /// - Returns: `true` if the model is cached and ready to use.
-  public static func isAvailable(_ model: VinetasModel) -> Bool {
-    modelComponents(for: model).allSatisfy { ModelRegistry.isDownloaded($0) }
+  public static func isAvailable(_ model: any ModelDescriptor) async throws -> Bool {
+    try await VinetasClient.shared.isAvailable(model)
   }
 
-  /// Returns the local filesystem directory for the transformer component.
+  /// Deletes a model's weights from local storage.
   ///
-  /// - Parameter model: The model to locate.
-  /// - Returns: The URL of the model's local directory.
-  /// - Throws: `VinetasError.modelNotFound` if the model directory cannot be resolved.
-  public static func modelDirectory(for model: VinetasModel) throws -> URL {
-    let variant = transformerVariant(for: model)
-    guard let path = Flux2ModelDownloader.findModelPath(for: .transformer(variant)) else {
-      throw VinetasError.modelNotFound(model.rawValue)
-    }
-    return path
+  /// Routes through the engine registered for the model's `engineID`.
+  ///
+  /// - Parameter model: The model descriptor to delete.
+  /// - Throws: ``VinetasError/engineNotFound(engineID:)`` if no engine handles the model.
+  public static func delete(_ model: any ModelDescriptor) async throws {
+    try await VinetasClient.shared.delete(model)
   }
 
-  /// Deletes the downloaded model components from local storage.
+  /// Lists all known models across all registered engines with their availability status.
   ///
-  /// - Parameter model: The model to delete.
-  /// - Throws: If the deletion fails.
-  public static func delete(model: VinetasModel) throws {
-    for component in modelComponents(for: model) {
-      try Flux2ModelDownloader.delete(component)
-    }
-  }
-
-  /// Lists all known FLUX.2 models with their availability status.
-  ///
-  /// Returns one `VinetasModelInfo` per known `VinetasModel` case, including
-  /// models that have not yet been downloaded.
-  ///
-  /// - Returns: An array of `VinetasModelInfo`, one per known model.
-  public static func listAllModels() throws -> [VinetasModelInfo] {
-    VinetasModel.allCases.map { model in
-      VinetasModelInfo(
-        name: model.huggingFaceRepo,
-        size: 0,
-        downloadDate: nil,
-        isDownloaded: isAvailable(model)
-      )
-    }
+  /// - Returns: An array of ``VinetasModelInfo``, one per known model.
+  public static func listAllModels() async -> [VinetasModelInfo] {
+    await VinetasClient.shared.listModels()
   }
 
   // MARK: - CDN Configuration
@@ -101,8 +67,7 @@ public enum VinetasModelManager: Sendable {
   /// Configures a CDN base URL for model downloads.
   ///
   /// When set, the downloader fetches models from the CDN instead of
-  /// HuggingFace, eliminating authentication requirements. Falls back
-  /// to HuggingFace if the CDN download fails.
+  /// HuggingFace. Falls back to HuggingFace if the CDN download fails.
   ///
   /// Call this once at app startup before any download operations.
   ///
@@ -111,7 +76,55 @@ public enum VinetasModelManager: Sendable {
     ModelRegistry.cdnBaseURL = baseURL
   }
 
-  // MARK: - Private
+  // MARK: - Deprecated API (VinetasModel)
+
+  /// Downloads a FLUX.2 model by its legacy ``VinetasModel`` enum case.
+  ///
+  /// - Parameters:
+  ///   - model: The legacy model variant to download.
+  ///   - progress: Optional callback reporting download progress.
+  @available(*, deprecated, message: "Use download(model: any ModelDescriptor) instead")
+  public static func download(
+    model: VinetasModel,
+    progress: (@Sendable (VinetasDownloadProgress) -> Void)? = nil
+  ) async throws {
+    try await download(model: model.descriptor, progress: progress)
+  }
+
+  /// Checks whether a FLUX.2 model's weights are available on disk.
+  ///
+  /// - Parameter model: The legacy model variant to check.
+  /// - Returns: `true` if the model is cached and ready to use.
+  @available(*, deprecated, message: "Use isAvailable(_ model: any ModelDescriptor) instead")
+  public static func isAvailable(_ model: VinetasModel) -> Bool {
+    modelComponents(for: model).allSatisfy { ModelRegistry.isDownloaded($0) }
+  }
+
+  /// Deletes the downloaded FLUX.2 model components from local storage.
+  ///
+  /// - Parameter model: The legacy model variant to delete.
+  @available(*, deprecated, message: "Use delete(_ model: any ModelDescriptor) instead")
+  public static func delete(model: VinetasModel) throws {
+    for component in modelComponents(for: model) {
+      try Flux2ModelDownloader.delete(component)
+    }
+  }
+
+  /// Returns the local filesystem directory for the transformer component.
+  ///
+  /// - Parameter model: The model to locate.
+  /// - Returns: The URL of the model's local directory.
+  /// - Throws: `VinetasError.modelNotFound` if the model directory cannot be resolved.
+  @available(*, deprecated, message: "Access model paths through the engine directly")
+  public static func modelDirectory(for model: VinetasModel) throws -> URL {
+    let variant = transformerVariant(for: model)
+    guard let path = Flux2ModelDownloader.findModelPath(for: .transformer(variant)) else {
+      throw VinetasError.modelNotFound(model.rawValue)
+    }
+    return path
+  }
+
+  // MARK: - Private Helpers
 
   private static func transformerVariant(for model: VinetasModel)
     -> ModelRegistry.TransformerVariant
@@ -121,7 +134,6 @@ public enum VinetasModelManager: Sendable {
     case .klein9b: .klein9B_bf16
     case .pixartSigma:
       // Fallback: PixArt models are not managed through Flux2 downloader.
-      // This case exists only for exhaustive switch; prefer EngineRouter for dispatch.
       .klein4B_bf16
     }
   }
