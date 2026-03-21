@@ -137,42 +137,43 @@ struct VinetasModelManagerTests {
   // MARK: - Model Availability Check
 
   @Test("isAvailable returns false for models not on disk")
-  func isAvailableFalseForMissingModels() {
+  func isAvailableFalseForMissingModels() async throws {
     // These models are unlikely to be downloaded in CI or a clean environment
     // but even if they are, the test just confirms the API works
-    let available = VinetasModelManager.isAvailable(.klein4b)
+    let available = try await VinetasModelManager.isAvailable(VinetasClient.klein4B)
     #expect(type(of: available) == Bool.self)
   }
 
   // MARK: - listAllModels
 
-  @Test("listAllModels returns entries for all known model variants")
-  func listAllModelsReturnsAllVariants() throws {
-    let models = try VinetasModelManager.listAllModels()
+  @Test("listAllModels returns entries for known model variants")
+  func listAllModelsReturnsAllVariants() async {
+    let models = await VinetasModelManager.listAllModels()
 
-    // Should have one entry per VinetasModel case
-    #expect(models.count == VinetasModel.allCases.count)
+    // Should have at least one entry (FLUX.2 Klein 4B and Klein 9B are always registered)
+    #expect(models.count >= 2)
 
-    // Should contain entries for both known models
+    // Should contain entries for the known FLUX.2 models
     let names = models.map(\.name)
-    #expect(names.contains(VinetasModel.klein4b.huggingFaceRepo))
-    #expect(names.contains(VinetasModel.klein9b.huggingFaceRepo))
+    #expect(names.contains(Flux2ModelDescriptor.klein4B.displayName))
+    #expect(names.contains(Flux2ModelDescriptor.klein9B.displayName))
   }
 
   // MARK: - Vinetas Public API
 
   @Test("Vinetas.listModels compiles and returns VinetasModelInfo array")
-  func vinetasListModels() throws {
-    let models: [VinetasModelInfo] = try Vinetas.listModels()
-    #expect(models.count == VinetasModel.allCases.count)
+  func vinetasListModels() async {
+    let models: [VinetasModelInfo] = await Vinetas.listModels()
+    // Should have at least the two FLUX.2 Klein models
+    #expect(models.count >= 2)
   }
 
   @Test("Vinetas.validateMemory compiles and returns Bool")
-  func vinetasValidateMemory() {
+  func vinetasValidateMemory() async {
     // On any Apple Silicon Mac with 16+ GB, Klein 4B should pass.
     // On machines with less, it will throw — both paths are valid.
     do {
-      let result: Bool = try Vinetas.validateMemory(for: .klein4b)
+      let result: Bool = try await Vinetas.validateMemory(for: .klein4b)
       #expect(result == true)
     } catch {
       // If the machine has < 16 GB, this is the expected path
