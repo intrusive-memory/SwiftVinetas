@@ -2,10 +2,82 @@ import CoreGraphics
 import Flux2Core
 import Foundation
 
+// MARK: - VinetasClient
+
+/// The primary public API for SwiftVinetas.
+///
+/// `VinetasClient` routes all generation, model management, and engine queries
+/// through an ``EngineRouter``. Use the ``shared`` singleton for production
+/// or inject a custom router via ``init(router:)`` for testing.
+///
+/// ```swift
+/// // Production usage
+/// let image = try await VinetasClient.shared.generate(prompt: "A sunset over the ocean")
+///
+/// // Testing with a mock engine
+/// let router = EngineRouter(engines: [mockEngine])
+/// let client = VinetasClient(router: router)
+/// ```
+public final class VinetasClient: Sendable {
+
+  /// The shared singleton instance, pre-configured with all available engines.
+  public static let shared = VinetasClient()
+
+  /// The engine router used to dispatch generation requests.
+  public let router: EngineRouter
+
+  /// The current SwiftVinetas library version.
+  public static let version = "0.4.0"
+
+  /// Default initializer that registers all available engines.
+  ///
+  /// Registers ``Flux2Engine`` unconditionally. Registers ``PixArtEngine``
+  /// only when `PixArtCore` is importable.
+  public init() {
+    var engines: [any ImageGenerationEngine] = [Flux2Engine()]
+    #if canImport(PixArtCore)
+    engines.append(PixArtEngine())
+    #endif
+    self.router = EngineRouter(engines: engines)
+  }
+
+  /// Test initializer that accepts a custom router.
+  ///
+  /// Use this to inject a ``MockEngine`` or other test doubles.
+  ///
+  /// - Parameter router: The engine router to use for dispatch.
+  public init(router: EngineRouter) {
+    self.router = router
+  }
+}
+
+// MARK: - Convenience Model Accessors
+
+extension VinetasClient {
+
+  /// The default model for generation. Currently FLUX.2 Klein 4B.
+  public static var defaultModel: any ModelDescriptor { Flux2ModelDescriptor.klein4B }
+
+  /// FLUX.2 Klein 4B model descriptor.
+  public static var klein4B: any ModelDescriptor { Flux2ModelDescriptor.klein4B }
+
+  /// FLUX.2 Klein 9B model descriptor.
+  public static var klein9B: any ModelDescriptor { Flux2ModelDescriptor.klein9B }
+
+  /// PixArt-Sigma XL model descriptor.
+  public static var pixartSigmaXL: any ModelDescriptor { PixArtModelDescriptor.sigmaXL }
+}
+
+// MARK: - Deprecated Vinetas Enum
+
 /// SwiftVinetas - Storyboard and comic panel generation from text prompts.
 ///
 /// Generates sequential visual panels from text descriptions using
 /// FLUX.2 Klein models on Apple Silicon via MLX.
+///
+/// - Important: Use ``VinetasClient/shared`` instead. This enum is preserved
+///   for backward compatibility and will be removed in a future release.
+@available(*, deprecated, message: "Use VinetasClient.shared instead")
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
@@ -130,11 +202,11 @@ public enum Vinetas: Sendable {
 
   /// Generate a fast, low-quality preview image for rapid prompt iteration.
   ///
-  /// Forces Klein 4B, 4 inference steps, and 512×512 output for quick turnaround.
+  /// Forces Klein 4B, 4 inference steps, and 512x512 output for quick turnaround.
   /// Use this to validate prompt composition before committing to a full generation run.
   ///
   /// - Parameter prompt: Text description of the panel to preview.
-  /// - Returns: The generated image as a CGImage at 512×512.
+  /// - Returns: The generated image as a CGImage at 512x512.
   public static func preview(prompt: String) async throws -> CGImage {
     let previewStyle = StyleConfig(
       steps: 4,
@@ -561,10 +633,31 @@ public enum Vinetas: Sendable {
   }
 }
 
+// MARK: - Deprecated VinetasModel Enum
+
 /// Available FLUX.2 model variants.
+///
+/// - Important: Use ``ModelDescriptor`` types directly (e.g., ``VinetasClient/klein4B``,
+///   ``VinetasClient/klein9B``). This enum is preserved for backward compatibility.
+@available(*, deprecated, message: "Use ModelDescriptor types directly (e.g., VinetasClient.klein4B)")
 public enum VinetasModel: String, Sendable, Codable, CaseIterable {
   case klein4b = "klein4b"
   case klein9b = "klein9b"
+  case pixartSigma = "pixart-sigma"
+
+  /// Bridge to ``ModelDescriptor``.
+  ///
+  /// Converts this legacy enum case to the corresponding concrete ``ModelDescriptor``.
+  public var descriptor: any ModelDescriptor {
+    switch self {
+    case .klein4b:
+      Flux2ModelDescriptor.klein4B
+    case .klein9b:
+      Flux2ModelDescriptor.klein9B
+    case .pixartSigma:
+      PixArtModelDescriptor.sigmaXL
+    }
+  }
 
   /// The HuggingFace repository identifier for this model.
   public var huggingFaceRepo: String {
@@ -573,6 +666,8 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
       "black-forest-labs/FLUX.2-klein-4B"
     case .klein9b:
       "black-forest-labs/FLUX.2-klein-9B"
+    case .pixartSigma:
+      "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS"
     }
   }
 
@@ -583,6 +678,8 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
       16
     case .klein9b:
       24
+    case .pixartSigma:
+      8
     }
   }
 
@@ -593,6 +690,8 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
       "int4"
     case .klein9b:
       "qint8"
+    case .pixartSigma:
+      "int4"
     }
   }
 
@@ -603,6 +702,8 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
       26
     case .klein9b:
       62
+    case .pixartSigma:
+      10
     }
   }
 }

@@ -106,12 +106,14 @@ internal struct ReferenceSheetGenerator: Sendable {
       switch model {
       case .klein4b: .klein4B
       case .klein9b: .klein9B
+      case .pixartSigma: .klein4B  // Fallback — prefer EngineRouter for dispatch
       }
 
     let quantization: Flux2QuantizationConfig =
       switch model {
       case .klein4b: .ultraMinimal
       case .klein9b: .balanced
+      case .pixartSigma: .ultraMinimal  // Fallback — prefer EngineRouter for dispatch
       }
 
     let memoryOpt = MemoryOptimizationConfig.recommended(

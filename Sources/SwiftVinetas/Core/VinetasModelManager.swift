@@ -119,6 +119,10 @@ public enum VinetasModelManager: Sendable {
     switch model {
     case .klein4b: .klein4B_bf16
     case .klein9b: .klein9B_bf16
+    case .pixartSigma:
+      // Fallback: PixArt models are not managed through Flux2 downloader.
+      // This case exists only for exhaustive switch; prefer EngineRouter for dispatch.
+      .klein4B_bf16
     }
   }
 

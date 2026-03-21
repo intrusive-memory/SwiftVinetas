@@ -8,12 +8,13 @@ struct VinetasModelTests {
 
   // MARK: - CaseIterable
 
-  @Test("CaseIterable includes both models")
+  @Test("CaseIterable includes all models")
   func caseIterable() {
     let allCases = VinetasModel.allCases
-    #expect(allCases.count == 2)
+    #expect(allCases.count == 3)
     #expect(allCases.contains(.klein4b))
     #expect(allCases.contains(.klein9b))
+    #expect(allCases.contains(.pixartSigma))
   }
 
   // MARK: - Raw Values

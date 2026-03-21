@@ -147,7 +147,7 @@ public enum ImageOutput {
 
     return PanelMetadata(
       prompt: output.prompt,
-      model: output.model.rawValue,
+      model: output.modelID,
       seed: output.seed,
       steps: style.steps,
       guidance: style.guidanceScale,

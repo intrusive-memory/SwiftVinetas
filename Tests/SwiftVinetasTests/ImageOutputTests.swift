@@ -35,7 +35,7 @@ private func makePanelOutput(image: CGImage) -> PanelOutput {
     prompt: "test prompt",
     seed: 12345,
     durationSeconds: 1.23,
-    model: .klein4b,
+    modelID: "klein4b",
     width: 2,
     height: 2
   )
