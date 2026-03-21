@@ -831,7 +831,7 @@ public enum Vinetas: Sendable {
       views: views,
       sourceImage: sourceImage,
       strength: strength,
-      model: model,
+      model: model.descriptor,
       progress: progress
     )
   }
