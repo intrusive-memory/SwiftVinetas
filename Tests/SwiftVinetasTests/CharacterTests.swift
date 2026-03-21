@@ -184,7 +184,7 @@ struct CharacterYAMLTests {
       scale: 0.8,
       version: 1,
       trainingSteps: 1500,
-      model: .klein4b
+      compatibleEngines: ["flux2"]
     )
     let original = Character(
       name: "Vale",
@@ -197,6 +197,7 @@ struct CharacterYAMLTests {
     #expect(decoded.lora?.scale == 0.8)
     #expect(decoded.lora?.version == 1)
     #expect(decoded.lora?.trainingSteps == 1500)
+    #expect(decoded.lora?.compatibleEngines == ["flux2"])
   }
 
   @Test("YAML uses snake_case key for trigger word")
@@ -233,10 +234,48 @@ struct LoRAMetadataTests {
     #expect(lora.version == 1)
   }
 
-  @Test("LoRA model stored correctly")
-  func loraModelStored() {
-    let lora = LoRAMetadata(path: "lora/test.safetensors", model: .klein4b)
-    #expect(lora.model == .klein4b)
+  @Test("LoRA compatible engines stored correctly")
+  func loraCompatibleEnginesStored() {
+    let lora = LoRAMetadata(path: "lora/test.safetensors", compatibleEngines: ["flux2"])
+    #expect(lora.compatibleEngines == ["flux2"])
+  }
+
+  @Test("Legacy YAML model field klein4b migrates to compatibleEngines flux2")
+  func legacyKlein4bMigratestoFlux2() throws {
+    let yaml = """
+      name: Vale
+      slug: vale
+      trigger_word: sks_vale
+      created: 2024-01-01
+      source_photos: []
+      description: ""
+      lora:
+        path: lora/vale-v1.safetensors
+        scale: 0.8
+        version: 1
+        model: klein4b
+      """
+    let character = try Character.from(yaml: yaml)
+    #expect(character.lora?.compatibleEngines == ["flux2"])
+  }
+
+  @Test("Legacy YAML model field klein9b migrates to compatibleEngines flux2")
+  func legacyKlein9bMigratestoFlux2() throws {
+    let yaml = """
+      name: Vale
+      slug: vale
+      trigger_word: sks_vale
+      created: 2024-01-01
+      source_photos: []
+      description: ""
+      lora:
+        path: lora/vale-v1.safetensors
+        scale: 0.8
+        version: 1
+        model: klein9b
+      """
+    let character = try Character.from(yaml: yaml)
+    #expect(character.lora?.compatibleEngines == ["flux2"])
   }
 }
 
