@@ -17,6 +17,10 @@ internal enum VinetasPipeline {
       .klein4B
     case .klein9b:
       .klein9B
+    case .pixartSigma:
+      // Fallback: PixArt models should not be routed through the Flux2 pipeline.
+      // This case exists only for exhaustive switch; prefer EngineRouter for dispatch.
+      .klein4B
     }
   }
 
@@ -30,6 +34,9 @@ internal enum VinetasPipeline {
       .ultraMinimal
     case .klein9b:
       .balanced
+    case .pixartSigma:
+      // Fallback: PixArt models should not be routed through the Flux2 pipeline.
+      .ultraMinimal
     }
   }
 
@@ -156,7 +163,7 @@ internal enum VinetasPipeline {
       prompt: composedPrompt,
       seed: resolvedSeed,
       durationSeconds: durationSeconds,
-      model: model,
+      modelID: model.rawValue,
       width: style.width,
       height: style.height
     )
@@ -294,7 +301,7 @@ internal enum VinetasPipeline {
       prompt: composedPrompt,
       seed: resolvedSeed,
       durationSeconds: durationSeconds,
-      model: model,
+      modelID: model.rawValue,
       width: style.width,
       height: style.height
     )
@@ -494,7 +501,7 @@ internal enum VinetasPipeline {
         prompt: composedPrompt,
         seed: resolvedSeed,
         durationSeconds: durationSeconds,
-        model: model,
+        modelID: model.rawValue,
         width: style.width,
         height: style.height
       )
@@ -656,7 +663,7 @@ internal enum VinetasPipeline {
         prompt: composedPrompt,
         seed: resolvedSeed,
         durationSeconds: durationSeconds,
-        model: model,
+        modelID: model.rawValue,
         width: panelStyle.width,
         height: panelStyle.height
       )
