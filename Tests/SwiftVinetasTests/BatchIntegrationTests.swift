@@ -81,7 +81,7 @@ struct BatchIntegrationTests {
     // Ensure Klein 4B model is available
     let model = VinetasModel.klein4b
     try #require(
-      try Vinetas.validateMemory(for: model), "Insufficient memory for \(model.rawValue)")
+      try await Vinetas.validateMemory(for: model), "Insufficient memory for \(model.rawValue)")
 
     try await Vinetas.download(model: model) { _ in }
 
@@ -128,7 +128,7 @@ struct BatchIntegrationTests {
     let url = try fixtureURL
     let model = VinetasModel.klein4b
     try #require(
-      try Vinetas.validateMemory(for: model), "Insufficient memory for \(model.rawValue)")
+      try await Vinetas.validateMemory(for: model), "Insufficient memory for \(model.rawValue)")
 
     try await Vinetas.download(model: model) { _ in }
 

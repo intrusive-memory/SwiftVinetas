@@ -137,46 +137,205 @@ struct VinetasModelManagerTests {
   // MARK: - Model Availability Check
 
   @Test("isAvailable returns false for models not on disk")
-  func isAvailableFalseForMissingModels() {
+  func isAvailableFalseForMissingModels() async throws {
     // These models are unlikely to be downloaded in CI or a clean environment
     // but even if they are, the test just confirms the API works
-    let available = VinetasModelManager.isAvailable(.klein4b)
+    let available = try await VinetasModelManager.isAvailable(VinetasClient.klein4B)
     #expect(type(of: available) == Bool.self)
   }
 
   // MARK: - listAllModels
 
-  @Test("listAllModels returns entries for all known model variants")
-  func listAllModelsReturnsAllVariants() throws {
-    let models = try VinetasModelManager.listAllModels()
+  @Test("listAllModels returns entries for known model variants")
+  func listAllModelsReturnsAllVariants() async {
+    let models = await VinetasModelManager.listAllModels()
 
-    // Should have one entry per VinetasModel case
-    #expect(models.count == VinetasModel.allCases.count)
+    // Should have at least one entry (FLUX.2 Klein 4B and Klein 9B are always registered)
+    #expect(models.count >= 2)
 
-    // Should contain entries for both known models
+    // Should contain entries for the known FLUX.2 models
     let names = models.map(\.name)
-    #expect(names.contains(VinetasModel.klein4b.huggingFaceRepo))
-    #expect(names.contains(VinetasModel.klein9b.huggingFaceRepo))
+    #expect(names.contains(Flux2ModelDescriptor.klein4B.displayName))
+    #expect(names.contains(Flux2ModelDescriptor.klein9B.displayName))
   }
 
   // MARK: - Vinetas Public API
 
   @Test("Vinetas.listModels compiles and returns VinetasModelInfo array")
-  func vinetasListModels() throws {
-    let models: [VinetasModelInfo] = try Vinetas.listModels()
-    #expect(models.count == VinetasModel.allCases.count)
+  func vinetasListModels() async {
+    let models: [VinetasModelInfo] = await Vinetas.listModels()
+    // Should have at least the two FLUX.2 Klein models
+    #expect(models.count >= 2)
   }
 
   @Test("Vinetas.validateMemory compiles and returns Bool")
-  func vinetasValidateMemory() {
+  func vinetasValidateMemory() async {
     // On any Apple Silicon Mac with 16+ GB, Klein 4B should pass.
     // On machines with less, it will throw — both paths are valid.
     do {
-      let result: Bool = try Vinetas.validateMemory(for: .klein4b)
+      let result: Bool = try await Vinetas.validateMemory(for: .klein4b)
       #expect(result == true)
     } catch {
       // If the machine has < 16 GB, this is the expected path
       #expect(error is VinetasError)
+    }
+  }
+
+  // MARK: - Async Overloads Accepting any ModelDescriptor
+
+  @Test("isAvailable accepts any ModelDescriptor (Flux2 klein4B)")
+  func isAvailableAcceptsModelDescriptorKlein4B() async throws {
+    let model: any ModelDescriptor = Flux2ModelDescriptor.klein4B
+    let available = try await VinetasModelManager.isAvailable(model)
+    #expect(type(of: available) == Bool.self)
+  }
+
+  @Test("isAvailable accepts any ModelDescriptor (Flux2 klein9B)")
+  func isAvailableAcceptsModelDescriptorKlein9B() async throws {
+    let model: any ModelDescriptor = Flux2ModelDescriptor.klein9B
+    let available = try await VinetasModelManager.isAvailable(model)
+    #expect(type(of: available) == Bool.self)
+  }
+
+  @Test("isAvailable accepts any ModelDescriptor (PixArt sigmaXL) via MockEngine")
+  func isAvailableAcceptsModelDescriptorPixArtSigmaXL() async throws {
+    // PixArt stub engine in shared client may not be registered (PixArtCore not importable),
+    // so route through a MockEngine instead to verify the any ModelDescriptor API.
+    let pixartModel = MockModelDescriptor(
+      id: "pixart-sigma-xl", displayName: "PixArt-Sigma XL", engineID: "pixart-sigma"
+    )
+    let engine = MockEngine(engineID: "pixart-sigma", supportedModels: [pixartModel])
+    engine.isAvailableResult = false
+    let router = EngineRouter(engines: [engine])
+    let client = VinetasClient(router: router)
+
+    let model: any ModelDescriptor = pixartModel
+    let available = try await client.isAvailable(model)
+    // Mock engine configured to return false
+    #expect(available == false)
+  }
+
+  // MARK: - Engine-Aware Routing via MockEngine
+
+  @Test("download routes through MockEngine for mock descriptor")
+  func downloadRoutesThroughMockEngine() async throws {
+    let mockModel = MockModelDescriptor(
+      id: "mock-model", displayName: "Mock Model", engineID: "mock"
+    )
+    let engine = MockEngine(engineID: "mock", supportedModels: [mockModel])
+    let router = EngineRouter(engines: [engine])
+    let client = VinetasClient(router: router)
+
+    // download should invoke engine.download without error
+    try await client.download(model: mockModel, progress: nil)
+    // No error thrown means routing worked correctly
+  }
+
+  @Test("isAvailable routes through MockEngine and returns configured value")
+  func isAvailableRoutesThroughMockEngineReturnsConfiguredValue() async throws {
+    let mockModel = MockModelDescriptor(
+      id: "mock-model", displayName: "Mock Model", engineID: "mock"
+    )
+    let engine = MockEngine(engineID: "mock", supportedModels: [mockModel])
+    engine.isAvailableResult = true
+    let router = EngineRouter(engines: [engine])
+    let client = VinetasClient(router: router)
+
+    let available = try await client.isAvailable(mockModel)
+    #expect(available == true)
+  }
+
+  @Test("isAvailable routes through MockEngine and returns false by default")
+  func isAvailableRoutesThroughMockEngineReturnsFalseByDefault() async throws {
+    let mockModel = MockModelDescriptor(
+      id: "mock-model", displayName: "Mock Model", engineID: "mock"
+    )
+    let engine = MockEngine(engineID: "mock", supportedModels: [mockModel])
+    // isAvailableResult defaults to false
+    let router = EngineRouter(engines: [engine])
+    let client = VinetasClient(router: router)
+
+    let available = try await client.isAvailable(mockModel)
+    #expect(available == false)
+  }
+
+  @Test("delete routes through MockEngine")
+  func deleteRoutesThroughMockEngine() async throws {
+    let mockModel = MockModelDescriptor(
+      id: "mock-model", displayName: "Mock Model", engineID: "mock"
+    )
+    let engine = MockEngine(engineID: "mock", supportedModels: [mockModel])
+    let router = EngineRouter(engines: [engine])
+    let client = VinetasClient(router: router)
+
+    try await client.delete(mockModel)
+    let calls = await engine.calls
+    #expect(calls.contains(.delete("mock-model")))
+  }
+
+  @Test("isAvailable throws engineNotFound when no engine handles model")
+  func isAvailableThrowsEngineNotFoundForUnknownEngine() async throws {
+    let unknownModel = MockModelDescriptor(
+      id: "unknown", displayName: "Unknown", engineID: "nonexistent-engine"
+    )
+    let engine = MockEngine(engineID: "known-engine")
+    let router = EngineRouter(engines: [engine])
+    let client = VinetasClient(router: router)
+
+    await #expect(throws: VinetasError.self) {
+      _ = try await client.isAvailable(unknownModel)
+    }
+  }
+
+  @Test("download throws engineNotFound when no engine handles model")
+  func downloadThrowsEngineNotFoundForUnknownEngine() async throws {
+    let unknownModel = MockModelDescriptor(
+      id: "unknown", displayName: "Unknown", engineID: "nonexistent-engine"
+    )
+    let engine = MockEngine(engineID: "known-engine")
+    let router = EngineRouter(engines: [engine])
+    let client = VinetasClient(router: router)
+
+    await #expect(throws: VinetasError.self) {
+      try await client.download(model: unknownModel, progress: nil)
+    }
+  }
+
+  @Test("listModels via VinetasClient returns all models from router")
+  func listModelsReturnsAllModelsFromRouter() async {
+    let modelA = MockModelDescriptor(
+      id: "model-a", displayName: "Alpha", engineID: "engine-a"
+    )
+    let modelB = MockModelDescriptor(
+      id: "model-b", displayName: "Beta", engineID: "engine-b"
+    )
+    let engineA = MockEngine(engineID: "engine-a", supportedModels: [modelA])
+    let engineB = MockEngine(engineID: "engine-b", supportedModels: [modelB])
+    let router = EngineRouter(engines: [engineA, engineB])
+    let client = VinetasClient(router: router)
+
+    let models = await client.listModels()
+    #expect(models.count == 2)
+    let names = models.map(\.name)
+    #expect(names.contains("Alpha"))
+    #expect(names.contains("Beta"))
+  }
+
+  @Test("validateMemory routes through MockEngine and returns configured validation")
+  func validateMemoryRoutesThroughMockEngine() async throws {
+    let mockModel = MockModelDescriptor(
+      id: "mock-model", displayName: "Mock Model", engineID: "mock"
+    )
+    let engine = MockEngine(engineID: "mock", supportedModels: [mockModel])
+    engine.validateMemoryResult = .ok
+    let router = EngineRouter(engines: [engine])
+    let client = VinetasClient(router: router)
+
+    let validation = try await client.validateMemory(for: mockModel)
+    if case .ok = validation {
+      // Expected
+    } else {
+      Issue.record("Expected .ok from mock engine, got \(validation)")
     }
   }
 }

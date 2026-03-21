@@ -46,6 +46,18 @@ public enum VinetasMemory: Sendable {
     return availableMemoryBytes >= requiredBytes
   }
 
+  /// Validates whether the system has sufficient memory for a given model descriptor.
+  ///
+  /// This overload accepts any ``ModelDescriptor`` conforming type, enabling
+  /// engine-agnostic memory validation for models described via the engine abstraction.
+  ///
+  /// - Parameter model: The model descriptor to validate against.
+  /// - Returns: `true` if the system has at least the model's minimum required memory.
+  public static func validate(for model: any ModelDescriptor) -> Bool {
+    let requiredBytes = UInt64(model.minimumMemoryGB) * bytesPerGB
+    return systemMemoryBytes >= requiredBytes
+  }
+
   /// Determines the optimal loading strategy for the given memory amount.
   ///
   /// - `"sequential"` — Under 32 GB: load models one at a time, unloading before loading the next.

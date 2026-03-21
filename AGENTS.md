@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.4.0
+**Version**: 0.5.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -12,10 +12,13 @@
 
 ## Architecture
 
-- **Library**: `SwiftVinetas` wraps `Flux2Core` (from flux-2-swift-mlx) for image generation
+- **Library**: `SwiftVinetas` wraps `Flux2Core` (from flux-2-swift-mlx) via an engine abstraction layer
+- **Engine Layer**: `ImageGenerationEngine` protocol + `EngineRouter` dispatcher — supports multiple backends
+- **Engines**: `Flux2Engine` (production, wraps Flux2Core), `PixArtEngine` (stub, gated behind `#if canImport(PixArtCore)`)
+- **Public API**: `VinetasClient` (instance-based, `.shared` singleton) — replaces deprecated static `Vinetas` enum
 - **CLI**: `vinetas` for testing and standalone use
-- **Models**: FLUX.2 Klein 4B (fast, default) and Klein 9B (quality)
-- **Style**: LoRA adapters in safetensors format, single LoRA per generation
+- **Models**: FLUX.2 Klein 4B (fast, default) and Klein 9B (quality), extensible via `ModelDescriptor` protocol
+- **Style**: LoRA adapters in safetensors format, tagged with `compatibleEngines: [String]`
 - **Prompt files**: YAML parsed via `marcprux/universal`
 - **Model cache**: `~/Library/SharedModels/` via SwiftAcervo
 
@@ -48,23 +51,32 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=iOS Simulato
 ## Key Types
 
 ```swift
-// Public API (static)
-Vinetas.version                                     // "0.4.0"
-Vinetas.generate(prompt:style:model:)               // Single panel
-Vinetas.generateSequence(prompts:referenceImages:style:model:progress:)  // Multi-panel
-Vinetas.generateFromFile(_:model:progress:)         // From YAML prompt file
-Vinetas.generate(prompt:character:style:model:)     // Character-aware
-Vinetas.preview(prompt:)                            // Fast 512x512 preview
-Vinetas.classify(image:topK:)                       // ViT-B/16 classification
-Vinetas.extractFeatures(from:)                      // DINOv2 feature extraction
-Vinetas.similarity(between:and:)                    // Cosine similarity
-Vinetas.verifyCharacter(_:threshold:)               // Character consistency check
+// Primary API (v0.5.0+) — instance-based
+let client = VinetasClient.shared
+client.generate(prompt:style:model:)               // Single panel (routes through EngineRouter)
+client.generateSequence(prompts:referenceImages:style:model:progress:)  // Multi-panel
+client.generate(prompt:character:style:model:)     // Character-aware (LoRA compatibility check)
+client.preview(prompt:)                            // FLUX.2-only fast path (Klein 4B, 4 steps, 512x512)
 
-// Configuration
+// Engine Abstraction
+ImageGenerationEngine  // Protocol: generate, loadModel, loadLoRA, download, validateMemory
+EngineRouter           // Actor: dispatches to registered engines by model's engineID
+Flux2Engine            // Actor: wraps Flux2Pipeline, engineID "flux2"
+PixArtEngine           // Actor: stub, engineID "pixart-sigma", gated behind #if canImport(PixArtCore)
+ModelDescriptor        // Protocol: id, displayName, engineID, minimumMemoryGB, etc.
+Flux2ModelDescriptor   // .klein4B ("flux2-klein-4b"), .klein9B ("flux2-klein-9b")
+PixArtModelDescriptor  // .sigmaXL ("pixart-sigma-xl")
+
+// Deprecated API (still functional, forwards to VinetasClient.shared)
+Vinetas                // @available(*, deprecated) — static enum, use VinetasClient instead
+VinetasModel           // @available(*, deprecated) — use ModelDescriptor types directly
+
+// Configuration & Output
 StyleConfig         // steps, guidance, seed, dimensions, style/negative prompts
-VinetasModel        // .klein4b, .klein9b
-PanelOutput         // CGImage + metadata (prompt, seed, duration, dimensions)
-VinetasError        // modelNotFound, insufficientMemory, generationFailed, invalidPromptFile, downloadFailed
+PanelOutput         // CGImage + metadata (prompt, seed, duration, modelID: String)
+VinetasError        // modelNotFound, insufficientMemory, generationFailed, engineNotFound, etc.
+GenerationRequest   // mode (.textToImage / .imageToImage), prompt, steps, guidance
+GenerationResult    // image, seed, duration
 ```
 
 ## Dependencies
@@ -103,8 +115,15 @@ pipeline.unloadAllLoRAs()
 SwiftVinetas/
 ├── Sources/
 │   ├── SwiftVinetas/           # Library
-│   │   ├── Vinetas.swift       # Public API (static) + version
-│   │   ├── Core/               # StyleConfig, VinetasError, PanelOutput, Pipeline
+│   │   ├── Vinetas.swift       # VinetasClient (primary API) + deprecated Vinetas enum
+│   │   ├── Core/               # StyleConfig, VinetasError, PanelOutput, Pipeline, Memory
+│   │   ├── Engine/             # Engine abstraction layer (v0.5.0+)
+│   │   │   ├── ImageGenerationEngine.swift  # Protocol
+│   │   │   ├── ModelDescriptor.swift        # Protocol + ModelLicense
+│   │   │   ├── EngineTypes.swift            # GenerationRequest, GenerationResult, etc.
+│   │   │   ├── EngineRouter.swift           # Actor dispatcher
+│   │   │   ├── Flux2Engine.swift            # FLUX.2 conformance
+│   │   │   └── PixArtEngine.swift           # PixArt-Sigma stub
 │   │   ├── Character/          # Character pipeline, LoRA training
 │   │   └── Understanding/      # ViT-B/16, DINOv2, image preprocessing
 │   └── vinetas/                # CLI
@@ -114,7 +133,8 @@ SwiftVinetas/
 ├── docs/
 │   ├── LEARNING.md
 │   ├── ARCHITECTURE.md
-│   └── REQUIREMENTS_V1.md
+│   ├── REQUIREMENTS_V1.md
+│   └── ENGINE_ABSTRACTION_REQUIREMENTS.md
 └── .github/workflows/tests.yml
 ```
 

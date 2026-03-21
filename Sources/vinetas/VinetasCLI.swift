@@ -297,7 +297,7 @@ struct ListModels: AsyncParsableCommand {
   var json: Bool = false
 
   func run() async throws {
-    let models = try Vinetas.listModels()
+    let models = await Vinetas.listModels()
 
     if json {
       let isoFormatter = ISO8601DateFormatter()
@@ -368,7 +368,7 @@ struct Info: AsyncParsableCommand {
     print("Est. Time/Image:    ~\(vinetasModel.estimatedSecondsPerImage)s (M3/M4 Pro)")
 
     // Show cache status
-    let allModels = try Vinetas.listModels()
+    let allModels = await Vinetas.listModels()
     if let info = allModels.first(where: { $0.name == vinetasModel.huggingFaceRepo }) {
       let cacheStatus =
         info.isDownloaded
@@ -552,8 +552,8 @@ struct CharacterCommand: AsyncParsableCommand {
         if let steps = lora.trainingSteps {
           print("  Steps:    \(steps)")
         }
-        if let model = lora.model {
-          print("  Model:    \(model.rawValue)")
+        if !lora.compatibleEngines.isEmpty {
+          print("  Engines:  \(lora.compatibleEngines.joined(separator: ", "))")
         }
         if let trainedAt = lora.trainedAt {
           print("  Trained:  \(dateFormatter.string(from: trainedAt))")
