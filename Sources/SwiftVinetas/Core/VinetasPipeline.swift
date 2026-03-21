@@ -6,6 +6,7 @@ import Foundation
 /// model selection, memory validation, model loading, generation, and result return.
 ///
 /// Reports the loading strategy to stderr so callers can observe pipeline behavior.
+@available(*, deprecated, message: "Use Flux2Engine via EngineRouter instead")
 internal enum VinetasPipeline {
 
   // MARK: - Flux2Model Mapping
