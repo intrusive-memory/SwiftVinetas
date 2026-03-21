@@ -89,4 +89,92 @@ struct VinetasModelTests {
     let result = await Task { model }.value
     #expect(result == .klein4b)
   }
+
+  // MARK: - PixArt Sigma Case
+
+  @Test("PixArt Sigma raw value")
+  func pixartSigmaRawValue() {
+    #expect(VinetasModel.pixartSigma.rawValue == "pixart-sigma")
+  }
+
+  @Test("PixArt Sigma minimum memory is 8 GB")
+  func pixartSigmaMemory() {
+    #expect(VinetasModel.pixartSigma.minimumMemoryGB == 8)
+  }
+
+  @Test("PixArt Sigma estimated time is 10 seconds")
+  func pixartSigmaTime() {
+    #expect(VinetasModel.pixartSigma.estimatedSecondsPerImage == 10)
+  }
+
+  @Test("PixArt Sigma quantization is int4")
+  func pixartSigmaQuantization() {
+    #expect(VinetasModel.pixartSigma.quantization == "int4")
+  }
+
+  @Test("PixArt Sigma HuggingFace repo")
+  func pixartSigmaRepo() {
+    #expect(VinetasModel.pixartSigma.huggingFaceRepo == "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS")
+  }
+
+  @Test("PixArt Sigma init from raw value")
+  func pixartSigmaInitFromRawValue() {
+    #expect(VinetasModel(rawValue: "pixart-sigma") == .pixartSigma)
+  }
+
+  // MARK: - Descriptor Bridge
+
+  @Test("klein4b descriptor bridges to Flux2ModelDescriptor.klein4B")
+  func klein4bDescriptorBridge() {
+    let descriptor = VinetasModel.klein4b.descriptor
+    #expect(descriptor.id == "flux2-klein-4b")
+    #expect(descriptor.engineID == "flux2")
+  }
+
+  @Test("klein9b descriptor bridges to Flux2ModelDescriptor.klein9B")
+  func klein9bDescriptorBridge() {
+    let descriptor = VinetasModel.klein9b.descriptor
+    #expect(descriptor.id == "flux2-klein-9b")
+    #expect(descriptor.engineID == "flux2")
+  }
+
+  @Test("pixartSigma descriptor bridges to PixArtModelDescriptor.sigmaXL")
+  func pixartSigmaDescriptorBridge() {
+    let descriptor = VinetasModel.pixartSigma.descriptor
+    #expect(descriptor.id == "pixart-sigma-xl")
+    #expect(descriptor.engineID == "pixart-sigma")
+  }
+
+  @Test("All cases produce non-nil descriptors")
+  func allCasesHaveDescriptors() {
+    for model in VinetasModel.allCases {
+      let descriptor: any ModelDescriptor = model.descriptor
+      #expect(!descriptor.id.isEmpty)
+      #expect(!descriptor.engineID.isEmpty)
+    }
+  }
+
+  @Test("Descriptor minimumMemoryGB matches VinetasModel minimumMemoryGB for Klein 4B")
+  func klein4bDescriptorMemoryMatches() {
+    let descriptor = VinetasModel.klein4b.descriptor
+    #expect(descriptor.minimumMemoryGB == VinetasModel.klein4b.minimumMemoryGB)
+  }
+
+  @Test("Descriptor minimumMemoryGB matches VinetasModel minimumMemoryGB for Klein 9B")
+  func klein9bDescriptorMemoryMatches() {
+    let descriptor = VinetasModel.klein9b.descriptor
+    #expect(descriptor.minimumMemoryGB == VinetasModel.klein9b.minimumMemoryGB)
+  }
+
+  @Test("Descriptor estimatedSecondsPerImage matches VinetasModel for Klein 4B")
+  func klein4bDescriptorTimeMatches() {
+    let descriptor = VinetasModel.klein4b.descriptor
+    #expect(descriptor.estimatedSecondsPerImage == VinetasModel.klein4b.estimatedSecondsPerImage)
+  }
+
+  @Test("Descriptor estimatedSecondsPerImage matches VinetasModel for PixArt Sigma")
+  func pixartSigmaDescriptorTimeMatches() {
+    let descriptor = VinetasModel.pixartSigma.descriptor
+    #expect(descriptor.estimatedSecondsPerImage == VinetasModel.pixartSigma.estimatedSecondsPerImage)
+  }
 }
