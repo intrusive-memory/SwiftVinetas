@@ -81,7 +81,7 @@ struct CharacterTrainerMemoryTests {
   func insufficientMemoryFails() {
     let sevenGB: UInt64 = 7 * 1_073_741_824
     let result = CharacterTrainer.validateMemory(
-      for: .klein4b,
+      for: Flux2ModelDescriptor.klein4B,
       quantization: "nf4",
       availableMemoryBytes: sevenGB
     )
@@ -92,7 +92,7 @@ struct CharacterTrainerMemoryTests {
   func exactlyEightGBPasses() {
     let eightGB: UInt64 = 8 * 1_073_741_824
     let result = CharacterTrainer.validateMemory(
-      for: .klein4b,
+      for: Flux2ModelDescriptor.klein4B,
       quantization: "nf4",
       availableMemoryBytes: eightGB
     )
@@ -103,7 +103,7 @@ struct CharacterTrainerMemoryTests {
   func sixteenGBPasses() {
     let sixteenGB: UInt64 = 16 * 1_073_741_824
     let result = CharacterTrainer.validateMemory(
-      for: .klein4b,
+      for: Flux2ModelDescriptor.klein4B,
       quantization: "nf4",
       availableMemoryBytes: sixteenGB
     )
@@ -114,7 +114,7 @@ struct CharacterTrainerMemoryTests {
   func fourGBFails() {
     let fourGB: UInt64 = 4 * 1_073_741_824
     let result = CharacterTrainer.validateMemory(
-      for: .klein4b,
+      for: Flux2ModelDescriptor.klein4B,
       quantization: "nf4",
       availableMemoryBytes: fourGB
     )
@@ -124,7 +124,7 @@ struct CharacterTrainerMemoryTests {
   @Test("Systems with 0 GB fail memory validation")
   func zeroMemoryFails() {
     let result = CharacterTrainer.validateMemory(
-      for: .klein4b,
+      for: Flux2ModelDescriptor.klein4B,
       quantization: "nf4",
       availableMemoryBytes: 0
     )
@@ -137,14 +137,14 @@ struct CharacterTrainerMemoryTests {
     let eightGB: UInt64 = 8 * 1_073_741_824
     #expect(
       CharacterTrainer.validateMemory(
-        for: .klein9b,
+        for: Flux2ModelDescriptor.klein9B,
         quantization: "nf4",
         availableMemoryBytes: sevenGB
       ) == false
     )
     #expect(
       CharacterTrainer.validateMemory(
-        for: .klein9b,
+        for: Flux2ModelDescriptor.klein9B,
         quantization: "nf4",
         availableMemoryBytes: eightGB
       ) == true

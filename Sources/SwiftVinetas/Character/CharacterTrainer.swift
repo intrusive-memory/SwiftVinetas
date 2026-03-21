@@ -1,5 +1,4 @@
 import CoreGraphics
-import Flux2Core
 import Foundation
 
 // MARK: - TrainingConfig
@@ -90,7 +89,7 @@ public struct CharacterTrainer: Sendable {
   public func train(
     character: Character,
     config: TrainingConfig = TrainingConfig(),
-    model: VinetasModel = .klein4b,
+    model: any ModelDescriptor = VinetasClient.defaultModel,
     characterDirectory: URL,
     progress: ((Int, Int, Float) -> Void)? = nil
   ) async throws -> URL {
@@ -125,13 +124,40 @@ public struct CharacterTrainer: Sendable {
     // For now, we validate all inputs and throw a descriptive error since
     // the full pipeline integration (model download, sequential loading,
     // session management) is a higher-level orchestration concern.
+    //
+    // When training is implemented, the resulting LoRAMetadata should be
+    // tagged with:
+    //   compatibleEngines: [model.engineID]
+    // so that VinetasClient can check compatibility before loading the LoRA.
     _ = outputURL  // Will be the return value once training is implemented
     throw VinetasError.generationFailed(
       "LoRA training not yet available in Flux2Core pipeline integration. "
         + "Training would produce \(outputFilename) "
         + "with \(trainingPairs.count) training pairs, "
         + "rank \(config.rank), \(config.steps) steps, "
-        + "quantization \(config.quantization)."
+        + "quantization \(config.quantization), "
+        + "compatible with engine: \(model.engineID)."
+    )
+  }
+
+  /// Deprecated overload that accepts a ``VinetasModel`` instead of ``ModelDescriptor``.
+  ///
+  /// Use ``train(character:config:model:characterDirectory:progress:)`` with an
+  /// `any ModelDescriptor` (e.g., `VinetasClient.klein4B`) instead.
+  @available(*, deprecated, message: "Use train(character:config:model:characterDirectory:progress:) with any ModelDescriptor instead")
+  public func train(
+    character: Character,
+    config: TrainingConfig = TrainingConfig(),
+    model: VinetasModel,
+    characterDirectory: URL,
+    progress: ((Int, Int, Float) -> Void)? = nil
+  ) async throws -> URL {
+    try await train(
+      character: character,
+      config: config,
+      model: model.descriptor,
+      characterDirectory: characterDirectory,
+      progress: progress
     )
   }
 
@@ -144,11 +170,11 @@ public struct CharacterTrainer: Sendable {
   /// (compared to 16 GB for inference with int4).
   ///
   /// - Parameters:
-  ///   - model: The model to train against.
+  ///   - model: The model descriptor to train against.
   ///   - quantization: The quantization format (e.g., "nf4", "int4", "int8", "bf16").
   /// - Throws: `VinetasError.insufficientMemory` if the system has less than 8 GB.
   func validateMemory(
-    for model: VinetasModel,
+    for model: any ModelDescriptor,
     quantization: String
   ) throws {
     let systemMemoryBytes = VinetasMemory.systemMemoryBytes
@@ -168,12 +194,12 @@ public struct CharacterTrainer: Sendable {
   /// This overload exists for testing with arbitrary memory values.
   ///
   /// - Parameters:
-  ///   - model: The model to train against.
+  ///   - model: The model descriptor to train against.
   ///   - quantization: The quantization format.
   ///   - availableMemoryBytes: The available memory in bytes to check.
   /// - Returns: `true` if available memory is sufficient.
   static func validateMemory(
-    for model: VinetasModel,
+    for model: any ModelDescriptor,
     quantization: String,
     availableMemoryBytes: UInt64
   ) -> Bool {

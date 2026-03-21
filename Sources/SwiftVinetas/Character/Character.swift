@@ -20,8 +20,12 @@ public struct LoRAMetadata: Sendable {
   /// Number of training steps used to produce this LoRA.
   public var trainingSteps: Int?
 
-  /// The base model this LoRA was trained against.
-  public var model: VinetasModel?
+  /// The engine IDs this LoRA is compatible with (e.g., `["flux2"]`).
+  ///
+  /// Replaces the legacy `model: VinetasModel?` field. Old YAML files containing
+  /// `model: klein4b` or `model: klein9b` are migrated during deserialization to
+  /// `compatibleEngines: ["flux2"]`.
+  public var compatibleEngines: [String]
 
   public init(
     path: String,
@@ -29,14 +33,43 @@ public struct LoRAMetadata: Sendable {
     version: Int = 1,
     trainedAt: Date? = nil,
     trainingSteps: Int? = nil,
-    model: VinetasModel? = nil
+    compatibleEngines: [String] = []
   ) {
     self.path = path
     self.scale = scale
     self.version = version
     self.trainedAt = trainedAt
     self.trainingSteps = trainingSteps
-    self.model = model
+    self.compatibleEngines = compatibleEngines
+  }
+
+  /// Deprecated initializer that accepted a `VinetasModel?` field.
+  ///
+  /// Use ``init(path:scale:version:trainedAt:trainingSteps:compatibleEngines:)`` instead.
+  /// Migrates `klein4b`/`klein9b` to `compatibleEngines: ["flux2"]`.
+  @available(*, deprecated, message: "Use init(path:scale:version:trainedAt:trainingSteps:compatibleEngines:) instead")
+  public init(
+    path: String,
+    scale: Float = 0.8,
+    version: Int = 1,
+    trainedAt: Date? = nil,
+    trainingSteps: Int? = nil,
+    model: VinetasModel?
+  ) {
+    self.path = path
+    self.scale = scale
+    self.version = version
+    self.trainedAt = trainedAt
+    self.trainingSteps = trainingSteps
+    // Migrate model to compatibleEngines
+    switch model {
+    case .klein4b, .klein9b:
+      self.compatibleEngines = ["flux2"]
+    case .pixartSigma:
+      self.compatibleEngines = ["pixart-sigma"]
+    case nil:
+      self.compatibleEngines = []
+    }
   }
 }
 
@@ -166,8 +199,9 @@ extension Character {
       if let steps = lora.trainingSteps {
         lines.append("  training_steps: \(steps)")
       }
-      if let model = lora.model {
-        lines.append("  model: \(model.rawValue)")
+      if !lora.compatibleEngines.isEmpty {
+        let enginesYAML = lora.compatibleEngines.map { "    - \($0)" }.joined(separator: "\n")
+        lines.append("  compatible_engines:\n\(enginesYAML)")
       }
     }
 
@@ -221,16 +255,31 @@ extension Character {
         isoFormatter.date(from: $0)
       }
       let trainingSteps = loraNode["training_steps"]?.integer
-      let model: VinetasModel? = loraNode["model"]?.string.flatMap {
-        VinetasModel(rawValue: $0)
+
+      // Migrate legacy `model` field: klein4b/klein9b → compatibleEngines: ["flux2"]
+      // New files write `compatible_engines` and never write `model`.
+      var compatibleEngines: [String]
+      if let enginesArray = loraNode["compatible_engines"]?.array {
+        compatibleEngines = enginesArray.compactMap { $0.string }
+      } else if let legacyModel = loraNode["model"]?.string {
+        // Legacy migration: any klein* model maps to "flux2"
+        switch legacyModel {
+        case "klein4b", "klein9b":
+          compatibleEngines = ["flux2"]
+        default:
+          compatibleEngines = []
+        }
+      } else {
+        compatibleEngines = []
       }
+
       lora = LoRAMetadata(
         path: path,
         scale: scale,
         version: version,
         trainedAt: trainedAt,
         trainingSteps: trainingSteps,
-        model: model
+        compatibleEngines: compatibleEngines
       )
     } else {
       lora = nil
