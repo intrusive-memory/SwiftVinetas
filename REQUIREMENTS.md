@@ -230,7 +230,7 @@ if DeviceCapability.current.totalMemoryGB >= 16 {
 }
 ```
 
-**Note**: `DeviceCapability.current` is the synchronous accessor (see SwiftTubería §R5.3, §R16.3). Use it for engine registration decisions — no actor hop or `await` needed.
+**Note**: `DeviceCapability.current` is the synchronous accessor (see SwiftTubería `requirements/INFRASTRUCTURE.md` § Device Capability Detection). Use it for engine registration decisions — no actor hop or `await` needed.
 
 ---
 
