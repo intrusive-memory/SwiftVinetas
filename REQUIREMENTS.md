@@ -1,8 +1,8 @@
 # SwiftVinetas — Requirements (SwiftTubería Integration)
 
 **Status**: DRAFT — debate and refine before implementation.
-**Parent project**: [`PROJECT_PIPELINE.md`](../PROJECT_PIPELINE.md) — Unified MLX Inference Architecture (§6. SwiftVinetas, Wave 5.1–5.4)
-**Scope**: How SwiftVinetas's engine abstraction evolves to sit atop SwiftTubería's composed pipelines, and what stays in Vinetas as domain-specific orchestration.
+**Parent project**: [`PROJECT_PIPELINE.md`](../PROJECT_PIPELINE.md) — Unified MLX Inference Architecture (§5. SwiftVinetas, Wave 4.1–4.2)
+**Scope**: How SwiftVinetas's PixArtEngine evolves to sit atop SwiftTubería's composed pipeline, while Flux2Engine remains unchanged wrapping Flux2Pipeline directly.
 **Supersedes**: `docs/archive/REQUIREMENTS_V1.md` (v1 requirements, complete)
 **Related**: `docs/incomplete/EXECUTION_PLAN.md` (in-progress execution plan for prior architecture)
 
@@ -18,11 +18,11 @@ With SwiftTubería, the layer below the engine becomes uniform. Every engine wra
 
 | Concern | Changes | Stays In Vinetas |
 |---|---|---|
-| Flux2Engine internals | Wraps `DiffusionPipeline` instead of `Flux2Pipeline` directly | Engine protocol conformance |
 | PixArtEngine internals | Wraps `DiffusionPipeline` instead of being a stub | Engine protocol conformance |
-| Model loading/downloading | Delegates to SwiftAcervo Component Registry via pipeline | ModelDescriptor declarations |
-| Memory validation | Delegates to pipeline's MemoryManager | `validateMemory()` API shape |
-| Generation orchestration | Delegates to pipeline's `generate()` | Prompt composition logic |
+| PixArt model loading/downloading | Delegates to SwiftAcervo Component Registry via pipeline | ModelDescriptor declarations |
+| PixArt memory validation | Delegates to pipeline's MemoryManager | `validateMemory()` API shape |
+| PixArt generation orchestration | Delegates to pipeline's `generate()` | Prompt composition logic |
+| Flux2Engine internals | **Unchanged** — continues wrapping `Flux2Pipeline` directly | **Stays** |
 | VinetasClient (public API) | Unchanged | **Stays** |
 | EngineRouter | Simplified (less state to manage) | **Stays** |
 | ImageGenerationEngine protocol | Potentially simplified | **Stays** (or evolves) |
@@ -36,9 +36,9 @@ With SwiftTubería, the layer below the engine becomes uniform. Every engine wra
 
 ## S1. Engine Layer Evolution
 
-### S1.1 Current Engine Implementation (Flux2Engine)
+### S1.1 Flux2Engine (Unchanged)
 
-Today, `Flux2Engine` is an actor that:
+`Flux2Engine` remains unchanged. It continues to be an actor that:
 1. Manages a `Flux2Pipeline?` instance
 2. Translates `GenerationRequest` → Flux2Pipeline method calls
 3. Translates `Flux2GenerationResult` → `GenerationResult`
@@ -46,25 +46,14 @@ Today, `Flux2Engine` is an actor that:
 5. Handles LoRA loading via Flux2Pipeline's API
 6. Queries download status via Flux2Pipeline's model management
 
-This is ~200 lines of translation code, much of it mapping between two sets of types that represent the same concepts.
+FLUX.2 migration to SwiftTubería is deferred. The existing Flux2Engine and its direct Flux2Pipeline dependency stay as-is.
 
-### S1.2 Target Engine Implementation
-
-With SwiftTubería, `Flux2Engine` becomes:
-
-1. **Assemble the pipeline** — Select the FLUX recipe (Klein 4B, Klein 9B, or Dev) and construct a `DiffusionPipeline`
-2. **Translate request** — Map `GenerationRequest` → pipeline request (prompt, dimensions, seed, steps, guidance)
-3. **Translate result** — Map pipeline result → `GenerationResult` (image, seed, duration, modelID)
-4. **Delegate everything else** — `loadModel()`, `download()`, `validateMemory()`, `isAvailable()` all pass through to the pipeline
-
-This should be ~50 lines per engine. The engine is glue, not logic.
-
-### S1.3 PixArtEngine Comes Alive
+### S1.2 PixArtEngine Comes Alive
 
 The PixArtEngine stub (`#if canImport(PixArtCore)`) is replaced with a real implementation that:
 1. Imports `PixArtBackbone` and `Tubería`
 2. Assembles a `DiffusionPipeline` using the PixArt recipe
-3. Same thin adapter pattern as Flux2Engine
+3. Thin adapter (~50 lines) between `ImageGenerationEngine` protocol and the assembled pipeline
 
 **PixArt becomes the iPad engine.** `EngineRouter` registers only `PixArtEngine` on iPad (where FLUX can't fit in memory) and both engines on macOS. This is the gate that makes SwiftVinetas a macOS + iPad library.
 
@@ -72,7 +61,7 @@ The PixArtEngine stub (`#if canImport(PixArtCore)`) is replaced with a real impl
 
 ## S2. ImageGenerationEngine Protocol
 
-The current protocol is well-designed and largely survives. Consider simplifying methods that are now redundant with pipeline delegation:
+The current protocol is well-designed and largely survives. For PixArtEngine, methods simplify through pipeline delegation. Flux2Engine continues using its current implementation for all methods.
 
 ### S2.1 Methods That Simplify
 
@@ -107,8 +96,8 @@ With the pipeline architecture, engines can expose capabilities that were previo
 
 Unchanged. Each engine declares its model descriptors:
 
-- `Flux2ModelDescriptor.klein4B`, `.klein9B`
-- `PixArtModelDescriptor.sigmaXL`
+- `Flux2ModelDescriptor.klein4B`, `.klein9B` (unchanged — no `componentIds`, uses existing download path)
+- `PixArtModelDescriptor.sigmaXL` (new — uses `componentIds` for Acervo integration)
 - Future: video model descriptors, audio model descriptors
 
 The descriptor declares the model's memory requirements, download size, default generation parameters, and supported aspect ratios. This is engine-level metadata, not pipeline-level — it stays in Vinetas.
@@ -135,7 +124,9 @@ public protocol ModelDescriptor: Sendable, Identifiable where ID == String {
 }
 ```
 
-Example: `Flux2ModelDescriptor.klein4B.componentIds` → `["flux2-klein-4b-dit-int4", "qwen3-4b-encoder", "flux2-vae-decoder-fp16"]`. This is distinct from `ModelDescriptor.id` (which identifies the user-facing model, e.g., `"flux2-klein-4b"`). The two ID spaces serve different layers and are intentionally kept separate.
+Example: `PixArtModelDescriptor.sigmaXL.componentIds` → `["pixart-sigma-xl-dit-int4", "t5-xxl-encoder-int4", "sdxl-vae-decoder-fp16"]`. This is distinct from `ModelDescriptor.id` (which identifies the user-facing model, e.g., `"pixart-sigma-xl"`). The two ID spaces serve different layers and are intentionally kept separate.
+
+`Flux2ModelDescriptor` does NOT adopt `componentIds` — it continues using its existing download and availability logic through `Flux2Pipeline`.
 
 ---
 
@@ -168,9 +159,9 @@ The engine passes the composed string to the pipeline. The pipeline's TextEncode
 
 ---
 
-## S5.1 Request Translation
+## S5.1 Request Translation (PixArtEngine)
 
-Engines translate SwiftVinetas's `GenerationRequest` into SwiftTubería's `DiffusionGenerationRequest`. The field mapping is:
+PixArtEngine translates SwiftVinetas's `GenerationRequest` into SwiftTubería's `DiffusionGenerationRequest`. Flux2Engine continues using its existing request translation to `Flux2Pipeline`. The field mapping for PixArtEngine is:
 
 | GenerationRequest (Vinetas) | DiffusionGenerationRequest (Tubería) | Notes |
 |---|---|---|
@@ -202,13 +193,13 @@ SwiftVinetas
 SwiftVinetas
 ├── SwiftTubería/Tubería (pipeline protocols + infrastructure)
 ├── SwiftTubería/TuberíaCatalog (shared components, if needed directly)
-├── flux-2-swift-mlx/Flux2Backbone (FLUX recipe + backbone)
+├── flux-2-swift-mlx (unchanged — full library, wraps Flux2Pipeline directly)
 ├── pixart-swift-mlx/PixArtBackbone (PixArt recipe + backbone)
 ├── universal (YAML parsing — unchanged)
 └── swift-argument-parser (CLI — unchanged)
 ```
 
-SwiftAcervo arrives transitively via SwiftTubería. Model downloads and availability checks flow through Acervo's Component Registry. The direct dependency on flux-2-swift-mlx narrows from the full library to just the backbone/recipe target.
+SwiftAcervo arrives transitively via SwiftTubería. PixArt model downloads and availability checks flow through Acervo's Component Registry. The flux-2-swift-mlx dependency is unchanged — Flux2Engine continues wrapping `Flux2Pipeline` directly.
 
 ---
 
@@ -278,11 +269,9 @@ The engine layer in Vinetas (or a sibling package) handles the domain-specific o
 
 2. **Phase 2 — Implement PixArtEngine**: First engine to use SwiftTubería natively (no legacy code to migrate). Proves the integration pattern.
 
-3. **Phase 3 — Migrate Flux2Engine**: Switch from wrapping `Flux2Pipeline` to wrapping `DiffusionPipeline` with FLUX recipe. Verify behavioral parity.
+3. **Phase 3 — iPad deployment**: With PixArtEngine working, enable iPadOS target. Platform-conditional engine registration.
 
-4. **Phase 4 — Drop legacy dependencies**: Remove direct `Flux2Pipeline` usage. Narrow flux-2-swift-mlx dependency to `Flux2Backbone` only.
-
-5. **Phase 5 — iPad deployment**: With PixArtEngine working, enable iPadOS target. Platform-conditional engine registration.
+Flux2Engine remains unchanged throughout. FLUX.2 migration to SwiftTubería is deferred.
 
 ---
 
@@ -297,17 +286,19 @@ The engine layer in Vinetas (or a sibling package) handles the domain-specific o
 - EngineRouter dispatch logic
 
 ### S10.2 Tests That Change
-- Flux2Engine tests — verify delegation to DiffusionPipeline instead of Flux2Pipeline
 - PixArtEngine tests — replace stub tests with real integration tests
-- Model download tests — verify Acervo Component Registry delegation
+- Model download tests — verify Acervo Component Registry delegation for PixArt models
 
 ### S10.3 New Tests
-- Pipeline assembly: verify PixArt and FLUX recipes produce valid pipelines
-- Engine-pipeline integration: verify GenerationRequest → pipeline request mapping preserves all parameters
+- Pipeline assembly: verify PixArt recipe produces valid pipeline
+- Engine-pipeline integration: verify GenerationRequest → pipeline request mapping preserves all parameters (PixArtEngine)
 - Platform-conditional registration: verify iPad gets only PixArtEngine
 - Cross-engine model listing: verify `listModels()` returns both engine catalogs
 
-### S10.4 Coverage and CI Stability Requirements
+### S10.4 Tests That Stay Unchanged
+- Flux2Engine tests — Flux2Engine is not modified, existing tests remain as-is
+
+### S10.5 Coverage and CI Stability Requirements
 
 - All new code must achieve **≥90% line coverage** in unit tests. Coverage is measured per-target and enforced in CI.
 - **No timed tests**: Tests must not use `sleep()`, `Task.sleep()`, `Thread.sleep()`, fixed-duration `XCTestExpectation` timeouts, or any wall-clock assertions. All asynchronous behavior must be validated via deterministic synchronization (`async`/`await`, `AsyncStream`, fulfilled expectations with immediate triggers).
