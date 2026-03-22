@@ -102,7 +102,7 @@ Unchanged. Each engine declares its model descriptors:
 
 The descriptor declares the model's memory requirements, download size, default generation parameters, and supported aspect ratios. This is engine-level metadata, not pipeline-level — it stays in Vinetas.
 
-**Bridge to Acervo**: `ModelDescriptor` gains `componentIds: [String]` to connect the consumer-facing model concept to Acervo's component-level download/access system:
+**Bridge to Acervo**: `ModelDescriptor` gains `componentIds: [String]` with a **default empty implementation** to connect the consumer-facing model concept to Acervo's component-level download/access system:
 
 ```swift
 public protocol ModelDescriptor: Sendable, Identifiable where ID == String {
@@ -120,13 +120,20 @@ public protocol ModelDescriptor: Sendable, Identifiable where ID == String {
     /// Supported aspect ratios for this model.
     var supportedAspectRatios: [AspectRatio] { get }
     /// Acervo component IDs needed for this model's pipeline.
+    /// Default: empty array (for engines that manage downloads outside Acervo).
     var componentIds: [String] { get }
+}
+
+extension ModelDescriptor {
+    /// Default implementation — returns empty array for engines (like Flux2Engine)
+    /// that manage their own download/availability logic outside the Acervo component system.
+    public var componentIds: [String] { [] }
 }
 ```
 
 Example: `PixArtModelDescriptor.sigmaXL.componentIds` → `["pixart-sigma-xl-dit-int4", "t5-xxl-encoder-int4", "sdxl-vae-decoder-fp16"]`. This is distinct from `ModelDescriptor.id` (which identifies the user-facing model, e.g., `"pixart-sigma-xl"`). The two ID spaces serve different layers and are intentionally kept separate.
 
-`Flux2ModelDescriptor` does NOT adopt `componentIds` — it continues using its existing download and availability logic through `Flux2Pipeline`.
+`Flux2ModelDescriptor` relies on the default empty `componentIds` — it continues using its existing download and availability logic through `Flux2Pipeline`.
 
 ---
 
@@ -213,24 +220,17 @@ Only PixArtEngine registered (FLUX requires 16+ GB, no iPad qualifies). PixArt's
 
 ### S7.3 Engine Registration
 
-```swift
-// In VinetasClient.init()
-#if os(macOS)
-let engines: [any ImageGenerationEngine] = [Flux2Engine(), PixArtEngine()]
-#else
-let engines: [any ImageGenerationEngine] = [PixArtEngine()]
-#endif
-```
+Use **runtime detection** based on device memory. This is preferred over `#if os()` because it correctly handles macOS machines with limited memory (e.g., 8 GB MacBook Air should not register Flux2Engine).
 
-Or dynamically based on `MemoryManager.deviceCapability`:
 ```swift
+// In VinetasClient.init() — synchronous, no await needed
 var engines: [any ImageGenerationEngine] = [PixArtEngine()]
-if MemoryManager.shared.deviceCapability.totalMemoryGB >= 16 {
+if DeviceCapability.current.totalMemoryGB >= 16 {
     engines.append(Flux2Engine())
 }
 ```
 
-**Note**: `DeviceCapability.current` is the synchronous accessor (no `await` needed). Use it for engine registration decisions. `MemoryManager.shared.deviceCapability` provides the same value but requires `await` through the actor. For synchronous init contexts like `VinetasClient.init()`, use `DeviceCapability.current.totalMemoryGB` directly.
+**Note**: `DeviceCapability.current` is the synchronous accessor (see SwiftTubería §R5.3, §R16.3). Use it for engine registration decisions — no actor hop or `await` needed.
 
 ---
 
