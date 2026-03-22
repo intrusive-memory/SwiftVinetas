@@ -116,9 +116,22 @@ The descriptor declares the model's memory requirements, download size, default 
 **Bridge to Acervo**: `ModelDescriptor` gains `componentIds: [String]` to connect the consumer-facing model concept to Acervo's component-level download/access system:
 
 ```swift
-public protocol ModelDescriptor {
-    // ... existing ...
-    var componentIds: [String] { get }  // Acervo component IDs needed for this model
+public protocol ModelDescriptor: Sendable, Identifiable where ID == String {
+    /// Unique model identifier (e.g., "flux2-klein-4b"). Consumer-facing, distinct from Acervo component IDs.
+    var id: String { get }
+    /// Display name for UI (e.g., "FLUX.2 Klein 4B").
+    var displayName: String { get }
+    /// Minimum RAM required to load this model (bytes).
+    var minimumMemoryBytes: UInt64 { get }
+    /// Total download size across all components (bytes).
+    var downloadSizeBytes: UInt64 { get }
+    /// Default generation parameters for this model.
+    var defaultSteps: Int { get }
+    var defaultGuidanceScale: Float { get }
+    /// Supported aspect ratios for this model.
+    var supportedAspectRatios: [AspectRatio] { get }
+    /// Acervo component IDs needed for this model's pipeline.
+    var componentIds: [String] { get }
 }
 ```
 
@@ -152,6 +165,24 @@ triggerWord (from LoRA) + stylePrompt (from StyleConfig) + panelPrompt (from use
 ```
 
 The engine passes the composed string to the pipeline. The pipeline's TextEncoder tokenizes and encodes it. Neither the pipeline nor the encoder knows about styles, characters, or panels — that's Vinetas's domain.
+
+---
+
+## S5.1 Request Translation
+
+Engines translate SwiftVinetas's `GenerationRequest` into SwiftTubería's `DiffusionGenerationRequest`. The field mapping is:
+
+| GenerationRequest (Vinetas) | DiffusionGenerationRequest (Tubería) | Notes |
+|---|---|---|
+| `prompt` (composed string) | `prompt` | After style + trigger word composition |
+| `negativePrompt` | `negativePrompt` | Pass-through, nil if model doesn't use CFG |
+| `width`, `height` | `width`, `height` | From `AspectRatio` resolution |
+| `steps` | `steps` | From model defaults or user override |
+| `guidanceScale` | `guidanceScale` | From model defaults or user override |
+| `seed` | `seed` | Pass-through |
+| `loRAPath` + `loRAScale` | `loRA: LoRAConfig(localPath:scale:activationKeyword:)` | Engine maps path + scale to LoRAConfig |
+
+Fields NOT in DiffusionGenerationRequest that stay in Vinetas: `style`, `model`, `aspectRatio`, `characters`. These are consumed during prompt composition before the request reaches the pipeline.
 
 ---
 
@@ -207,6 +238,8 @@ if MemoryManager.shared.deviceCapability.totalMemoryGB >= 16 {
     engines.append(Flux2Engine())
 }
 ```
+
+**Note**: `DeviceCapability.current` is the synchronous accessor (no `await` needed). Use it for engine registration decisions. `MemoryManager.shared.deviceCapability` provides the same value but requires `await` through the actor. For synchronous init contexts like `VinetasClient.init()`, use `DeviceCapability.current.totalMemoryGB` directly.
 
 ---
 
