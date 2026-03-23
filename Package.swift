@@ -25,13 +25,13 @@ let package = Package(
         .package(url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", branch: "development"),
 
         // Shared model management (download, cache, discovery)
-        .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", branch: "main"),
+        .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", branch: "development"),
 
         // Componentized diffusion pipeline (protocols + infrastructure)
-        .package(path: "../SwiftTubería"),
+        .package(url: "https://github.com/intrusive-memory/SwiftTuberia.git", branch: "development"),
 
         // PixArt-Sigma model plugin (DiT backbone + recipe)
-        .package(path: "../pixart-swift-mlx"),
+        .package(url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", branch: "development"),
 
         // YAML/JSON prompt file parsing (zero dependencies)
         .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
@@ -47,8 +47,8 @@ let package = Package(
                 .product(name: "Flux2Core", package: "flux-2-swift-mlx"),
                 .product(name: "FluxTextEncoders", package: "flux-2-swift-mlx"),
                 .product(name: "SwiftAcervo", package: "SwiftAcervo"),
-                .product(name: "Tuberia", package: "SwiftTubería"),
-                .product(name: "TuberiaCatalog", package: "SwiftTubería"),
+                .product(name: "Tuberia", package: "SwiftTuberia"),
+                .product(name: "TuberiaCatalog", package: "SwiftTuberia"),
                 .product(name: "PixArtBackbone", package: "pixart-swift-mlx"),
                 .product(name: "YAML", package: "universal"),
                 .product(name: "JSON", package: "universal"),
