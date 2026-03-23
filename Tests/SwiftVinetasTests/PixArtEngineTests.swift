@@ -167,10 +167,35 @@ struct PixArtEngineTests {
         // nil is also acceptable (components not on disk)
     }
 
-    // MARK: - Stub Behavior: generate throws
+    // MARK: - componentIds
 
-    @Test("PixArtEngine generate throws generationFailed (stub)")
-    func generateThrows() async throws {
+    @Test("sigmaXL componentIds is non-empty")
+    func sigmaXLComponentIdsNonEmpty() {
+        #expect(!PixArtModelDescriptor.sigmaXL.componentIds.isEmpty)
+    }
+
+    @Test("sigmaXL componentIds contains T5-XXL encoder component")
+    func sigmaXLComponentIdsContainsEncoder() {
+        let ids = PixArtModelDescriptor.sigmaXL.componentIds
+        #expect(ids.contains { $0.contains("t5") })
+    }
+
+    @Test("sigmaXL componentIds contains DiT backbone component")
+    func sigmaXLComponentIdsContainsDiT() {
+        let ids = PixArtModelDescriptor.sigmaXL.componentIds
+        #expect(ids.contains { $0.contains("pixart") || $0.contains("dit") })
+    }
+
+    @Test("sigmaXL componentIds contains VAE decoder component")
+    func sigmaXLComponentIdsContainsVAE() {
+        let ids = PixArtModelDescriptor.sigmaXL.componentIds
+        #expect(ids.contains { $0.contains("vae") })
+    }
+
+    // MARK: - Generate without loaded model
+
+    @Test("PixArtEngine generate throws when no model is loaded")
+    func generateThrowsWhenNoModelLoaded() async throws {
         let engine = PixArtEngine()
         let request = GenerationRequest(
             prompt: "test",
@@ -186,10 +211,32 @@ struct PixArtEngineTests {
         }
     }
 
-    // MARK: - Stub Behavior: download throws
+    @Test("PixArtEngine generate throws engineFeatureUnsupported for imageToImage")
+    func generateThrowsForImageToImage() async throws {
+        // imageToImage throws engineFeatureUnsupported regardless of load state
+        // because the mode check happens before the pipeline guard.
+        let engine = PixArtEngine()
+        let request = GenerationRequest(
+            prompt: "test",
+            steps: 20,
+            guidanceScale: 4.5,
+            width: 1024,
+            height: 1024,
+            mode: .imageToImage(references: [])
+        )
 
-    @Test("PixArtEngine download throws downloadFailed (stub)")
-    func downloadThrows() async throws {
+        await #expect(throws: VinetasError.self) {
+            try await engine.generate(request: request, stepProgress: nil)
+        }
+    }
+
+    // MARK: - Download behavior
+
+    @Test("PixArtEngine download throws when components are not registered")
+    func downloadThrowsWhenComponentsNotRegistered() async throws {
+        // In the test environment, model weights are not present.
+        // The real implementation throws downloadFailed when components
+        // cannot be resolved or downloaded.
         let engine = PixArtEngine()
 
         await #expect(throws: VinetasError.self) {
@@ -197,10 +244,12 @@ struct PixArtEngineTests {
         }
     }
 
-    // MARK: - Stub Behavior: loadModel throws
+    // MARK: - loadModel behavior
 
-    @Test("PixArtEngine loadModel throws generationFailed (stub)")
-    func loadModelThrows() async throws {
+    @Test("PixArtEngine loadModel throws when weights are absent")
+    func loadModelThrowsWhenWeightsAbsent() async throws {
+        // The real pipeline assembly or weight loading will fail in the test
+        // environment where no model weights are present on disk.
         let engine = PixArtEngine()
 
         await #expect(throws: VinetasError.self) {
@@ -208,10 +257,23 @@ struct PixArtEngineTests {
         }
     }
 
-    // MARK: - Stub Behavior: loadLoRA throws
+    @Test("PixArtEngine loadModel throws modelNotSupported for wrong engineID")
+    func loadModelThrowsModelNotSupported() async throws {
+        let engine = PixArtEngine()
+        let foreignModel = MockModelDescriptor(
+            id: "foreign-model",
+            engineID: "some-other-engine"
+        )
 
-    @Test("PixArtEngine loadLoRA throws generationFailed (stub)")
-    func loadLoRAThrows() async throws {
+        await #expect(throws: VinetasError.self) {
+            try await engine.loadModel(foreignModel) { _ in }
+        }
+    }
+
+    // MARK: - loadLoRA behavior
+
+    @Test("PixArtEngine loadLoRA throws when no model is loaded")
+    func loadLoRAThrowsWhenNoModelLoaded() async throws {
         let engine = PixArtEngine()
         let path = URL(fileURLWithPath: "/tmp/fake.safetensors")
 
@@ -222,24 +284,37 @@ struct PixArtEngineTests {
 
     // MARK: - Delete behavior
 
-    @Test("PixArtEngine delete does not throw for unloaded model")
+    @Test("PixArtEngine delete does not throw for undownloaded model")
     func deleteDoesNotThrowWhenNotDownloaded() async throws {
         let engine = PixArtEngine()
         // The real implementation iterates componentIds and silently skips
-        // components that are not registered. No throw is expected.
+        // components that are not present on disk. No throw is expected.
         try await engine.delete(PixArtModelDescriptor.sigmaXL)
     }
 
-    // MARK: - Stub Behavior: unload is no-op
+    @Test("PixArtEngine delete throws modelNotSupported for wrong engineID")
+    func deleteThrowsForWrongEngine() async throws {
+        let engine = PixArtEngine()
+        let foreignModel = MockModelDescriptor(
+            id: "foreign-model",
+            engineID: "some-other-engine"
+        )
 
-    @Test("PixArtEngine unloadModel does not throw (stub)")
+        await #expect(throws: VinetasError.self) {
+            try await engine.delete(foreignModel)
+        }
+    }
+
+    // MARK: - Unload behavior
+
+    @Test("PixArtEngine unloadModel is a no-op when nothing is loaded")
     func unloadModelNoOp() async throws {
         let engine = PixArtEngine()
         // Should not throw
         await engine.unloadModel()
     }
 
-    @Test("PixArtEngine unloadLoRA does not throw (stub)")
+    @Test("PixArtEngine unloadLoRA is a no-op when no LoRA is active")
     func unloadLoRANoOp() async throws {
         let engine = PixArtEngine()
         // Should not throw
