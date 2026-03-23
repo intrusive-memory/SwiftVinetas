@@ -27,6 +27,12 @@ let package = Package(
         // Shared model management (download, cache, discovery)
         .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", branch: "main"),
 
+        // Componentized diffusion pipeline (protocols + infrastructure)
+        .package(path: "../SwiftTubería"),
+
+        // PixArt-Sigma model plugin (DiT backbone + recipe)
+        .package(path: "../pixart-swift-mlx"),
+
         // YAML/JSON prompt file parsing (zero dependencies)
         .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
 
@@ -41,6 +47,9 @@ let package = Package(
                 .product(name: "Flux2Core", package: "flux-2-swift-mlx"),
                 .product(name: "FluxTextEncoders", package: "flux-2-swift-mlx"),
                 .product(name: "SwiftAcervo", package: "SwiftAcervo"),
+                .product(name: "Tuberia", package: "SwiftTubería"),
+                .product(name: "TuberiaCatalog", package: "SwiftTubería"),
+                .product(name: "PixArtBackbone", package: "pixart-swift-mlx"),
                 .product(name: "YAML", package: "universal"),
                 .product(name: "JSON", package: "universal"),
             ]

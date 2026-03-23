@@ -1,4 +1,8 @@
 import Foundation
+import Tuberia
+import TuberiaCatalog
+import PixArtBackbone
+import SwiftAcervo
 
 // MARK: - PixArtModelDescriptor
 
@@ -15,6 +19,14 @@ public struct PixArtModelDescriptor: ModelDescriptor {
     public let defaultGuidance: Float
     public let supportedAspectRatios: [AspectRatio]
     public let estimatedSecondsPerImage: Int
+
+    /// Acervo component IDs for this model's downloadable weights.
+    ///
+    /// Sourced from ``PixArtRecipe/allComponentIds``:
+    /// - "t5-xxl-encoder-int4" — T5-XXL text encoder (~1.2 GB int4)
+    /// - "pixart-sigma-xl-dit-int4" — PixArt-Sigma XL DiT backbone (~300 MB int4)
+    /// - "sdxl-vae-decoder-fp16" — SDXL VAE decoder (~160 MB fp16)
+    public let componentIds: [String]
 
     /// PixArt-Sigma XL-2-1024.
     ///
@@ -36,28 +48,63 @@ public struct PixArtModelDescriptor: ModelDescriptor {
         defaultSteps: 20,
         defaultGuidance: 4.5,
         supportedAspectRatios: AspectRatio.allCases,
-        estimatedSecondsPerImage: 10
+        estimatedSecondsPerImage: 10,
+        componentIds: PixArtRecipe().allComponentIds
     )
 }
 
+// MARK: - PixArtPipeline Type Alias
+
+/// The concrete DiffusionPipeline type for PixArt-Sigma.
+///
+/// Assembled from PixArtRecipe's associated types:
+///   T5XXLEncoder → DPMSolverScheduler → PixArtDiT → SDXLVAEDecoder → ImageRenderer
+private typealias PixArtPipeline = DiffusionPipeline<
+    T5XXLEncoder,
+    DPMSolverScheduler,
+    PixArtDiT,
+    SDXLVAEDecoder,
+    ImageRenderer
+>
+
 // MARK: - PixArtEngine
 
-#if canImport(PixArtCore)
-import PixArtCore
-
-/// An ``ImageGenerationEngine`` conformance that wraps the PixArt-Sigma pipeline
-/// from the `PixArtCore` module.
+/// An ``ImageGenerationEngine`` that wraps the PixArt-Sigma diffusion pipeline.
 ///
-/// When `PixArtCore` is available, this actor delegates all operations to the
-/// real PixArt inference pipeline. When `PixArtCore` is not importable, a stub
-/// actor replaces this implementation — see the `#else` branch below.
+/// Assembles a ``DiffusionPipeline`` from ``PixArtRecipe`` and delegates all
+/// lifecycle, generation, and LoRA operations to it. Download and availability
+/// queries use Acervo component IDs from ``PixArtModelDescriptor/componentIds``.
+///
+/// Component registration (``PixArtComponents/registered``) is triggered during
+/// `loadModel` to ensure weights are discoverable before loading begins.
 public actor PixArtEngine: ImageGenerationEngine {
 
+    // MARK: - Identity
+
     public let engineID = "pixart-sigma"
+
+    // MARK: - Model Catalog
 
     public nonisolated var supportedModels: [any ModelDescriptor] {
         [PixArtModelDescriptor.sigmaXL]
     }
+
+    // MARK: - Internal State
+
+    /// The assembled DiffusionPipeline, present only when a model is loaded.
+    private var pipeline: PixArtPipeline?
+
+    /// The model descriptor currently loaded into the pipeline.
+    private var loadedModelID: String?
+
+    /// The LoRA config currently active, if any.
+    private var activeLoRAConfig: LoRAConfig?
+
+    // MARK: - Init
+
+    public init() {}
+
+    // MARK: - Capabilities
 
     public nonisolated func supports(_ feature: EngineFeature) -> Bool {
         switch feature {
@@ -70,152 +117,293 @@ public actor PixArtEngine: ImageGenerationEngine {
         }
     }
 
-    public nonisolated func isAvailable(_ model: any ModelDescriptor) -> Bool {
-        // Delegate to PixArtCore model registry when available.
-        // PixArtCore integration is stubbed until the package ships.
-        return false
-    }
-
-    public nonisolated func validateMemory(for model: any ModelDescriptor) -> MemoryValidation {
-        // PixArtCore integration is stubbed until the package ships.
-        return .insufficient(required: 0, available: 0)
-    }
-
-    public nonisolated func diskSize(of model: any ModelDescriptor) -> Int64? {
-        return nil
-    }
+    // MARK: - Lifecycle
 
     public func loadModel(
         _ model: any ModelDescriptor,
         progress: @Sendable (LoadProgress) -> Void
     ) async throws {
-        throw VinetasError.generationFailed("PixArtCore integration is not yet implemented.")
+        guard model.engineID == engineID || model.id == PixArtModelDescriptor.sigmaXL.id else {
+            throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
+        }
+
+        // If the same model is already loaded, skip
+        if loadedModelID == model.id, pipeline != nil {
+            progress(LoadProgress(phase: "Already loaded", fraction: 1.0))
+            return
+        }
+
+        // Unload any existing pipeline first
+        await unloadModel()
+
+        // Ensure PixArt components are registered with CatalogRegistration
+        _ = PixArtComponents.registered
+
+        progress(LoadProgress(phase: "Assembling pipeline", fraction: 0.0))
+
+        let newPipeline: PixArtPipeline
+        do {
+            newPipeline = try PixArtPipeline(recipe: PixArtRecipe())
+        } catch {
+            throw VinetasError.generationFailed(
+                "Failed to assemble PixArt pipeline: \(error.localizedDescription)"
+            )
+        }
+
+        progress(LoadProgress(phase: "Loading model weights", fraction: 0.1))
+
+        do {
+            try await newPipeline.loadModels { fraction, component in
+                let mapped = 0.1 + fraction * 0.9
+                progress(LoadProgress(phase: component, fraction: mapped))
+            }
+        } catch {
+            throw VinetasError.generationFailed(
+                "Failed to load PixArt model weights: \(error.localizedDescription)"
+            )
+        }
+
+        self.pipeline = newPipeline
+        self.loadedModelID = model.id
+        progress(LoadProgress(phase: "Ready", fraction: 1.0))
     }
 
     public func unloadModel() async {
-        // No-op until PixArtCore integration is implemented.
+        if let pipeline = pipeline {
+            await pipeline.unloadModels()
+        }
+        pipeline = nil
+        loadedModelID = nil
+        activeLoRAConfig = nil
     }
+
+    // MARK: - Generation
 
     public func generate(
         request: GenerationRequest,
         stepProgress: (@Sendable (Int, Int, TimeInterval) -> Void)?
     ) async throws -> GenerationResult {
-        throw VinetasError.generationFailed(
-            "PixArt-Sigma generation is not yet implemented. PixArtCore integration is pending."
+        guard let pipeline = self.pipeline, let modelID = self.loadedModelID else {
+            throw VinetasError.generationFailed(
+                "No model loaded. Call loadModel(_:progress:) before generating."
+            )
+        }
+
+        // PixArt only supports text-to-image
+        if case .imageToImage = request.mode {
+            throw VinetasError.engineFeatureUnsupported(
+                feature: .imageToImage(maxReferenceImages: 0),
+                engineID: engineID
+            )
+        }
+
+        let diffusionRequest = translateRequest(request)
+        let startTime = Date()
+
+        let result: DiffusionGenerationResult
+        do {
+            result = try await pipeline.generate(request: diffusionRequest) { pipelineProgress in
+                if case .generating(let step, let total, let elapsed) = pipelineProgress {
+                    stepProgress?(step, total, elapsed)
+                }
+            }
+        } catch {
+            throw VinetasError.generationFailed(
+                "PixArt generation failed: \(error.localizedDescription)"
+            )
+        }
+
+        // Extract CGImage from RenderedOutput
+        guard case .image(let cgImage) = result.output else {
+            throw VinetasError.generationFailed(
+                "PixArt pipeline returned unexpected output type."
+            )
+        }
+
+        let duration = Date().timeIntervalSince(startTime)
+
+        return GenerationResult(
+            image: cgImage,
+            usedPrompt: request.prompt,
+            seed: UInt64(result.seed),
+            durationSeconds: duration,
+            modelID: modelID
         )
     }
 
+    // MARK: - LoRA
+
     public func loadLoRA(at path: URL, scale: Float) async throws {
-        throw VinetasError.generationFailed("PixArtCore LoRA injection is not yet implemented.")
+        guard pipeline != nil else {
+            throw VinetasError.generationFailed(
+                "No model loaded. Call loadModel(_:progress:) before loading LoRA."
+            )
+        }
+        guard FileManager.default.fileExists(atPath: path.path) else {
+            throw VinetasError.modelNotFound(
+                "LoRA file not found at path: \(path.path)"
+            )
+        }
+        let effectiveScale = min(max(scale, 0.0), 1.0)
+        activeLoRAConfig = LoRAConfig(
+            localPath: path.path,
+            scale: effectiveScale
+        )
     }
 
     public func unloadLoRA() async {
-        // No-op until PixArtCore integration is implemented.
+        activeLoRAConfig = nil
     }
+
+    // MARK: - Model Management
 
     public func download(
         _ model: any ModelDescriptor,
         progress: @Sendable (DownloadProgress) -> Void
     ) async throws {
-        throw VinetasError.downloadFailed("PixArtCore download is not yet implemented.")
-    }
+        guard model.engineID == engineID || model.id == PixArtModelDescriptor.sigmaXL.id else {
+            throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
+        }
 
-    public func delete(_ model: any ModelDescriptor) async throws {
-        throw VinetasError.generationFailed("PixArtCore delete is not yet implemented.")
-    }
-}
+        // Ensure components are registered before downloading
+        _ = PixArtComponents.registered
 
-#else
+        let ids = model.componentIds
+        guard !ids.isEmpty else {
+            throw VinetasError.downloadFailed(
+                "No component IDs defined for model \(model.id)."
+            )
+        }
 
-/// Stub ``ImageGenerationEngine`` for PixArt-Sigma used when `PixArtCore` is not
-/// available (i.e., the `pixart-swift-mlx` package has not been added to the project).
-///
-/// All generation and download operations throw or return failure values.
-/// ``isAvailable(_:)`` always returns `false` so the engine is safely excluded from
-/// model selection in the UI.
-///
-/// Replace this stub with the real implementation once `PixArtCore` is importable.
-public actor PixArtEngine: ImageGenerationEngine {
+        let total = Double(ids.count)
+        let registry = CatalogRegistration.shared
 
-    public let engineID = "pixart-sigma"
+        try await withoutActuallyEscaping(progress) { escapableProgress in
+            for (index, componentId) in ids.enumerated() {
+                guard let descriptor = registry.descriptor(for: componentId) else {
+                    throw VinetasError.downloadFailed(
+                        "Component '\(componentId)' is not registered in CatalogRegistration."
+                    )
+                }
+                let repoId = descriptor.huggingFaceRepo
+                let files = descriptor.filePatterns
 
-    public nonisolated var supportedModels: [any ModelDescriptor] {
-        [PixArtModelDescriptor.sigmaXL]
-    }
-
-    public nonisolated func supports(_ feature: EngineFeature) -> Bool {
-        switch feature {
-        case .textToImage:
-            return true
-        case .loraInference:
-            return true
-        case .imageToImage, .loraTraining, .promptUpsampling:
-            return false
+                do {
+                    try await AcervoManager.shared.download(
+                        repoId,
+                        files: files
+                    ) { acervoProgress in
+                        let overall = (Double(index) + acervoProgress.overallProgress) / total
+                        escapableProgress(DownloadProgress(
+                            fraction: overall,
+                            message: "Downloading \(componentId): \(acervoProgress.fileName)"
+                        ))
+                    }
+                } catch {
+                    throw VinetasError.downloadFailed(
+                        "Failed to download component '\(componentId)': \(error.localizedDescription)"
+                    )
+                }
+            }
         }
     }
 
-    /// Always returns `false` when `PixArtCore` is unavailable.
     public nonisolated func isAvailable(_ model: any ModelDescriptor) -> Bool {
-        return false
-    }
+        let ids = model.componentIds
+        guard !ids.isEmpty else { return false }
 
-    /// Always returns `.insufficient` when `PixArtCore` is unavailable.
-    public nonisolated func validateMemory(for model: any ModelDescriptor) -> MemoryValidation {
-        return .insufficient(required: 0, available: 0)
-    }
-
-    public nonisolated func diskSize(of model: any ModelDescriptor) -> Int64? {
-        return nil
-    }
-
-    public func loadModel(
-        _ model: any ModelDescriptor,
-        progress: @Sendable (LoadProgress) -> Void
-    ) async throws {
-        throw VinetasError.generationFailed(
-            "PixArt-Sigma is not available. Add the pixart-swift-mlx package to enable it."
-        )
-    }
-
-    public func unloadModel() async {
-        // No-op — no model is loaded in the stub.
-    }
-
-    /// Always throws ``VinetasError/generationFailed(_:)`` when `PixArtCore` is unavailable.
-    public func generate(
-        request: GenerationRequest,
-        stepProgress: (@Sendable (Int, Int, TimeInterval) -> Void)?
-    ) async throws -> GenerationResult {
-        throw VinetasError.generationFailed(
-            "PixArt-Sigma is not available. Add the pixart-swift-mlx package to enable it."
-        )
-    }
-
-    public func loadLoRA(at path: URL, scale: Float) async throws {
-        throw VinetasError.generationFailed(
-            "PixArt-Sigma is not available. Add the pixart-swift-mlx package to enable it."
-        )
-    }
-
-    public func unloadLoRA() async {
-        // No-op — no LoRA is loaded in the stub.
-    }
-
-    /// Always throws ``VinetasError/downloadFailed(_:)`` when `PixArtCore` is unavailable.
-    public func download(
-        _ model: any ModelDescriptor,
-        progress: @Sendable (DownloadProgress) -> Void
-    ) async throws {
-        throw VinetasError.downloadFailed(
-            "PixArt-Sigma is not available. Add the pixart-swift-mlx package to enable it."
-        )
+        let registry = CatalogRegistration.shared
+        return ids.allSatisfy { componentId in
+            guard let descriptor = registry.descriptor(for: componentId) else { return false }
+            return Acervo.isModelAvailable(descriptor.huggingFaceRepo)
+        }
     }
 
     public func delete(_ model: any ModelDescriptor) async throws {
-        throw VinetasError.generationFailed(
-            "PixArt-Sigma is not available. Add the pixart-swift-mlx package to enable it."
+        guard model.engineID == engineID || model.id == PixArtModelDescriptor.sigmaXL.id else {
+            throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
+        }
+
+        let ids = model.componentIds
+        let registry = CatalogRegistration.shared
+
+        for componentId in ids {
+            guard let descriptor = registry.descriptor(for: componentId) else { continue }
+            do {
+                try Acervo.deleteModel(descriptor.huggingFaceRepo)
+            } catch let acervoError as AcervoError {
+                // Silently skip components that are not present on disk.
+                if case .modelNotFound = acervoError { continue }
+                throw VinetasError.generationFailed(
+                    "Failed to delete component '\(componentId)': \(acervoError.localizedDescription)"
+                )
+            }
+        }
+    }
+
+    public nonisolated func diskSize(of model: any ModelDescriptor) -> Int64? {
+        let ids = model.componentIds
+        guard !ids.isEmpty else { return nil }
+
+        let registry = CatalogRegistration.shared
+        var totalSize: Int64 = 0
+        let fm = FileManager.default
+
+        for componentId in ids {
+            guard let descriptor = registry.descriptor(for: componentId),
+                  let dir = try? Acervo.modelDirectory(for: descriptor.huggingFaceRepo)
+            else {
+                return nil
+            }
+            guard let enumerator = fm.enumerator(at: dir, includingPropertiesForKeys: [.fileSizeKey]) else {
+                return nil
+            }
+            while let fileURL = enumerator.nextObject() as? URL {
+                if let resourceValues = try? fileURL.resourceValues(forKeys: [.fileSizeKey]),
+                   let fileSize = resourceValues.fileSize {
+                    totalSize += Int64(fileSize)
+                }
+            }
+        }
+        return totalSize
+    }
+
+    public nonisolated func validateMemory(for model: any ModelDescriptor) -> MemoryValidation {
+        let requiredGB = UInt64(model.minimumMemoryGB)
+        let requiredBytes = requiredGB * 1_073_741_824
+        let availableBytes = VinetasMemory.systemMemoryBytes
+
+        if availableBytes >= requiredBytes {
+            let marginThreshold = requiredBytes + (requiredBytes / 5)
+            if availableBytes < marginThreshold {
+                return .warning(
+                    message: "System has \(availableBytes / 1_073_741_824) GB available, "
+                    + "minimum is \(requiredGB) GB. Performance may be reduced."
+                )
+            }
+            return .ok
+        } else {
+            return .insufficient(required: requiredBytes, available: availableBytes)
+        }
+    }
+
+    // MARK: - Private Helpers
+
+    /// Translate a SwiftVinetas ``GenerationRequest`` into a Tuberia ``DiffusionGenerationRequest``.
+    private func translateRequest(_ request: GenerationRequest) -> DiffusionGenerationRequest {
+        // Seed: GenerationRequest uses UInt64, DiffusionGenerationRequest uses UInt32.
+        // Truncate to UInt32 range for compatibility.
+        let seed32: UInt32? = request.seed.map { UInt32($0 & 0xFFFFFFFF) }
+
+        return DiffusionGenerationRequest(
+            prompt: request.prompt,
+            negativePrompt: request.negativePrompt,
+            width: request.width,
+            height: request.height,
+            steps: request.steps,
+            guidanceScale: request.guidanceScale,
+            seed: seed32,
+            loRA: activeLoRAConfig
         )
     }
 }
-
-#endif

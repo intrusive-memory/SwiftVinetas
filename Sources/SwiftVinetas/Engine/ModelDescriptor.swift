@@ -40,6 +40,26 @@ public protocol ModelDescriptor: Sendable, Identifiable where ID == String {
 
     /// Estimated wall-clock seconds per image on a typical Apple Silicon device.
     var estimatedSecondsPerImage: Int { get }
+
+    /// Acervo component IDs required by this model.
+    ///
+    /// These are the Acervo-internal identifiers (e.g., "t5-xxl-encoder-int4") used
+    /// for download orchestration, availability checks, and disk size queries.
+    /// Distinct from `id`, which is the consumer-facing model identifier.
+    ///
+    /// Engines that manage downloads through their own path (e.g., Flux2Engine)
+    /// return the default empty array.
+    var componentIds: [String] { get }
+}
+
+// MARK: - Default Implementations
+
+public extension ModelDescriptor {
+    /// Default implementation returns an empty array.
+    ///
+    /// Engines that use Acervo component-based downloads override this property
+    /// in their concrete descriptor types.
+    var componentIds: [String] { [] }
 }
 
 // MARK: - ModelLicense
