@@ -1,6 +1,7 @@
 import CoreGraphics
 import Flux2Core
 import Foundation
+import Tuberia
 
 // MARK: - VinetasClient
 
@@ -29,15 +30,17 @@ public final class VinetasClient: Sendable {
   /// The current SwiftVinetas library version.
   public static let version = "0.5.0"
 
-  /// Default initializer that registers all available engines.
+  /// Default initializer that registers engines based on runtime memory detection.
   ///
-  /// Registers ``Flux2Engine`` unconditionally. Registers ``PixArtEngine``
-  /// only when `PixArtCore` is importable.
+  /// ``PixArtEngine`` is always registered (requires 8 GB, matches all iPads and most Macs).
+  /// ``Flux2Engine`` is registered only when the device has 16+ GB of memory (macOS high-memory
+  /// configurations). This eliminates compile-time platform gates in favour of runtime checks,
+  /// so both engines compile on every platform and only registration is conditional.
   public init() {
-    var engines: [any ImageGenerationEngine] = [Flux2Engine()]
-    #if canImport(PixArtCore)
-    engines.append(PixArtEngine())
-    #endif
+    var engines: [any ImageGenerationEngine] = [PixArtEngine()]
+    if DeviceCapability.current.totalMemoryGB >= 16 {
+      engines.append(Flux2Engine())
+    }
     self.router = EngineRouter(engines: engines)
   }
 
