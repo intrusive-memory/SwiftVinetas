@@ -175,6 +175,7 @@ struct VinetasModelTests {
   @Test("Descriptor estimatedSecondsPerImage matches VinetasModel for PixArt Sigma")
   func pixartSigmaDescriptorTimeMatches() {
     let descriptor = VinetasModel.pixartSigma.descriptor
-    #expect(descriptor.estimatedSecondsPerImage == VinetasModel.pixartSigma.estimatedSecondsPerImage)
+    #expect(
+      descriptor.estimatedSecondsPerImage == VinetasModel.pixartSigma.estimatedSecondsPerImage)
   }
 }

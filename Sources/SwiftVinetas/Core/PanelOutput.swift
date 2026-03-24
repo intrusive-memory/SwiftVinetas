@@ -51,7 +51,10 @@ public struct PanelOutput: Sendable {
   }
 
   /// Backward-compatible initializer accepting `VinetasModel`.
-  @available(*, deprecated, message: "Use init(image:prompt:seed:durationSeconds:modelID:width:height:) instead")
+  @available(
+    *, deprecated,
+    message: "Use init(image:prompt:seed:durationSeconds:modelID:width:height:) instead"
+  )
   public init(
     image: CGImage,
     prompt: String,

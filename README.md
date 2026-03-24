@@ -12,7 +12,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 - **Engine Abstraction** — Protocol-based `ImageGenerationEngine` with `EngineRouter` dispatcher, supporting multiple backends
 - **FLUX.2 Klein 4B/9B** — Fast generation (~26s/panel on Klein 4B) with 16 GB minimum RAM
-- **PixArt-Sigma Ready** — Stub engine for future PixArt-Sigma support via conditional compilation
+- **PixArt-Sigma XL** — Real engine implementation via SwiftTubería pipeline (8 GB minimum, ~10s/image)
 - **LoRA support** — Load style adapters in safetensors format with engine-tagged compatibility
 - **Multi-image conditioning** — Up to 3 reference images for character consistency across panels
 - **YAML prompt files** — Batch-generate panel sequences from structured prompt definitions
@@ -34,7 +34,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.5.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.7.0")
 ]
 ```
 
@@ -55,7 +55,7 @@ xcodebuild build -scheme vinetas -destination 'platform=macOS' -configuration Re
 ```swift
 import SwiftVinetas
 
-// Generate a single panel (v0.5.0+ VinetasClient API)
+// Generate a single panel (VinetasClient API)
 let client = VinetasClient.shared
 let image = try await client.generate(prompt: "A detective in a rain-soaked alley at night")
 
@@ -121,6 +121,7 @@ panels:
 
 | Model | Parameters | int4 Size | RAM Required | Speed |
 |-------|-----------|-----------|-------------|-------|
+| **PixArt-Sigma XL** | 0.6B | ~3.6 GB | 8 GB | ~10s/image |
 | **Klein 4B** (default) | 4B | ~2.1 GB | 16 GB | ~26s/image |
 | **Klein 9B** | 9B | ~4.9 GB | 24 GB | ~62s/image |
 
@@ -131,6 +132,8 @@ Models are downloaded from HuggingFace on first use and cached at `~/Library/Sha
 | Package | License | Purpose |
 |---------|---------|---------|
 | [flux-2-swift-mlx](https://github.com/VincentGourbin/flux-2-swift-mlx) | MIT | FLUX.2 inference pipeline |
+| [SwiftTubería](https://github.com/intrusive-memory/SwiftTuberia) | MIT | Componentized diffusion pipeline protocols |
+| [pixart-swift-mlx](https://github.com/intrusive-memory/pixart-swift-mlx) | MIT | PixArt-Sigma DiT model plugin |
 | [SwiftAcervo](https://github.com/intrusive-memory/SwiftAcervo) | MIT | Model download and cache management |
 | [Universal](https://github.com/marcprux/universal) | Apache-2.0 | YAML prompt file parsing |
 | [swift-argument-parser](https://github.com/apple/swift-argument-parser) | Apache-2.0 | CLI argument parsing |
@@ -162,7 +165,9 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 
 ## Status
 
-**v0.5.0** — Engine abstraction layer with `ImageGenerationEngine` protocol, `EngineRouter` dispatcher, `VinetasClient` public API, PixArt-Sigma stub, LoRA engine tagging, and deprecated compatibility shims.
+**v0.7.0** — Real PixArtEngine implementation via SwiftTubería/PixArtBackbone, runtime memory-gated engine registration, dedicated GPU test target, remote dependency URLs.
+
+**v0.5.0** — Engine abstraction layer with `ImageGenerationEngine` protocol, `EngineRouter` dispatcher, `VinetasClient` public API, LoRA engine tagging, and deprecated compatibility shims.
 
 **v0.4.0** — iOS 26 platform support. Core generation pipeline, character-aware generation with LoRA training, image classification (ViT-B/16), feature extraction (DINOv2), and CLI.
 

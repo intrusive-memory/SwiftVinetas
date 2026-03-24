@@ -107,9 +107,11 @@ internal struct ReferenceSheetGenerator: Sendable {
 
     // 2. Load model
     log("Loading models for reference sheet generation (\(model.displayName))...")
-    try await engine.loadModel(model, progress: { loadProgress in
-      log("Load: \(Int(loadProgress.fraction * 100))% — \(loadProgress.phase)")
-    })
+    try await engine.loadModel(
+      model,
+      progress: { loadProgress in
+        log("Load: \(Int(loadProgress.fraction * 100))% — \(loadProgress.phase)")
+      })
 
     // 3. Prepare the references directory
     let manager = CharacterManager()

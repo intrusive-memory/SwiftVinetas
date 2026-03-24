@@ -47,7 +47,10 @@ public struct LoRAMetadata: Sendable {
   ///
   /// Use ``init(path:scale:version:trainedAt:trainingSteps:compatibleEngines:)`` instead.
   /// Migrates `klein4b`/`klein9b` to `compatibleEngines: ["flux2"]`.
-  @available(*, deprecated, message: "Use init(path:scale:version:trainedAt:trainingSteps:compatibleEngines:) instead")
+  @available(
+    *, deprecated,
+    message: "Use init(path:scale:version:trainedAt:trainingSteps:compatibleEngines:) instead"
+  )
   public init(
     path: String,
     scale: Float = 0.8,
