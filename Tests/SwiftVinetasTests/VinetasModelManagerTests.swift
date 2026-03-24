@@ -138,25 +138,36 @@ struct VinetasModelManagerTests {
 
   @Test("isAvailable returns false for models not on disk")
   func isAvailableFalseForMissingModels() async throws {
-    // These models are unlikely to be downloaded in CI or a clean environment
-    // but even if they are, the test just confirms the API works
-    let available = try await VinetasModelManager.isAvailable(VinetasClient.klein4B)
+    // Use a custom client with Flux2Engine so the test doesn't depend on CI runner memory
+    let router = EngineRouter(engines: [Flux2Engine()])
+    let client = VinetasClient(router: router)
+    let available = try await client.isAvailable(Flux2ModelDescriptor.klein4B)
     #expect(type(of: available) == Bool.self)
   }
 
   // MARK: - listAllModels
 
-  @Test("listAllModels returns entries for known model variants")
-  func listAllModelsReturnsAllVariants() async {
+  @Test("listAllModels returns at least one model from shared client")
+  func listAllModelsReturnsAtLeastOneModel() async {
     let models = await VinetasModelManager.listAllModels()
+    // PixArtEngine is always registered regardless of memory
+    #expect(models.count >= 1)
+    let names = models.map(\.name)
+    #expect(names.contains(PixArtModelDescriptor.sigmaXL.displayName))
+  }
 
-    // Should have at least one entry (FLUX.2 Klein 4B and Klein 9B are always registered)
-    #expect(models.count >= 2)
+  @Test("listAllModels returns all variants when both engines registered")
+  func listAllModelsReturnsAllVariants() async {
+    let router = EngineRouter(engines: [PixArtEngine(), Flux2Engine()])
+    let client = VinetasClient(router: router)
+    let models = await client.listModels()
 
-    // Should contain entries for the known FLUX.2 models
+    #expect(models.count >= 3)
+
     let names = models.map(\.name)
     #expect(names.contains(Flux2ModelDescriptor.klein4B.displayName))
     #expect(names.contains(Flux2ModelDescriptor.klein9B.displayName))
+    #expect(names.contains(PixArtModelDescriptor.sigmaXL.displayName))
   }
 
   // MARK: - Vinetas Public API
@@ -164,8 +175,8 @@ struct VinetasModelManagerTests {
   @Test("Vinetas.listModels compiles and returns VinetasModelInfo array")
   func vinetasListModels() async {
     let models: [VinetasModelInfo] = await Vinetas.listModels()
-    // Should have at least the two FLUX.2 Klein models
-    #expect(models.count >= 2)
+    // PixArtEngine is always registered; Flux2 depends on runtime memory
+    #expect(models.count >= 1)
   }
 
   @Test("Vinetas.validateMemory compiles and returns Bool")
@@ -185,15 +196,19 @@ struct VinetasModelManagerTests {
 
   @Test("isAvailable accepts any ModelDescriptor (Flux2 klein4B)")
   func isAvailableAcceptsModelDescriptorKlein4B() async throws {
+    let router = EngineRouter(engines: [Flux2Engine()])
+    let client = VinetasClient(router: router)
     let model: any ModelDescriptor = Flux2ModelDescriptor.klein4B
-    let available = try await VinetasModelManager.isAvailable(model)
+    let available = try await client.isAvailable(model)
     #expect(type(of: available) == Bool.self)
   }
 
   @Test("isAvailable accepts any ModelDescriptor (Flux2 klein9B)")
   func isAvailableAcceptsModelDescriptorKlein9B() async throws {
+    let router = EngineRouter(engines: [Flux2Engine()])
+    let client = VinetasClient(router: router)
     let model: any ModelDescriptor = Flux2ModelDescriptor.klein9B
-    let available = try await VinetasModelManager.isAvailable(model)
+    let available = try await client.isAvailable(model)
     #expect(type(of: available) == Bool.self)
   }
 
