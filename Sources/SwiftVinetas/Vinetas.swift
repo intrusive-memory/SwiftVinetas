@@ -1,6 +1,7 @@
 import CoreGraphics
 import Flux2Core
 import Foundation
+import Tuberia
 
 // MARK: - VinetasClient
 
@@ -27,17 +28,19 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.5.0"
+  public static let version = "0.7.0"
 
-  /// Default initializer that registers all available engines.
+  /// Default initializer that registers engines based on runtime memory detection.
   ///
-  /// Registers ``Flux2Engine`` unconditionally. Registers ``PixArtEngine``
-  /// only when `PixArtCore` is importable.
+  /// ``PixArtEngine`` is always registered (requires 8 GB, matches all iPads and most Macs).
+  /// ``Flux2Engine`` is registered only when the device has 16+ GB of memory (macOS high-memory
+  /// configurations). This eliminates compile-time platform gates in favour of runtime checks,
+  /// so both engines compile on every platform and only registration is conditional.
   public init() {
-    var engines: [any ImageGenerationEngine] = [Flux2Engine()]
-    #if canImport(PixArtCore)
-    engines.append(PixArtEngine())
-    #endif
+    var engines: [any ImageGenerationEngine] = [PixArtEngine()]
+    if DeviceCapability.current.totalMemoryGB >= 16 {
+      engines.append(Flux2Engine())
+    }
     self.router = EngineRouter(engines: engines)
   }
 
@@ -389,7 +392,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.5.0"
+  public static let version = "0.7.0"
 
   // MARK: - Generation
 
@@ -934,7 +937,9 @@ public enum Vinetas: Sendable {
 ///
 /// - Important: Use ``ModelDescriptor`` types directly (e.g., ``VinetasClient/klein4B``,
 ///   ``VinetasClient/klein9B``). This enum is preserved for backward compatibility.
-@available(*, deprecated, message: "Use ModelDescriptor types directly (e.g., VinetasClient.klein4B)")
+@available(
+  *, deprecated, message: "Use ModelDescriptor types directly (e.g., VinetasClient.klein4B)"
+)
 public enum VinetasModel: String, Sendable, Codable, CaseIterable {
   case klein4b = "klein4b"
   case klein9b = "klein9b"

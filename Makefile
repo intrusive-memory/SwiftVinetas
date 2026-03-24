@@ -10,7 +10,7 @@ SCHEME_CLI = vinetas
 SCHEME_PKG = SwiftVinetas-Package
 BINDIR = ./bin
 
-.PHONY: build release test test-unit test-integration test-ios test-unit-ios build-ios install clean resolve help
+.PHONY: build release test test-unit test-gpu test-ios test-unit-ios build-ios install clean resolve help
 
 help: ## Show all available targets with descriptions
 	@echo "SwiftVinetas — Makefile targets"
@@ -22,6 +22,7 @@ help: ## Show all available targets with descriptions
 	@echo "  make build          # Debug build (macOS CLI)"
 	@echo "  make test           # Run all macOS tests"
 	@echo "  make test-unit      # Unit tests only (no GPU)"
+	@echo "  make test-gpu       # GPU tests only (requires Apple Silicon + model)"
 	@echo "  make test-ios       # Run all iOS Simulator tests"
 	@echo "  make test-unit-ios  # iOS unit tests only (no GPU)"
 	@echo "  make install        # Release build + copy to ./bin/vinetas"
@@ -49,7 +50,7 @@ release: ## Release build of the vinetas CLI
 		-configuration Release \
 		-derivedDataPath $(DERIVED_DATA)
 
-test: ## Run all macOS tests (unit + integration)
+test: ## Run all macOS tests (unit + GPU)
 	xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
@@ -60,14 +61,14 @@ test-unit: ## Run macOS unit tests only (no GPU or model required)
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
-		-skip-testing:SwiftVinetasTests/BatchIntegrationTests
+		-only-testing:SwiftVinetasTests
 
-test-integration: ## Run integration tests only (requires GPU + cached model)
+test-gpu: ## Run GPU tests only (requires Apple Silicon + cached model)
 	xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
-		-only-testing:SwiftVinetasTests/BatchIntegrationTests
+		-only-testing:SwiftVinetasGPUTests
 
 test-ios: ## Run all iOS Simulator tests
 	xcodebuild test \
@@ -80,7 +81,7 @@ test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required)
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_IOS) \
 		-derivedDataPath $(DERIVED_DATA) \
-		-skip-testing:SwiftVinetasTests/BatchIntegrationTests
+		-only-testing:SwiftVinetasTests
 
 install: release ## Release build + copy binary to ./bin/vinetas
 	@mkdir -p $(BINDIR)

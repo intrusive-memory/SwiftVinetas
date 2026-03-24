@@ -36,27 +36,6 @@ jobs:
       - name: Run unit tests
         run: make test-unit
 
-  unit-tests-ios:
-    name: Unit Tests (iOS Simulator)
-    runs-on: macos-26
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Show Swift version
-        run: swift --version
-
-      - name: Resolve dependencies
-        run: make resolve
-
-      - name: Run unit tests
-        run: make test-unit-ios
-        # Uses iPad Pro 13-inch (M5) simulator on iOS 26.1
-
   download-models:
     name: Download Models
     runs-on: macos-26
@@ -93,8 +72,8 @@ jobs:
           echo "Cache contents:"
           du -sh ~/Library/SharedModels/*/ 2>/dev/null || echo "No models downloaded"
 
-  integration-tests:
-    name: Integration Tests
+  gpu-tests:
+    name: GPU Tests
     runs-on: macos-26
     needs: [unit-tests-macos, download-models]
     if: needs.download-models.outputs.cache-hit == 'true'
@@ -121,5 +100,5 @@ jobs:
       - name: Resolve dependencies
         run: make resolve
 
-      - name: Run integration tests
-        run: make test-integration
+      - name: Run GPU tests
+        run: make test-gpu

@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.5.0
+**Version**: 0.7.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -14,7 +14,7 @@
 
 - **Library**: `SwiftVinetas` wraps `Flux2Core` (from flux-2-swift-mlx) via an engine abstraction layer
 - **Engine Layer**: `ImageGenerationEngine` protocol + `EngineRouter` dispatcher — supports multiple backends
-- **Engines**: `Flux2Engine` (production, wraps Flux2Core), `PixArtEngine` (stub, gated behind `#if canImport(PixArtCore)`)
+- **Engines**: `Flux2Engine` (wraps Flux2Core), `PixArtEngine` (wraps PixArtBackbone via SwiftTubería pipeline)
 - **Public API**: `VinetasClient` (instance-based, `.shared` singleton) — replaces deprecated static `Vinetas` enum
 - **CLI**: `vinetas` for testing and standalone use
 - **Models**: FLUX.2 Klein 4B (fast, default) and Klein 9B (quality), extensible via `ModelDescriptor` protocol
@@ -51,7 +51,7 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=iOS Simulato
 ## Key Types
 
 ```swift
-// Primary API (v0.5.0+) — instance-based
+// Primary API (v0.5.0+, updated v0.7.0) — instance-based
 let client = VinetasClient.shared
 client.generate(prompt:style:model:)               // Single panel (routes through EngineRouter)
 client.generateSequence(prompts:referenceImages:style:model:progress:)  // Multi-panel
@@ -62,10 +62,10 @@ client.preview(prompt:)                            // FLUX.2-only fast path (Kle
 ImageGenerationEngine  // Protocol: generate, loadModel, loadLoRA, download, validateMemory
 EngineRouter           // Actor: dispatches to registered engines by model's engineID
 Flux2Engine            // Actor: wraps Flux2Pipeline, engineID "flux2"
-PixArtEngine           // Actor: stub, engineID "pixart-sigma", gated behind #if canImport(PixArtCore)
+PixArtEngine           // Actor: wraps DiffusionPipeline via PixArtBackbone, engineID "pixart-sigma"
 ModelDescriptor        // Protocol: id, displayName, engineID, minimumMemoryGB, etc.
 Flux2ModelDescriptor   // .klein4B ("flux2-klein-4b"), .klein9B ("flux2-klein-9b")
-PixArtModelDescriptor  // .sigmaXL ("pixart-sigma-xl")
+PixArtModelDescriptor  // .sigmaXL ("pixart-sigma-xl"), 8 GB minimum, Apache 2.0
 
 // Deprecated API (still functional, forwards to VinetasClient.shared)
 Vinetas                // @available(*, deprecated) — static enum, use VinetasClient instead
@@ -84,6 +84,8 @@ GenerationResult    // image, seed, duration
 | Package | Import | Purpose |
 |---------|--------|---------|
 | flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | FLUX.2 pipeline (MIT) |
+| SwiftTubería | `Tuberia`, `TuberiaCatalog` | Componentized diffusion pipeline protocols |
+| pixart-swift-mlx | `PixArtBackbone` | PixArt-Sigma DiT model plugin |
 | SwiftAcervo | `SwiftAcervo` | Model download/cache |
 | Universal | `YAML`, `JSON` | Prompt file parsing |
 | swift-argument-parser | `ArgumentParser` | CLI (vinetas target only) |
@@ -153,10 +155,11 @@ SwiftVinetas/
 
 ## Memory Constraints
 
+- PixArt-Sigma XL int4: 8 GB minimum (works on all iPads and most Macs)
 - Klein 4B int4: 16 GB minimum
 - Klein 9B qint8: 24 GB minimum
 - Always validate memory before loading models
-- VAE must stay at bf16 (never quantize)
+- VAE must stay at bf16/fp16 (never quantize)
 
 ## Critical Rules for AI Agents
 

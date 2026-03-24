@@ -144,7 +144,11 @@ public struct CharacterTrainer: Sendable {
   ///
   /// Use ``train(character:config:model:characterDirectory:progress:)`` with an
   /// `any ModelDescriptor` (e.g., `VinetasClient.klein4B`) instead.
-  @available(*, deprecated, message: "Use train(character:config:model:characterDirectory:progress:) with any ModelDescriptor instead")
+  @available(
+    *, deprecated,
+    message:
+      "Use train(character:config:model:characterDirectory:progress:) with any ModelDescriptor instead"
+  )
   public func train(
     character: Character,
     config: TrainingConfig = TrainingConfig(),
