@@ -64,9 +64,17 @@ let package = Package(
             ]
         ),
 
-        // Unit Tests
+        // Unit Tests (no GPU or MLX required — safe for CI)
         .testTarget(
             name: "SwiftVinetasTests",
+            dependencies: [
+                "SwiftVinetas",
+            ]
+        ),
+
+        // GPU Tests (requires Apple Silicon GPU + downloaded models)
+        .testTarget(
+            name: "SwiftVinetasGPUTests",
             dependencies: [
                 "SwiftVinetas",
             ],
