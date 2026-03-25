@@ -28,7 +28,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.7.0"
+  public static let version = "0.7.1"
 
   /// Default initializer that registers engines based on runtime memory detection.
   ///
@@ -37,6 +37,10 @@ public final class VinetasClient: Sendable {
   /// configurations). This eliminates compile-time platform gates in favour of runtime checks,
   /// so both engines compile on every platform and only registration is conditional.
   public init() {
+    // Sync Flux2Core and FluxTextEncoders storage to Acervo's resolved path
+    // (App Group container on macOS/iOS, Application Support fallback otherwise).
+    VinetasModelManager.configureStorage()
+
     var engines: [any ImageGenerationEngine] = [PixArtEngine()]
     if DeviceCapability.current.totalMemoryGB >= 16 {
       engines.append(Flux2Engine())
@@ -392,7 +396,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.7.0"
+  public static let version = "0.7.1"
 
   // MARK: - Generation
 

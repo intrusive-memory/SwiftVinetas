@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.7.0
+**Version**: 0.7.1
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -20,7 +20,7 @@
 - **Models**: FLUX.2 Klein 4B (fast, default) and Klein 9B (quality), extensible via `ModelDescriptor` protocol
 - **Style**: LoRA adapters in safetensors format, tagged with `compatibleEngines: [String]`
 - **Prompt files**: YAML parsed via `marcprux/universal`
-- **Model cache**: `~/Library/SharedModels/` via SwiftAcervo
+- **Model cache**: App Group container (`group.intrusive-memory.models`) via SwiftAcervo, with Application Support fallback — sandbox-safe on all platforms
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full design decisions.
 See [docs/REQUIREMENTS_V1.md](docs/REQUIREMENTS_V1.md) for prioritized requirements.
@@ -51,7 +51,7 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=iOS Simulato
 ## Key Types
 
 ```swift
-// Primary API (v0.5.0+, updated v0.7.0) — instance-based
+// Primary API (v0.5.0+, updated v0.7.1) — instance-based
 let client = VinetasClient.shared
 client.generate(prompt:style:model:)               // Single panel (routes through EngineRouter)
 client.generateSequence(prompts:referenceImages:style:model:progress:)  // Multi-panel
