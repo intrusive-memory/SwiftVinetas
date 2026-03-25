@@ -2,8 +2,10 @@ import CoreGraphics
 import Foundation
 
 /// Manages the on-disk lifecycle of characters stored under
-/// `~/Library/SwiftVinetas/characters/<slug>/` (macOS) or
-/// `<Documents>/SwiftVinetas/characters/<slug>/` (iOS).
+/// `Application Support/SwiftVinetas/characters/<slug>/`.
+///
+/// On sandboxed macOS apps this resolves inside the app container.
+/// On iOS this uses the app's Application Support directory.
 ///
 /// Each character directory contains:
 /// ```
@@ -18,27 +20,20 @@ public struct CharacterManager: Sendable {
 
   // MARK: - Base Directory
 
-  /// The root characters directory: `~/Library/SwiftVinetas/characters/`.
+  /// The root characters directory.
   public let baseDirectory: URL
 
   /// Create a manager rooted at the standard characters directory.
   ///
-  /// On macOS this is `~/Library/SwiftVinetas/characters/`.
-  /// On iOS this is `<Documents>/SwiftVinetas/characters/`.
+  /// Resolves to `Application Support/SwiftVinetas/characters/` on all platforms.
+  /// Inside an App Sandbox this is automatically scoped to the app container.
   public init() {
-    #if os(iOS) || os(tvOS) || os(visionOS)
-      let rootURL = FileManager.default.urls(
-        for: .documentDirectory,
-        in: .userDomainMask
-      ).first!
-    #else
-      let rootURL = FileManager.default.urls(
-        for: .libraryDirectory,
-        in: .userDomainMask
-      ).first!
-    #endif
+    let appSupport = FileManager.default.urls(
+      for: .applicationSupportDirectory,
+      in: .userDomainMask
+    ).first!
     self.baseDirectory =
-      rootURL
+      appSupport
       .appendingPathComponent("SwiftVinetas", isDirectory: true)
       .appendingPathComponent("characters", isDirectory: true)
   }

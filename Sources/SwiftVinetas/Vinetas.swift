@@ -37,6 +37,10 @@ public final class VinetasClient: Sendable {
   /// configurations). This eliminates compile-time platform gates in favour of runtime checks,
   /// so both engines compile on every platform and only registration is conditional.
   public init() {
+    // Sync Flux2Core and FluxTextEncoders storage to Acervo's resolved path
+    // (App Group container on macOS/iOS, Application Support fallback otherwise).
+    VinetasModelManager.configureStorage()
+
     var engines: [any ImageGenerationEngine] = [PixArtEngine()]
     if DeviceCapability.current.totalMemoryGB >= 16 {
       engines.append(Flux2Engine())
