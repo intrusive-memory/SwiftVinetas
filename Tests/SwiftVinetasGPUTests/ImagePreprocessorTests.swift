@@ -53,7 +53,7 @@ import Testing
 
   // MARK: - Tests
 
-  @Suite("ImagePreprocessor")
+  @Suite("ImagePreprocessor", .tags(.gpu))
   struct ImagePreprocessorTests {
 
     // MARK: Output shape — ViT-B/16
