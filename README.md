@@ -34,7 +34,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.7.1")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.7.2")
 ]
 ```
 
@@ -164,6 +164,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 
 ## Status
+
+**v0.7.2** — Dependency resolution fixes: all intrusive-memory dependencies now resolve from `main` branches, swift-transformers updated to 1.x across the dependency graph.
 
 **v0.7.1** — Sandbox-safe model storage for App Store distribution. All model downloads now use App Group container with Application Support fallback. `VinetasModelManager.configureStorage()` API for path configuration. CharacterManager updated to use Application Support.
 
