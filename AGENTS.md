@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.7.1
+**Version**: 0.7.2
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -51,7 +51,7 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=iOS Simulato
 ## Key Types
 
 ```swift
-// Primary API (v0.5.0+, updated v0.7.1) — instance-based
+// Primary API (v0.5.0+, updated v0.7.2) — instance-based
 let client = VinetasClient.shared
 client.generate(prompt:style:model:)               // Single panel (routes through EngineRouter)
 client.generateSequence(prompts:referenceImages:style:model:progress:)  // Multi-panel
