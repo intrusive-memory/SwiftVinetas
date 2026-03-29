@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.7.2
+**Version**: 0.7.3
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -34,12 +34,18 @@ See [docs/LEARNING.md](docs/LEARNING.md) for research findings.
 # Using Makefile (preferred)
 make build          # Debug build + copy to ./bin/vinetas
 make test           # Run all macOS tests
-make test-unit      # macOS unit tests only (no GPU)
+make test-unit      # macOS unit tests only (no GPU) — CI-safe
+make test-gpu       # GPU tests only (requires Apple Silicon + downloaded model) — local only
+make test-integration  # Integration tests: model download + image generation — local only
 make test-ios       # Run all iOS Simulator tests
 make test-unit-ios  # iOS unit tests only (no GPU)
 make build-ios      # Build library for iOS Simulator
 make release        # Release build
 make install        # Release build + copy to ./bin/vinetas
+
+# NOTE: test-gpu and test-integration are LOCAL-ONLY targets.
+# They require Apple Silicon hardware and pre-downloaded model weights.
+# These targets are NEVER run in CI (GitHub Actions uses make test-unit only).
 
 # Using xcodebuild directly
 xcodebuild build -scheme SwiftVinetas -destination 'platform=macOS,arch=arm64'
@@ -51,7 +57,7 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=iOS Simulato
 ## Key Types
 
 ```swift
-// Primary API (v0.5.0+, updated v0.7.2) — instance-based
+// Primary API (v0.5.0+, updated v0.7.3) — instance-based
 let client = VinetasClient.shared
 client.generate(prompt:style:model:)               // Single panel (routes through EngineRouter)
 client.generateSequence(prompts:referenceImages:style:model:progress:)  // Multi-panel
@@ -125,13 +131,20 @@ SwiftVinetas/
 │   │   │   ├── EngineTypes.swift            # GenerationRequest, GenerationResult, etc.
 │   │   │   ├── EngineRouter.swift           # Actor dispatcher
 │   │   │   ├── Flux2Engine.swift            # FLUX.2 conformance
-│   │   │   └── PixArtEngine.swift           # PixArt-Sigma stub
+│   │   │   └── PixArtEngine.swift           # PixArt-Sigma conformance
 │   │   ├── Character/          # Character pipeline, LoRA training
 │   │   └── Understanding/      # ViT-B/16, DINOv2, image preprocessing
 │   └── vinetas/                # CLI
 │       └── VinetasCLI.swift
 ├── Tests/
-│   └── SwiftVinetasTests/
+│   ├── SwiftVinetasTests/
+│   └── SwiftVinetasGPUTests/
+│       ├── TestTags.swift                   # Shared tag taxonomy (.integration, .gpu, .flux2, .pixart)
+│       ├── IntegrationTestHelpers.swift     # assertImageNotGarbage, assertModelDownloaded
+│       ├── Flux2IntegrationTests.swift      # FLUX.2 pipeline: compile, download, generate
+│       ├── PixArtIntegrationTests.swift     # PixArt-Sigma pipeline: compile, download, generate
+│       ├── BatchIntegrationTests.swift      # Batch generation integration tests
+│       └── ImagePreprocessorTests.swift     # GPU-accelerated image preprocessing tests
 ├── docs/
 │   ├── LEARNING.md
 │   ├── ARCHITECTURE.md
