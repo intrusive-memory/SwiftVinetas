@@ -234,13 +234,18 @@ struct PixArtEngineTests {
 
   @Test("PixArtEngine download throws when components are not registered")
   func downloadThrowsWhenComponentsNotRegistered() async throws {
-    // In the test environment, model weights are not present.
-    // The real implementation throws downloadFailed when components
-    // cannot be resolved or downloaded.
+    // Use a model descriptor with the correct engineID but component IDs
+    // that are not registered in CatalogRegistration. The download method
+    // should throw downloadFailed when it cannot find the descriptor.
     let engine = PixArtEngine()
+    let unregisteredModel = MockModelDescriptor(
+      id: "pixart-unregistered",
+      engineID: "pixart-sigma",
+      componentIds: ["nonexistent-component-xyz"]
+    )
 
     await #expect(throws: VinetasError.self) {
-      try await engine.download(PixArtModelDescriptor.sigmaXL) { _ in }
+      try await engine.download(unregisteredModel) { _ in }
     }
   }
 
