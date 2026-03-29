@@ -8,7 +8,7 @@ import Testing
 ///
 /// Run with: xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 /// Or selectively: swift test --filter BatchIntegrationTests
-@Suite("Batch Integration Tests", .tags(.integration))
+@Suite("Batch Integration Tests", .tags(.integration, .flux2))
 struct BatchIntegrationTests {
 
   /// Locate the YNTSWYD Chapter 1 fixture bundled as a test resource.
@@ -73,7 +73,7 @@ struct BatchIntegrationTests {
 
   @Test(
     "Generate 4 non-empty images from YNTSWYD Chapter 1 fixture",
-    .tags(.integration, .gpu),
+    .tags(.integration, .gpu, .flux2),
     .timeLimit(.minutes(10)))
   func generateBatchFromFixture() async throws {
     let url = try fixtureURL
@@ -122,7 +122,7 @@ struct BatchIntegrationTests {
 
   @Test(
     "CLI batch writes 4 non-empty PNG files to output directory",
-    .tags(.integration, .gpu),
+    .tags(.integration, .gpu, .flux2),
     .timeLimit(.minutes(10)))
   func cliBatchWritesPNGs() async throws {
     let url = try fixtureURL
@@ -165,9 +165,3 @@ struct BatchIntegrationTests {
   }
 }
 
-// MARK: - Custom Tags
-
-extension Tag {
-  @Tag static var integration: Self
-  @Tag static var gpu: Self
-}
