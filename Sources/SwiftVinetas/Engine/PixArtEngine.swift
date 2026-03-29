@@ -286,12 +286,21 @@ public actor PixArtEngine: ImageGenerationEngine {
           )
         }
         let repoId = descriptor.huggingFaceRepo
-        let files = descriptor.filePatterns
+
+        // Debug: log the CDN URL being requested
+        let slug = repoId.replacingOccurrences(of: "/", with: "_")
+        print("[PixArtEngine] Downloading component '\(componentId)'")
+        print("[PixArtEngine]   HuggingFace repo: \(repoId)")
+        print("[PixArtEngine]   CDN slug: \(slug)")
+        print("[PixArtEngine]   CDN manifest URL: https://pub-8e049ed02be340cbb18f921765fd24f3.r2.dev/models/\(slug)/manifest.json")
 
         do {
+          // Pass empty files array to download ALL files listed in the
+          // CDN manifest. The registry's filePatterns are globs (e.g.
+          // "*.safetensors") which Acervo cannot match by exact path.
           try await AcervoManager.shared.download(
             repoId,
-            files: files
+            files: []
           ) { acervoProgress in
             let overall = (Double(index) + acervoProgress.overallProgress) / total
             escapableProgress(
@@ -301,6 +310,7 @@ public actor PixArtEngine: ImageGenerationEngine {
               ))
           }
         } catch {
+          print("[PixArtEngine] Failed component '\(componentId)': \(error)")
           throw VinetasError.downloadFailed(
             "Failed to download component '\(componentId)': \(error.localizedDescription)"
           )
