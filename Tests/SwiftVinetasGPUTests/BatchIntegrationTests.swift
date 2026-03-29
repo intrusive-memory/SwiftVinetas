@@ -164,4 +164,3 @@ struct BatchIntegrationTests {
     }
   }
 }
-

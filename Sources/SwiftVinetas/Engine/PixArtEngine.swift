@@ -292,7 +292,9 @@ public actor PixArtEngine: ImageGenerationEngine {
         print("[PixArtEngine] Downloading component '\(componentId)'")
         print("[PixArtEngine]   HuggingFace repo: \(repoId)")
         print("[PixArtEngine]   CDN slug: \(slug)")
-        print("[PixArtEngine]   CDN manifest URL: https://pub-8e049ed02be340cbb18f921765fd24f3.r2.dev/models/\(slug)/manifest.json")
+        print(
+          "[PixArtEngine]   CDN manifest URL: https://pub-8e049ed02be340cbb18f921765fd24f3.r2.dev/models/\(slug)/manifest.json"
+        )
 
         do {
           // Pass empty files array to download ALL files listed in the

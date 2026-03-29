@@ -21,15 +21,18 @@ struct Flux2IntegrationTests {
   /// Verifies that the `vinetas` CLI binary compiles successfully with all
   /// Metal shader and MLX dependencies resolved. This is the baseline
   /// check that the entire dependency chain is intact.
-  @Test("Checkpoint 1: vinetas CLI binary compiles with Metal dependencies", .tags(.integration, .flux2))
+  @Test(
+    "Checkpoint 1: vinetas CLI binary compiles with Metal dependencies", .tags(.integration, .flux2)
+  )
   func binaryCompilation() throws {
+    #if os(macOS)
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/xcodebuild")
     process.arguments = [
       "build",
       "-scheme", "vinetas",
       "-destination", "platform=macOS,arch=arm64",
-      "-derivedDataPath", "/tmp/SwiftVinetasBuild"
+      "-derivedDataPath", "/tmp/SwiftVinetasBuild",
     ]
 
     // Suppress verbose xcodebuild output during test runs
@@ -44,6 +47,9 @@ struct Flux2IntegrationTests {
       process.terminationStatus == 0,
       "xcodebuild build exited with status \(process.terminationStatus) — CLI failed to compile"
     )
+    #else
+    Issue.record("Binary compilation test requires macOS (Process is unavailable on iOS)")
+    #endif
   }
 
   // MARK: - Checkpoint 2: Model Download

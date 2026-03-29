@@ -21,8 +21,11 @@ struct PixArtIntegrationTests {
   /// Metal shader and MLX dependencies resolved, including the PixArtBackbone
   /// Metal kernels. This is the baseline check that the entire dependency chain
   /// is intact.
-  @Test("Checkpoint 1: vinetas CLI binary compiles with PixArt dependencies", .tags(.integration, .pixart))
+  @Test(
+    "Checkpoint 1: vinetas CLI binary compiles with PixArt dependencies",
+    .tags(.integration, .pixart))
   func binaryCompilation() throws {
+    #if os(macOS)
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/xcodebuild")
     process.arguments = [
@@ -44,6 +47,9 @@ struct PixArtIntegrationTests {
       process.terminationStatus == 0,
       "xcodebuild build exited with status \(process.terminationStatus) — CLI failed to compile"
     )
+    #else
+    Issue.record("Binary compilation test requires macOS (Process is unavailable on iOS)")
+    #endif
   }
 
   // MARK: - Checkpoint 2: Model Download
