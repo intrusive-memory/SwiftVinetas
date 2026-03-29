@@ -34,7 +34,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.7.2")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.7.3")
 ]
 ```
 
@@ -164,6 +164,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 
 ## Status
+
+**v0.7.3** — Fix PixArt model download: pass empty files array to Acervo and add debug logging for download operations.
 
 **v0.7.2** — Dependency resolution fixes: all intrusive-memory dependencies now resolve from `main` branches, swift-transformers updated to 1.x across the dependency graph.
 
