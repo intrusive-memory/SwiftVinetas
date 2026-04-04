@@ -22,16 +22,16 @@ let package = Package(
   ],
   dependencies: [
     // FLUX.2 image generation pipeline (MIT license, includes mlx-swift transitively)
-    .package(url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", branch: "main"),
+    .package(url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", from: "2.6.0"),
 
     // Shared model management (download, cache, discovery)
-    .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", branch: "main"),
+    .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", from: "0.5.4"),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
-    .package(url: "https://github.com/intrusive-memory/SwiftTuberia.git", branch: "main"),
+    .package(url: "https://github.com/intrusive-memory/SwiftTuberia.git", from: "0.2.0"),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
-    .package(url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", branch: "main"),
+    .package(url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", from: "0.3.0"),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
