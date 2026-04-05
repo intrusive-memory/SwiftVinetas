@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.8.2
+**Version**: 0.8.3
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -183,3 +183,9 @@ SwiftVinetas/
 5. ALWAYS read files before editing
 6. NEVER create files unless necessary
 7. Follow agent-specific instructions — see [CLAUDE.md](CLAUDE.md) or [GEMINI.md](GEMINI.md)
+
+## Recent Changes
+
+### v0.8.3
+
+- Bumped SwiftTubería minimum from 0.2.0 to 0.2.6 to require the fix for the compiled silu op in the SDXL VAE decoder
