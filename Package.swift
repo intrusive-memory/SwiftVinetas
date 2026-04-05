@@ -25,7 +25,7 @@ let package = Package(
     .package(url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", from: "2.6.0"),
 
     // Shared model management (download, cache, discovery)
-    .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", from: "0.5.5"),
+    .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", from: "0.5.6"),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
     .package(url: "https://github.com/intrusive-memory/SwiftTuberia.git", from: "0.2.0"),
