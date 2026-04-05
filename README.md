@@ -34,7 +34,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.8.2")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.8.3")
 ]
 ```
 
@@ -164,6 +164,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 
 ## Status
+
+**v0.8.3** — Bump SwiftTubería minimum to 0.2.6, which fixes the compiled silu op in the SDXL VAE decoder.
 
 **v0.8.2** — Fix PixArt component registration bridge to `ComponentRegistry` so `AcervoManager.withModelAccess` can resolve short component IDs to their HuggingFace repo paths.
 
