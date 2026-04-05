@@ -139,6 +139,27 @@ public actor PixArtEngine: ImageGenerationEngine {
     // Ensure PixArt components are registered with CatalogRegistration
     _ = PixArtComponents.registered
 
+    // Bridge CatalogRegistration → ComponentRegistry so AcervoManager.withModelAccess
+    // can resolve short component IDs (e.g. "t5-xxl-encoder-int4") to their repo paths.
+    // WeightLoader calls withModelAccess(componentId) with the short ID; the updated
+    // withModelAccess fallback looks up ComponentRegistry to get the repoId.
+    let catalogRegistry = CatalogRegistration.shared
+    for componentId in PixArtRecipe().allComponentIds {
+      guard Acervo.component(componentId) == nil,
+        let catalogDescriptor = catalogRegistry.descriptor(for: componentId)
+      else { continue }
+      let descriptor = SwiftAcervo.ComponentDescriptor(
+        id: catalogDescriptor.componentId,
+        type: .backbone,
+        displayName: catalogDescriptor.componentId,
+        repoId: catalogDescriptor.huggingFaceRepo,
+        files: [SwiftAcervo.ComponentFile(relativePath: "config.json")],
+        estimatedSizeBytes: Int64(catalogDescriptor.estimatedSizeBytes),
+        minimumMemoryBytes: 0
+      )
+      Acervo.register(descriptor)
+    }
+
     progress(LoadProgress(phase: "Assembling pipeline", fraction: 0.0))
 
     let newPipeline: PixArtPipeline
