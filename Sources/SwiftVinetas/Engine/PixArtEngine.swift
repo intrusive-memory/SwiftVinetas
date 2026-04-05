@@ -343,6 +343,11 @@ public actor PixArtEngine: ImageGenerationEngine {
   }
 
   public nonisolated func isAvailable(_ model: any ModelDescriptor) -> Bool {
+    // Ensure components are registered before checking — mirrors the guard in
+    // `download` and `loadModel`. Without this, CatalogRegistration has no
+    // descriptors on a fresh launch and `isAvailable` always returns false.
+    _ = PixArtComponents.registered
+
     let ids = model.componentIds
     guard !ids.isEmpty else { return false }
 
