@@ -28,7 +28,7 @@ let package = Package(
     .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", from: "0.5.6"),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
-    .package(url: "https://github.com/intrusive-memory/SwiftTuberia.git", from: "0.2.6"),
+    .package(path: "../SwiftTuberia"),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
     .package(url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", from: "0.3.0"),
