@@ -41,7 +41,7 @@ INTEGRATION_SUITES = \
 	-only-testing:SwiftVinetasGPUTests/PixArtIntegrationTests \
 	-only-testing:SwiftVinetasGPUTests/BatchIntegrationTests
 
-.PHONY: build release test test-unit test-gpu test-integration test-ios test-unit-ios build-ios install clean resolve help
+.PHONY: build release test test-unit test-gpu test-integration test-ios test-unit-ios build-ios install clean resolve lint help
 
 help: ## Show all available targets with descriptions
 	@echo "SwiftVinetas — Makefile targets"
@@ -127,6 +127,9 @@ install: release ## Release build + copy binary to ./bin/vinetas
 	@cp $(DERIVED_DATA)/Build/Products/Release/vinetas $(BINDIR)/vinetas
 	@rsync -a --include='*.bundle' --include='*.bundle/**' --exclude='*' $(DERIVED_DATA)/Build/Products/Release/ $(BINDIR)/
 	@echo "Installed: $(BINDIR)/vinetas (with bundles)"
+
+lint: ## Format Swift source files with swift-format
+	swift format -i -r .
 
 clean: ## Clean build artifacts
 	xcodebuild clean \
