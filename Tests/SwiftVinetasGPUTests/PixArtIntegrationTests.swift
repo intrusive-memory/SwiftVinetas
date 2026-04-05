@@ -26,29 +26,29 @@ struct PixArtIntegrationTests {
     .tags(.integration, .pixart))
   func binaryCompilation() throws {
     #if os(macOS)
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/xcodebuild")
-    process.arguments = [
-      "build",
-      "-scheme", "vinetas",
-      "-destination", "platform=macOS,arch=arm64",
-      "-derivedDataPath", "/tmp/SwiftVinetasBuild",
-    ]
+      let process = Process()
+      process.executableURL = URL(fileURLWithPath: "/usr/bin/xcodebuild")
+      process.arguments = [
+        "build",
+        "-scheme", "vinetas",
+        "-destination", "platform=macOS,arch=arm64",
+        "-derivedDataPath", "/tmp/SwiftVinetasBuild",
+      ]
 
-    // Suppress verbose xcodebuild output during test runs
-    let devNull = FileHandle.nullDevice
-    process.standardOutput = devNull
-    process.standardError = devNull
+      // Suppress verbose xcodebuild output during test runs
+      let devNull = FileHandle.nullDevice
+      process.standardOutput = devNull
+      process.standardError = devNull
 
-    try process.run()
-    process.waitUntilExit()
+      try process.run()
+      process.waitUntilExit()
 
-    #expect(
-      process.terminationStatus == 0,
-      "xcodebuild build exited with status \(process.terminationStatus) — CLI failed to compile"
-    )
+      #expect(
+        process.terminationStatus == 0,
+        "xcodebuild build exited with status \(process.terminationStatus) — CLI failed to compile"
+      )
     #else
-    Issue.record("Binary compilation test requires macOS (Process is unavailable on iOS)")
+      Issue.record("Binary compilation test requires macOS (Process is unavailable on iOS)")
     #endif
   }
 

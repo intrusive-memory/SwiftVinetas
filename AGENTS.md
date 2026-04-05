@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.8.3
+**Version**: 0.8.4
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -185,6 +185,12 @@ SwiftVinetas/
 7. Follow agent-specific instructions — see [CLAUDE.md](CLAUDE.md) or [GEMINI.md](GEMINI.md)
 
 ## Recent Changes
+
+### v0.8.4
+
+- Fix `isAvailable` always returning false on fresh app launch — `PixArtComponents.registered` now called before checking component IDs
+- Bumped SwiftTubería minimum from 0.2.6 to 0.2.7
+- Added `lint` Makefile target (`swift format -i -r .`)
 
 ### v0.8.3
 
