@@ -113,17 +113,13 @@ struct LoRAManagerTests {
     let nonexistentPath = "/nonexistent/path/lora.safetensors"
 
     // Use await #expect to verify that the call throws VinetasError
-    await #expect(
-      throws: VinetasError.self,
-      {
-        try await VinetasLoRAManager.load(
-          path: nonexistentPath,
-          scale: 0.8,
-          on: engine
-        )
-      },
-      "Expected VinetasError.modelNotFound to be thrown for missing file"
-    )
+    await #expect(throws: VinetasError.self) {
+      try await VinetasLoRAManager.load(
+        path: nonexistentPath,
+        scale: 0.8,
+        on: engine
+      )
+    }
 
     // Assert that the engine was never reached (no calls recorded)
     let calls = await engine.calls

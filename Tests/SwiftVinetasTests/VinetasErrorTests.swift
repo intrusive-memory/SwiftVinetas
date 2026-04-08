@@ -12,7 +12,7 @@ struct VinetasErrorTests {
   func modelNotFoundDescription() {
     let error = VinetasError.modelNotFound("test-model")
     let desc = error.localizedDescription
-    #require(desc != nil)
+    #expect(!desc.isEmpty)
     #expect(desc.contains("test-model"))
   }
 
@@ -22,7 +22,7 @@ struct VinetasErrorTests {
   func insufficientMemoryDescription() {
     let error = VinetasError.insufficientMemory(required: 16*1_073_741_824, available: 8*1_073_741_824)
     let desc = error.localizedDescription
-    #require(desc != nil)
+    #expect(!desc.isEmpty)
     #expect(desc.contains("16"))
     #expect(desc.contains("8"))
   }
@@ -33,7 +33,7 @@ struct VinetasErrorTests {
   func generationFailedDescription() {
     let error = VinetasError.generationFailed("out of memory")
     let desc = error.localizedDescription
-    #require(desc != nil)
+    #expect(!desc.isEmpty)
     #expect(desc.contains("out of memory"))
   }
 
@@ -43,7 +43,7 @@ struct VinetasErrorTests {
   func invalidPromptFileDescription() {
     let error = VinetasError.invalidPromptFile(URL(fileURLWithPath: "/tmp/bad.yaml"))
     let desc = error.localizedDescription
-    #require(desc != nil)
+    #expect(!desc.isEmpty)
     // Path should appear in description (either full path or filename)
     #expect(desc.contains("/tmp/bad.yaml") || desc.contains("bad.yaml"))
   }
@@ -54,7 +54,7 @@ struct VinetasErrorTests {
   func downloadFailedDescription() {
     let error = VinetasError.downloadFailed("network timeout")
     let desc = error.localizedDescription
-    #require(desc != nil)
+    #expect(!desc.isEmpty)
     #expect(desc.contains("network timeout"))
   }
 
@@ -64,7 +64,7 @@ struct VinetasErrorTests {
   func engineNotFoundDescription() {
     let error = VinetasError.engineNotFound(engineID: "flux2")
     let desc = error.localizedDescription
-    #require(desc != nil)
+    #expect(!desc.isEmpty)
     #expect(desc.contains("flux2"))
   }
 
@@ -74,7 +74,7 @@ struct VinetasErrorTests {
   func modelNotSupportedDescription() {
     let error = VinetasError.modelNotSupported(modelID: "flux2-klein-4b", engineID: "pixart-sigma")
     let desc = error.localizedDescription
-    #require(desc != nil)
+    #expect(!desc.isEmpty)
     #expect(desc.contains("flux2-klein-4b"))
     #expect(desc.contains("pixart-sigma"))
   }
@@ -85,7 +85,7 @@ struct VinetasErrorTests {
   func loraIncompatibleDescription() {
     let error = VinetasError.loraIncompatible(loraEngine: "flux2", currentEngine: "pixart-sigma")
     let desc = error.localizedDescription
-    #require(desc != nil)
+    #expect(!desc.isEmpty)
     #expect(desc.contains("flux2"))
     #expect(desc.contains("pixart-sigma"))
   }
@@ -94,9 +94,9 @@ struct VinetasErrorTests {
 
   @Test("engineFeatureUnsupported error description contains engine ID")
   func engineFeatureUnsupportedDescription() {
-    let error = VinetasError.engineFeatureUnsupported(feature: .imageToImage, engineID: "flux2")
+    let error = VinetasError.engineFeatureUnsupported(feature: .imageToImage(maxReferenceImages: 4), engineID: "flux2")
     let desc = error.localizedDescription
-    #require(desc != nil)
+    #expect(!desc.isEmpty)
     #expect(desc.contains("flux2"))
   }
 }
