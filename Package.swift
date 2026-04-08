@@ -14,6 +14,11 @@ let package = Package(
       name: "SwiftVinetas",
       targets: ["SwiftVinetas"]
     ),
+    // CLI command structs as a library (testable)
+    .library(
+      name: "VinetasCLICore",
+      targets: ["VinetasCLICore"]
+    ),
     // CLI for testing and debugging
     .executable(
       name: "vinetas",
@@ -28,10 +33,10 @@ let package = Package(
     .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", from: "0.5.6"),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
-    .package(url: "https://github.com/intrusive-memory/SwiftTuberia.git", from: "0.2.7"),
+    .package(url: "https://github.com/intrusive-memory/SwiftTuberia.git", from: "0.2.8"),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
-    .package(url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", from: "0.3.0"),
+    .package(url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", from: "0.4.2"),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
@@ -55,11 +60,20 @@ let package = Package(
       ]
     ),
 
+    // CLI command structs as a library (imported by vinetas executable and test target)
+    .target(
+      name: "VinetasCLICore",
+      dependencies: [
+        "SwiftVinetas",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+      ]
+    ),
+
     // CLI executable
     .executableTarget(
       name: "vinetas",
       dependencies: [
-        "SwiftVinetas",
+        "VinetasCLICore",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]
     ),
@@ -68,7 +82,8 @@ let package = Package(
     .testTarget(
       name: "SwiftVinetasTests",
       dependencies: [
-        "SwiftVinetas"
+        "SwiftVinetas",
+        "VinetasCLICore",
       ]
     ),
 
