@@ -28,7 +28,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.8.4"
+  public static let version = "0.9.0"
 
   /// Default initializer that registers engines based on runtime memory detection.
   ///
@@ -80,6 +80,9 @@ extension VinetasClient {
     style: StyleConfig? = nil,
     model: any ModelDescriptor = VinetasClient.defaultModel
   ) async throws -> CGImage {
+    guard !prompt.trimmingCharacters(in: .whitespaces).isEmpty else {
+      throw VinetasError.generationFailed("Prompt must not be empty")
+    }
     let effectiveStyle = style ?? StyleConfig()
     let engine = try await router.engine(for: model)
     let composedPrompt = composePrompt(panelPrompt: prompt, style: effectiveStyle)
@@ -396,7 +399,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.8.4"
+  public static let version = "0.9.0"
 
   // MARK: - Generation
 

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Testing
 
@@ -12,7 +13,14 @@ import Testing
 /// Run selectively with:
 ///   xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS' \
 ///     -only-testing:SwiftVinetasGPUTests/PixArtIntegrationTests
-@Suite("PixArt Integration Tests", .tags(.integration, .pixart))
+///
+/// ## Why `.serialized`
+///
+/// MLX uses a shared global Metal context and lazy-evaluated compute graphs.
+/// Running two diffusion pipeline calls concurrently on the same process corrupts
+/// tensor shapes (0D tensors appear mid-upsample, crashing the VAE decoder).
+/// `.serialized` ensures checkpoints run strictly one at a time.
+@Suite("PixArt Integration Tests", .tags(.integration, .pixart), .serialized)
 struct PixArtIntegrationTests {
 
   // MARK: - Checkpoint 1: Binary Compilation
@@ -26,8 +34,16 @@ struct PixArtIntegrationTests {
     .tags(.integration, .pixart))
   func binaryCompilation() throws {
     #if os(macOS)
+      // Resolve project root from the test file's compile-time path:
+      // PixArtIntegrationTests.swift → SwiftVinetasGPUTests → Tests → SwiftVinetas/
+      let projectRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+
       let process = Process()
       process.executableURL = URL(fileURLWithPath: "/usr/bin/xcodebuild")
+      process.currentDirectoryURL = projectRoot
       process.arguments = [
         "build",
         "-scheme", "vinetas",
@@ -153,5 +169,88 @@ struct PixArtIntegrationTests {
 
     // Validate image content is not garbage
     assertImageNotGarbage(result.image)
+  }
+
+  // MARK: - Checkpoint 4: Storyboard Frame Written to Disk
+
+  /// End-to-end proof of the library's working condition: uses the high-level
+  /// ``VinetasClient`` API (the same path a real app takes) to generate a single
+  /// PixArt storyboard frame, then writes it to disk as a PNG and validates the
+  /// file is present and non-trivially sized.
+  ///
+  /// This test is the canonical integration smoke test. If it passes, the full
+  /// stack — model weights, pipeline assembly, generation, PNG encoding — is intact.
+  @Test(
+    "Checkpoint 4: PixArt writes a storyboard frame PNG to disk via VinetasClient",
+    .tags(.integration, .gpu, .pixart),
+    .timeLimit(.minutes(5))
+  )
+  func storyboardFrameWrittenToDisk() async throws {
+    let model = PixArtModelDescriptor.sigmaXL
+
+    // Skip if memory is insufficient
+    let memValidation = try await VinetasClient.shared.validateMemory(for: model)
+    switch memValidation {
+    case .insufficient(let required, let available):
+      let requiredGB = required / 1_073_741_824
+      let availableGB = available / 1_073_741_824
+      Issue.record(
+        "Insufficient memory: required \(requiredGB) GB, available \(availableGB) GB — skipping storyboard frame test"
+      )
+      return
+    case .ok, .warning:
+      break
+    }
+
+    // Skip if model weights are not on disk (requires Checkpoint 2 to have run)
+    let engine = try await VinetasClient.shared.router.engine(for: model)
+    guard engine.isAvailable(model) else {
+      Issue.record(
+        "Model '\(model.displayName)' is not downloaded — run Checkpoint 2 first"
+      )
+      return
+    }
+
+    // Use the public VinetasClient API — same path a real app (or the CLI) would take
+    let style = StyleConfig(
+      stylePrompt: "cinematic storyboard, professional comic art",
+      steps: model.defaultSteps,
+      guidanceScale: model.defaultGuidance,
+      seed: 42,
+      width: 512,
+      height: 512
+    )
+
+    let image = try await VinetasClient.shared.generate(
+      prompt: "A crimson knight stands at the edge of a cliff at dusk",
+      style: style,
+      model: model
+    )
+
+    // Validate pixel content is meaningful
+    #expect(image.width > 0, "Generated frame has zero width")
+    #expect(image.height > 0, "Generated frame has zero height")
+    assertImageNotGarbage(image)
+
+    // Write the frame to a temporary output directory
+    let outputDir = FileManager.default.temporaryDirectory
+      .appendingPathComponent("SwiftVinetasFrameTest-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: outputDir) }
+
+    let frameURL = outputDir.appendingPathComponent("frame-001.png")
+    try ImageOutput.writePNG(image: image, to: frameURL)
+
+    // Validate the PNG was written and is non-trivially sized
+    #expect(
+      FileManager.default.fileExists(atPath: frameURL.path),
+      "frame-001.png was not written to disk"
+    )
+    let attrs = try FileManager.default.attributesOfItem(atPath: frameURL.path)
+    let fileSize = attrs[.size] as? Int ?? 0
+    #expect(
+      fileSize > 1024,
+      "Written PNG is suspiciously small (\(fileSize) bytes) — possible encoding failure"
+    )
   }
 }

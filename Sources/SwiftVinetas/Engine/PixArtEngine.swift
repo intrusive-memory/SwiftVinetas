@@ -100,6 +100,14 @@ public actor PixArtEngine: ImageGenerationEngine {
   /// The LoRA config currently active, if any.
   private var activeLoRAConfig: LoRAConfig?
 
+  /// Prevents actor reentrancy during async generation.
+  ///
+  /// Swift actors allow reentrancy at `await` suspension points. Without this
+  /// guard, two concurrent callers can both enter `generate` and run the MLX
+  /// pipeline simultaneously. MLX uses a shared global Metal context and is not
+  /// safe for concurrent graph execution — concurrent calls corrupt tensor shapes.
+  private var isGenerating = false
+
   // MARK: - Init
 
   public init() {}
@@ -180,7 +188,7 @@ public actor PixArtEngine: ImageGenerationEngine {
       }
     } catch {
       throw VinetasError.generationFailed(
-        "Failed to load PixArt model weights: \(error.localizedDescription)"
+        "Failed to load PixArt model weights: \(String(describing: error))"
       )
     }
 
@@ -204,6 +212,11 @@ public actor PixArtEngine: ImageGenerationEngine {
     request: GenerationRequest,
     stepProgress: (@Sendable (Int, Int, TimeInterval) -> Void)?
   ) async throws -> GenerationResult {
+    guard !isGenerating else {
+      throw VinetasError.generationFailed(
+        "Generation already in progress. MLX does not support concurrent pipeline execution — await the current call before starting another."
+      )
+    }
     guard let pipeline = self.pipeline, let modelID = self.loadedModelID else {
       throw VinetasError.generationFailed(
         "No model loaded. Call loadModel(_:progress:) before generating."
@@ -221,6 +234,7 @@ public actor PixArtEngine: ImageGenerationEngine {
     let diffusionRequest = translateRequest(request)
     let startTime = Date()
 
+    isGenerating = true
     let result: DiffusionGenerationResult
     do {
       result = try await pipeline.generate(request: diffusionRequest) { pipelineProgress in
@@ -229,10 +243,12 @@ public actor PixArtEngine: ImageGenerationEngine {
         }
       }
     } catch {
+      isGenerating = false
       throw VinetasError.generationFailed(
         "PixArt generation failed: \(error.localizedDescription)"
       )
     }
+    isGenerating = false
 
     // Extract CGImage from RenderedOutput
     guard case .image(let cgImage) = result.output else {

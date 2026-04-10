@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.8.4
+**Version**: 0.9.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -134,14 +134,22 @@ SwiftVinetas/
 │   │   │   └── PixArtEngine.swift           # PixArt-Sigma conformance
 │   │   ├── Character/          # Character pipeline, LoRA training
 │   │   └── Understanding/      # ViT-B/16, DINOv2, image preprocessing
-│   └── vinetas/                # CLI
+│   ├── VinetasCLICore/         # Testable CLI logic library (v0.9.0+)
+│   │   └── VinetasCLICore.swift
+│   └── vinetas/                # CLI executable (thin wrapper over VinetasCLICore)
 │       └── VinetasCLI.swift
 ├── Tests/
 │   ├── SwiftVinetasTests/
+│   │   ├── VinetasClientTests.swift         # VinetasClient routing and validation
+│   │   ├── VinetasErrorTests.swift          # Parameterized error type tests
+│   │   ├── CLIArgumentTests.swift           # CLI argument parsing (VinetasCLICore)
+│   │   ├── LoRAManagerTests.swift           # LoRA sequencing tests
+│   │   ├── ConcurrentClientTests.swift      # Actor isolation stress tests
+│   │   └── MockEngine.swift                 # Test double for ImageGenerationEngine
 │   └── SwiftVinetasGPUTests/
 │       ├── TestTags.swift                   # Shared tag taxonomy (.integration, .gpu, .flux2, .pixart)
 │       ├── IntegrationTestHelpers.swift     # assertImageNotGarbage, assertModelDownloaded
-│       ├── Flux2IntegrationTests.swift      # FLUX.2 pipeline: compile, download, generate
+│       ├── Flux2IntegrationTests.swift      # FLUX.2 pipeline: compile, download, generate, determinism
 │       ├── PixArtIntegrationTests.swift     # PixArt-Sigma pipeline: compile, download, generate
 │       ├── BatchIntegrationTests.swift      # Batch generation integration tests
 │       └── ImagePreprocessorTests.swift     # GPU-accelerated image preprocessing tests
@@ -185,6 +193,15 @@ SwiftVinetas/
 7. Follow agent-specific instructions — see [CLAUDE.md](CLAUDE.md) or [GEMINI.md](GEMINI.md)
 
 ## Recent Changes
+
+### v0.9.0
+
+- Added `VinetasCLICore` library target — CLI logic extracted from `vinetas` executable into a testable library
+- Comprehensive unit test suite: `VinetasClientTests`, `VinetasErrorTests`, `CLIArgumentTests`, `LoRAManagerTests`, `ConcurrentClientTests`
+- GPU integration test expansion: fixed-seed determinism (Checkpoint 4), `unloadModel` memory release (Checkpoint 5)
+- Actor isolation stress tests for concurrent `VinetasClient` usage
+- `generateSequence` callback ordering tests for multi-panel generation
+- Added `SwiftVinetasGPUTests.entitlements` for GPU test target entitlements
 
 ### v0.8.4
 
