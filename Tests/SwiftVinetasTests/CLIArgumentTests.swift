@@ -138,7 +138,9 @@ struct CharacterArgumentTests {
 
   @Test("create: --description sets description field")
   func characterCreateDescription() throws {
-    let cmd = try CharacterCommand.Create.parse(["Detective Vale", "--description", "tall detective"])
+    let cmd = try CharacterCommand.Create.parse([
+      "Detective Vale", "--description", "tall detective",
+    ])
     #expect(cmd.description == "tall detective")
   }
 

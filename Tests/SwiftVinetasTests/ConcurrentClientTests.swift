@@ -61,7 +61,10 @@ struct ConcurrentClientTests {
     }
 
     let calls = await engine.calls
-    let generateCalls = calls.filter { if case .generate = $0 { return true }; return false }
+    let generateCalls = calls.filter {
+      if case .generate = $0 { return true }
+      return false
+    }
     #expect(generateCalls.count == 5)
   }
 }

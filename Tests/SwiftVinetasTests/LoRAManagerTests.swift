@@ -89,7 +89,9 @@ struct LoRAManagerTests {
 
     if calls.count == 2 {
       if case .loadLoRA(let filename, let scale) = calls[0] {
-        #expect(filename == tempFile.lastPathComponent, "First call should be loadLoRA with correct filename")
+        #expect(
+          filename == tempFile.lastPathComponent,
+          "First call should be loadLoRA with correct filename")
         #expect(scale == 0.8, "First call should have scale 0.8")
       } else {
         Issue.record("First call should be .loadLoRA")

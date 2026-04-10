@@ -34,7 +34,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.8.4")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.9.0")
 ]
 ```
 
@@ -164,6 +164,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 
 ## Status
+
+**v0.9.0** — Comprehensive test suite: `VinetasCLICore` library target, unit tests for client routing, error types, CLI argument parsing, LoRA sequencing, and actor isolation; expanded GPU tests for fixed-seed determinism and memory release.
 
 **v0.8.4** — Fix `isAvailable` always returning false on fresh app launch; bump SwiftTubería minimum to 0.2.7; add `lint` Makefile target.
 

@@ -20,7 +20,8 @@ struct VinetasErrorTests {
 
   @Test("insufficientMemory error description contains required and available GB")
   func insufficientMemoryDescription() {
-    let error = VinetasError.insufficientMemory(required: 16*1_073_741_824, available: 8*1_073_741_824)
+    let error = VinetasError.insufficientMemory(
+      required: 16 * 1_073_741_824, available: 8 * 1_073_741_824)
     let desc = error.localizedDescription
     #expect(!desc.isEmpty)
     #expect(desc.contains("16"))
@@ -94,7 +95,8 @@ struct VinetasErrorTests {
 
   @Test("engineFeatureUnsupported error description contains engine ID")
   func engineFeatureUnsupportedDescription() {
-    let error = VinetasError.engineFeatureUnsupported(feature: .imageToImage(maxReferenceImages: 4), engineID: "flux2")
+    let error = VinetasError.engineFeatureUnsupported(
+      feature: .imageToImage(maxReferenceImages: 4), engineID: "flux2")
     let desc = error.localizedDescription
     #expect(!desc.isEmpty)
     #expect(desc.contains("flux2"))

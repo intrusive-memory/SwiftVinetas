@@ -10,7 +10,9 @@ struct VinetasClientTests {
   // MARK: - Shared Helpers
 
   /// Creates a default mock engine and descriptor pair for routing tests.
-  private func makeMockClient() -> (client: VinetasClient, engine: MockEngine, descriptor: MockModelDescriptor) {
+  private func makeMockClient() -> (
+    client: VinetasClient, engine: MockEngine, descriptor: MockModelDescriptor
+  ) {
     let engine = MockEngine()
     let descriptor = MockModelDescriptor(id: "mock-model", engineID: "mock")
     let router = EngineRouter(engines: [engine])
@@ -132,7 +134,10 @@ struct VinetasClientGenerateSequenceTests {
     _ = try await client.generateSequence(prompts: ["a", "b", "c"], model: descriptor)
 
     let calls = await engine.calls
-    let generateCalls = calls.filter { if case .generate = $0 { return true }; return false }
+    let generateCalls = calls.filter {
+      if case .generate = $0 { return true }
+      return false
+    }
     #expect(generateCalls.count == 3)
   }
 
@@ -197,7 +202,10 @@ struct VinetasClientGenerateSequenceTests {
 
     #expect(result.isEmpty)
     let calls = await engine.calls
-    let generateCalls = calls.filter { if case .generate = $0 { return true }; return false }
+    let generateCalls = calls.filter {
+      if case .generate = $0 { return true }
+      return false
+    }
     #expect(generateCalls.isEmpty)
   }
 }
