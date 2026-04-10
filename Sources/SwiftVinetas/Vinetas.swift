@@ -80,6 +80,9 @@ extension VinetasClient {
     style: StyleConfig? = nil,
     model: any ModelDescriptor = VinetasClient.defaultModel
   ) async throws -> CGImage {
+    guard !prompt.trimmingCharacters(in: .whitespaces).isEmpty else {
+      throw VinetasError.generationFailed("Prompt must not be empty")
+    }
     let effectiveStyle = style ?? StyleConfig()
     let engine = try await router.engine(for: model)
     let composedPrompt = composePrompt(panelPrompt: prompt, style: effectiveStyle)

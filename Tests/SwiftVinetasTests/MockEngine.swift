@@ -90,6 +90,9 @@ actor MockEngine: ImageGenerationEngine {
   /// The set of features this mock engine supports.
   var supportedFeatures: Set<String> = ["textToImage"]
 
+  /// The number of step-progress callbacks to fire during `generate`. Defaults to 0 (no callbacks).
+  var generateStepCount: Int = 0
+
   /// The result to return from `generate(request:stepProgress:)`.
   var generateResult: GenerationResult?
 
@@ -124,6 +127,11 @@ actor MockEngine: ImageGenerationEngine {
 
   /// If non-nil, `delete` will throw this error.
   var deleteError: Error?
+
+  /// Sets the number of step-progress callbacks to fire per `generate` call.
+  func setGenerateStepCount(_ count: Int) {
+    generateStepCount = count
+  }
 
   // MARK: - Init
 
@@ -181,6 +189,13 @@ actor MockEngine: ImageGenerationEngine {
     calls.append(.generate(request.prompt))
     if let error = generateError {
       throw error
+    }
+    // Fire step-progress callbacks if configured
+    if generateStepCount > 0 {
+      for step in 1...generateStepCount {
+        let fraction = Double(step) / Double(generateStepCount)
+        stepProgress?(step, generateStepCount, fraction)
+      }
     }
     if let result = generateResult {
       return result
