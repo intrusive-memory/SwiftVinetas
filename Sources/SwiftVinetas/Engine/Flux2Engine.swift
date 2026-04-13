@@ -315,28 +315,8 @@ public actor Flux2Engine: ImageGenerationEngine {
     guard let descriptor = resolveDescriptor(model) else { return nil }
     let components = Self.modelComponents(for: descriptor)
     var totalSize: Int64 = 0
-    let fm = FileManager.default
-
     for component in components {
-      guard let path = Flux2ModelDownloader.findModelPath(for: component) else {
-        return nil
-      }
-      guard let attrs = try? fm.attributesOfItem(atPath: path.path),
-        let size = attrs[.size] as? Int64
-      else {
-        // Try directory size
-        if let enumerator = fm.enumerator(at: path, includingPropertiesForKeys: [.fileSizeKey]) {
-          while let fileURL = enumerator.nextObject() as? URL {
-            if let resourceValues = try? fileURL.resourceValues(forKeys: [.fileSizeKey]),
-              let fileSize = resourceValues.fileSize
-            {
-              totalSize += Int64(fileSize)
-            }
-          }
-          continue
-        }
-        return nil
-      }
+      guard let size = Flux2ModelDownloader.diskSize(for: component) else { return nil }
       totalSize += size
     }
     return totalSize

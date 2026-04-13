@@ -93,6 +93,26 @@ public enum VinetasModelManager: Sendable {
   /// Called automatically by ``VinetasClient/init()``. Apps can call this
   /// again with ``configureStorage(baseURL:)`` to override.
   public static func configureStorage() {
+    // MACF workaround for xctest: On macOS, MACF blocks open()/fopen() on files
+    // inside ~/Library/Group Containers/… for processes that lack the
+    // com.apple.security.application-groups entitlement — including xctest.
+    //
+    // When VINETAS_TEST_MODELS_DIR is set AND the directory exists, redirect
+    // ModelRegistry (Flux2Core) to use pre-hardlinked files there instead of
+    // the App Group Container path. This mirrors the same pattern used by
+    // WeightLoader and T5XXLEncoder in SwiftTuberia for PixArt weights.
+    //
+    // In production (entitled processes), VINETAS_TEST_MODELS_DIR is not set,
+    // so this block is skipped and the Group Container path is used normally.
+    if let testDir = ProcessInfo.processInfo.environment["VINETAS_TEST_MODELS_DIR"] {
+      let testURL = URL(fileURLWithPath: testDir)
+      if FileManager.default.fileExists(atPath: testURL.path) {
+        ModelRegistry.customModelsDirectory = testURL
+        TextEncoderModelDownloader.customModelsDirectory = testURL
+        return
+      }
+    }
+
     let storageURL = Acervo.sharedModelsDirectory
     ModelRegistry.customModelsDirectory = storageURL
     TextEncoderModelDownloader.customModelsDirectory = storageURL

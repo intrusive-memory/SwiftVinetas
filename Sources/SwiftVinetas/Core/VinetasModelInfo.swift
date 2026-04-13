@@ -38,7 +38,7 @@ public struct VinetasModelInfo: Sendable, Equatable {
     let gb = mb * 1024.0
 
     if size == 0 {
-      return "Not downloaded"
+      return isDownloaded ? "Unknown" : "Not downloaded"
     } else if bytes < kb {
       return "\(size) bytes"
     } else if bytes < mb {

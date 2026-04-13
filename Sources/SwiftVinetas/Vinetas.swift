@@ -28,7 +28,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.9.0"
+  public static let version = "0.9.1"
 
   /// Default initializer that registers engines based on runtime memory detection.
   ///
@@ -283,14 +283,26 @@ extension VinetasClient {
   /// - Returns: An array of ``VinetasModelInfo``, one per known model.
   public func listModels() async -> [VinetasModelInfo] {
     let models = await router.allModels
-    return models.map { model in
-      VinetasModelInfo(
-        name: model.displayName,
-        size: 0,
-        downloadDate: nil,
-        isDownloaded: false
-      )
+    var infos: [VinetasModelInfo] = []
+    for model in models {
+      let downloaded: Bool
+      let size: Int64
+      if let engine = try? await router.engine(for: model) {
+        downloaded = engine.isAvailable(model)
+        size = engine.diskSize(of: model) ?? 0
+      } else {
+        downloaded = false
+        size = 0
+      }
+      infos.append(
+        VinetasModelInfo(
+          name: model.displayName,
+          size: size,
+          downloadDate: nil,
+          isDownloaded: downloaded
+        ))
     }
+    return infos
   }
 
   /// Validate whether the system has sufficient memory for a model.
