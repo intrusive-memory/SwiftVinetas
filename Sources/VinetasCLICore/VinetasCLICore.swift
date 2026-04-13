@@ -309,7 +309,7 @@ public struct ListModels: AsyncParsableCommand {
       return
     }
 
-    let header = "%-40s  %-14s  %-24s  %s"
+    let header = "%-40@  %-14@  %-24@  %@"
     print(String(format: header, "Name", "Size", "Downloaded", "Status"))
     print(String(repeating: "-", count: 86))
 
@@ -326,7 +326,7 @@ public struct ListModels: AsyncParsableCommand {
       let status = info.isDownloaded ? "cached" : "not downloaded"
       print(
         String(
-          format: "%-40s  %-14s  %-24s  %s",
+          format: "%-40@  %-14@  %-24@  %@",
           info.name, info.formattedSize, dateStr, status))
     }
   }
@@ -496,7 +496,7 @@ public struct CharacterCommand: AsyncParsableCommand {
         let created = dateFormatter.string(from: character.created)
         print(
           String(
-            format: "%-24s  %-24s  %-10s  %s",
+            format: "%-24@  %-24@  %-10@  %@",
             String(character.name.prefix(24)),
             String(character.slug.prefix(24)),
             hasLora,
@@ -768,7 +768,7 @@ public struct CharacterCommand: AsyncParsableCommand {
       print("Average similarity:     \(String(format: "%.4f", report.averageSimilarity))")
       print("")
 
-      let header = "%-12s  %-12s  %s"
+      let header = "%-12@  %-12@  %@"
       print(String(format: header, "View 1", "View 2", "Similarity"))
       print(String(repeating: "-", count: 40))
 
@@ -776,7 +776,7 @@ public struct CharacterCommand: AsyncParsableCommand {
         let status = pair.similarity >= report.threshold ? "" : " < threshold"
         print(
           String(
-            format: "%-12s  %-12s  %.4f%s",
+            format: "%-12@  %-12@  %.4f%@",
             pair.view1, pair.view2,
             pair.similarity, status))
       }
@@ -812,7 +812,7 @@ public struct Classify: AsyncParsableCommand {
       return
     }
 
-    let header = "%-40s  %s"
+    let header = "%-40@  %@"
     print(String(format: header, "Label", "Confidence"))
     print(String(repeating: "-", count: 56))
 
@@ -820,7 +820,7 @@ public struct Classify: AsyncParsableCommand {
       let confidence = String(format: "%.2f%%", classification.confidence * 100)
       print(
         String(
-          format: "%-40s  %s",
+          format: "%-40@  %@",
           String(classification.label.prefix(40)),
           confidence))
     }
