@@ -1,0 +1,27 @@
+{
+  "generation" : {
+    "durationSeconds" : 59.109905791,
+    "generatedAt" : "2026-04-14T19:12:37Z",
+    "guidanceScale" : 3.5,
+    "height" : 512,
+    "modelID" : "flux2-klein-4b",
+    "prompt" : "A red car parked on a cobblestone street",
+    "seed" : 42,
+    "steps" : 20,
+    "width" : 512
+  },
+  "metrics" : {
+    "computedAt" : "2026-04-14T19:12:37Z",
+    "distinctColors10x10" : 100,
+    "distinctColors5x5" : 25,
+    "height" : 512,
+    "isAllBlack" : false,
+    "isAllWhite" : false,
+    "meanBlue" : 129.11,
+    "meanGreen" : 135.41,
+    "meanLuminance" : 136.30340999999996,
+    "meanRed" : 140.8,
+    "stdLuminance" : 53.311529314041444,
+    "width" : 512
+  }
+}

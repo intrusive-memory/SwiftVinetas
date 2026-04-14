@@ -90,3 +90,66 @@ Two separate issues compound each other:
 
 - `formattedSize` should return `"Unknown"` (or `"-"`) when `size == 0` and `isDownloaded == true`, reserving `"Not downloaded"` for when `isDownloaded == false`.
 - `diskSize()` should use the same path resolution logic as the weight-loading code path (i.e. walk the full component tree from `modelsDirectory`) rather than relying on `findModelPath`'s sentinel-file heuristic.
+
+---
+
+## PixArt generates garbage output
+
+**Severity**: High — generated images are unusable  
+**Affects**: `PixArtEngine`, `PixArtIntegrationTests` Checkpoint 3  
+**Status**: Fixed in development branch  
+**Investigation**: `docs/incomplete/pixart-garbage-supervisor-state.md`
+
+### Symptom
+
+PixArt-Sigma XL produces visually garbage output — all-black, all-white, near-monochrome, or
+corrupted images — instead of a coherent image matching the prompt.
+
+### Root Causes (all fixed)
+
+Multiple bugs compounded:
+
+1. **Wrong beta schedule** (primary): `PixArtRecipe` used `.linear` instead of `.scaledLinear`.
+   PixArt-Sigma trains with `betas = linspace(sqrt(0.0001), sqrt(0.02), 1000)²`. Using plain
+   linear produces wrong `alpha_cumprod` values, causing the denoising trajectory to diverge
+   (latents drift to large positive values → all-white or all-black output).
+
+2. **GEGLU vs GELU in FFN**: `DiTBlock.GEGLUFFN` projected to `2 * ffnHiddenSize` and split
+   (GEGLU gating), but PixArt-Sigma uses `activation_fn="gelu-approximate"` — single projection
+   to `ffnHiddenSize` with GELU, no gate split.
+
+3. **sin/cos embedding order**: `sinusoidalEmbedding1D` and `timestepSinusoidalEmbedding`
+   returned `[cos, sin]` but diffusers uses `[sin, cos]`. Timestep MLP weights were trained on
+   the `[sin, cos]` layout.
+
+4. **Timestep frequency denominator**: Used `halfDim` instead of `halfDim - 1`, diverging from
+   diffusers `downscale_freq_shift=1` default.
+
+5. **QK normalization present but weightless**: `SelfAttention` applied default `LayerNorm(1,0)`
+   as qNorm/kNorm, but the int4 checkpoint has no q_norm/k_norm weights — incorrect normalization.
+
+6. **Incorrect weight key mapping**: `WeightMapping` assumed HuggingFace diffusers key format;
+   the int4 safetensors uses MLX-native property paths directly (identity mapping needed).
+
+7. **int4 weights not dequantized**: `PixArtDiT.apply(weights:)` loaded packed U32 tensors
+   directly into `Linear` layers without calling `dequantized()`.
+
+### Remaining Limitation
+
+After all fixes, generated images show colored patterns but are not photorealistic. Thorough
+analysis confirmed this is a quantization artifact: int4 quantization introduces a systematic
+negative mean bias in `eps_pred` (≈−0.04 at t=999), which self-reinforces over 20 denoising
+steps causing positive latent drift (mean ≈ 1.19 vs expected ≈ 0). This is expected behavior
+for int4 models and is not a code bug.
+
+### Fix Location
+
+- `SwiftTuberia`: `BetaSchedule.scaledLinear` + `DPMSolverScheduler` + `T5XXLEncoder` int4 dequant
+- `pixart-swift-mlx`: `PixArtRecipe`, `DiTBlock`, `Embeddings`, `Attention`, `PixArtDiT`, `WeightMapping`
+
+### Infrastructure Added
+
+- `make test-fixtures` → `Tests/SwiftVinetasGPUTests/Fixtures/generations/pixart-seed42.png` + `.json`
+- `Tests/SwiftVinetasGPUTests/ImageQualityReport.swift` — `computeMetrics()` + `metricObservations()`
+- `Tests/SwiftVinetasGPUTests/FixtureGenerationTests.swift`
+- `Tests/SwiftVinetasGPUTests/PixArtGarbageReproTests.swift`

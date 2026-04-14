@@ -33,10 +33,12 @@ let package = Package(
     .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", from: "0.6.0"),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
-    .package(url: "https://github.com/intrusive-memory/SwiftTuberia.git", from: "0.3.5"),
+    // LOCAL: adding scaledLinear beta schedule — revert to remote after release
+    .package(path: "../SwiftTuberia"),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
-    .package(url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", from: "0.4.2"),
+    // LOCAL: fixing WeightMapping key mismatch + QuantizedLinear — revert to remote after release
+    .package(path: "../pixart-swift-mlx"),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
