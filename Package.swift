@@ -33,7 +33,8 @@ let package = Package(
     .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", from: "0.6.0"),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
-    .package(url: "https://github.com/intrusive-memory/SwiftTuberia.git", from: "0.3.4"),
+    // LOCAL: testing MACF bypass fix — revert to remote after release
+    .package(path: "../SwiftTuberia"),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
     .package(url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", from: "0.4.2"),

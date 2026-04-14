@@ -51,7 +51,7 @@ INTEGRATION_SUITES = \
 	-only-testing:SwiftVinetasGPUTests/BatchIntegrationTests \
 	-only-testing:SwiftVinetasGPUTests/AllModelsExampleTests
 
-.PHONY: build release test test-unit test-gpu test-integration test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help
+.PHONY: build release test test-unit test-gpu test-integration test-fixtures test-pixart-repro test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help
 
 help: ## Show all available targets with descriptions
 	@echo "SwiftVinetas — Makefile targets"
@@ -132,7 +132,7 @@ link-test-models: ## Hardlink all model weights + tokenizer files from App Group
 			[ -e "$$f" ] || continue; \
 			cp -n "$$f" "$$DEST/$$dstdir/" 2>/dev/null && copied=$$((copied + 1)); \
 		done; \
-		[ $$copied -gt 0 ] && echo "  $$dstdir: $$copied config/tokenizer file(s) copied"; \
+		[ $$copied -gt 0 ] && echo "  $$dstdir: $$copied config/tokenizer file(s) copied" || :; \
 	done; \
 	echo "Linking Flux2 Klein models (ModelRegistry directory structure)..."; \
 	for pair in \
@@ -158,25 +158,39 @@ link-test-models: ## Hardlink all model weights + tokenizer files from App Group
 			[ -e "$$f" ] || continue; \
 			cp -n "$$f" "$$dstpath/" 2>/dev/null && copied=$$((copied + 1)); \
 		done; \
-		[ $$copied -gt 0 ] && echo "  $$dstrel: $$copied json file(s) copied"; \
+		[ $$copied -gt 0 ] && echo "  $$dstrel: $$copied json file(s) copied" || :; \
 	done
 
 # Keep the old name as an alias for backwards compatibility with any scripts.
 link-pixart-models: link-test-models
 
 test-gpu: link-test-models ## Run GPU tests only (requires Apple Silicon + cached model)
-	VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasGPUTests
 
 test-integration: link-test-models ## Run integration tests only (model download + image generation)
-	VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		$(INTEGRATION_SUITES)
+
+test-fixtures: link-test-models ## Generate reference fixtures for both engines — saves PNGs + JSON to Fixtures/generations/
+	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+		-scheme $(SCHEME_PKG) \
+		-destination $(DESTINATION_MACOS) \
+		-derivedDataPath $(DERIVED_DATA) \
+		-only-testing:SwiftVinetasGPUTests/FixtureGenerationTests
+
+test-pixart-repro: link-test-models ## Run PixArt 5× across seeds 42-46 to diagnose garbage output — saves to ~/Desktop/SwiftVinetasDebug/
+	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+		-scheme $(SCHEME_PKG) \
+		-destination $(DESTINATION_MACOS) \
+		-derivedDataPath $(DERIVED_DATA) \
+		-only-testing:SwiftVinetasGPUTests/PixArtGarbageReproTests
 
 test-ios: ## Run all iOS Simulator tests
 	xcodebuild test \
