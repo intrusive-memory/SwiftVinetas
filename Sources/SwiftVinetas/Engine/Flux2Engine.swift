@@ -94,6 +94,14 @@ public actor Flux2Engine: ImageGenerationEngine {
   /// The model ID currently loaded into the pipeline.
   private var loadedModelID: String?
 
+  /// Prevents actor reentrancy during async generation.
+  ///
+  /// Swift actors allow reentrancy at `await` suspension points. Without this
+  /// guard, two concurrent callers can both enter `generate` and run the MLX
+  /// pipeline simultaneously. MLX uses a shared global Metal context and is not
+  /// safe for concurrent graph execution — concurrent calls corrupt tensor shapes.
+  private var isGenerating = false
+
   // MARK: - Init
 
   public init() {}
@@ -162,6 +170,9 @@ public actor Flux2Engine: ImageGenerationEngine {
   }
 
   public func unloadModel() async {
+    if let pipeline = pipeline {
+      await pipeline.clearAll()
+    }
     pipeline = nil
     loadedModelID = nil
   }
@@ -172,6 +183,11 @@ public actor Flux2Engine: ImageGenerationEngine {
     request: GenerationRequest,
     stepProgress: (@Sendable (Int, Int, TimeInterval) -> Void)?
   ) async throws -> GenerationResult {
+    guard !isGenerating else {
+      throw VinetasError.generationFailed(
+        "Generation already in progress. MLX does not support concurrent pipeline execution — await the current call before starting another."
+      )
+    }
     guard let pipeline = self.pipeline, let modelID = self.loadedModelID else {
       throw VinetasError.generationFailed(
         "No model loaded. Call loadModel(_:progress:) before generating."
@@ -182,6 +198,9 @@ public actor Flux2Engine: ImageGenerationEngine {
 
     let clock = ContinuousClock()
     let startTime = clock.now
+
+    isGenerating = true
+    defer { isGenerating = false }
 
     let flux2Result: Flux2GenerationResult
 

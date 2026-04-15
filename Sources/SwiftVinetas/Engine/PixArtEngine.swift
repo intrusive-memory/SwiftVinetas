@@ -231,10 +231,16 @@ public actor PixArtEngine: ImageGenerationEngine {
       )
     }
 
-    let diffusionRequest = translateRequest(request)
-    let startTime = Date()
+    let resolvedSeed: UInt32 = request.seed.map { UInt32($0 & 0xFFFF_FFFF) }
+      ?? UInt32.random(in: 0...UInt32.max)
+    let diffusionRequest = translateRequest(request, seed: resolvedSeed)
+
+    let clock = ContinuousClock()
+    let startTime = clock.now
 
     isGenerating = true
+    defer { isGenerating = false }
+
     let result: DiffusionGenerationResult
     do {
       result = try await pipeline.generate(request: diffusionRequest) { pipelineProgress in
@@ -243,12 +249,10 @@ public actor PixArtEngine: ImageGenerationEngine {
         }
       }
     } catch {
-      isGenerating = false
       throw VinetasError.generationFailed(
         "PixArt generation failed: \(error.localizedDescription)"
       )
     }
-    isGenerating = false
 
     // Extract CGImage from RenderedOutput
     guard case .image(let cgImage) = result.output else {
@@ -257,13 +261,15 @@ public actor PixArtEngine: ImageGenerationEngine {
       )
     }
 
-    let duration = Date().timeIntervalSince(startTime)
+    let elapsed = clock.now - startTime
+    let durationSeconds = Double(elapsed.components.seconds)
+      + Double(elapsed.components.attoseconds) / 1e18
 
     return GenerationResult(
       image: cgImage,
       usedPrompt: request.prompt,
-      seed: UInt64(result.seed),
-      durationSeconds: duration,
+      seed: UInt64(resolvedSeed),
+      durationSeconds: durationSeconds,
       modelID: modelID
     )
   }
@@ -447,11 +453,9 @@ public actor PixArtEngine: ImageGenerationEngine {
   // MARK: - Private Helpers
 
   /// Translate a SwiftVinetas ``GenerationRequest`` into a Tuberia ``DiffusionGenerationRequest``.
-  private func translateRequest(_ request: GenerationRequest) -> DiffusionGenerationRequest {
-    // Seed: GenerationRequest uses UInt64, DiffusionGenerationRequest uses UInt32.
-    // Truncate to UInt32 range for compatibility.
-    let seed32: UInt32? = request.seed.map { UInt32($0 & 0xFFFF_FFFF) }
-
+  ///
+  /// - Parameter seed: Pre-resolved seed (always concrete; caller generates random value if request has none).
+  private func translateRequest(_ request: GenerationRequest, seed: UInt32) -> DiffusionGenerationRequest {
     return DiffusionGenerationRequest(
       prompt: request.prompt,
       negativePrompt: request.negativePrompt,
@@ -459,7 +463,7 @@ public actor PixArtEngine: ImageGenerationEngine {
       height: request.height,
       steps: request.steps,
       guidanceScale: request.guidanceScale,
-      seed: seed32,
+      seed: seed,
       loRA: activeLoRAConfig
     )
   }
