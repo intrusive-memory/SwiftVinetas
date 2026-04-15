@@ -1,7 +1,7 @@
 {
   "generation" : {
-    "durationSeconds" : 97.37758100032806,
-    "generatedAt" : "2026-04-15T13:08:00Z",
+    "durationSeconds" : 107.16817808151245,
+    "generatedAt" : "2026-04-15T14:38:48Z",
     "guidanceScale" : 4.5,
     "height" : 1024,
     "modelID" : "pixart-sigma-xl",
@@ -11,17 +11,17 @@
     "width" : 1024
   },
   "metrics" : {
-    "computedAt" : "2026-04-15T13:08:00Z",
-    "distinctColors10x10" : 93,
-    "distinctColors5x5" : 22,
+    "computedAt" : "2026-04-15T14:38:48Z",
+    "distinctColors10x10" : 70,
+    "distinctColors5x5" : 23,
     "height" : 1024,
     "isAllBlack" : false,
     "isAllWhite" : false,
-    "meanBlue" : 67.74,
-    "meanGreen" : 128.9,
-    "meanLuminance" : 124.40946000000002,
-    "meanRed" : 137.2,
-    "stdLuminance" : 49.86598835768123,
+    "meanBlue" : 18.63,
+    "meanGreen" : 221.62,
+    "meanLuminance" : 184.95836000000006,
+    "meanRed" : 176.4,
+    "stdLuminance" : 55.73593260913825,
     "width" : 1024
   }
 }
