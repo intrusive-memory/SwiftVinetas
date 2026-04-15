@@ -1,0 +1,27 @@
+{
+  "generation" : {
+    "durationSeconds" : 20.20313000679016,
+    "generatedAt" : "2026-04-15T12:45:42Z",
+    "guidanceScale" : 4.5,
+    "height" : 512,
+    "modelID" : "pixart-sigma-xl-fp16",
+    "prompt" : "A red car parked on a cobblestone street",
+    "seed" : 42,
+    "steps" : 20,
+    "width" : 512
+  },
+  "metrics" : {
+    "computedAt" : "2026-04-15T12:45:42Z",
+    "distinctColors10x10" : 91,
+    "distinctColors5x5" : 25,
+    "height" : 512,
+    "isAllBlack" : false,
+    "isAllWhite" : false,
+    "meanBlue" : 40.04,
+    "meanGreen" : 117.81,
+    "meanLuminance" : 106.16950000000001,
+    "meanRed" : 108.53,
+    "stdLuminance" : 72.5920256403553,
+    "width" : 512
+  }
+}

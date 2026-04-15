@@ -51,7 +51,7 @@ INTEGRATION_SUITES = \
 	-only-testing:SwiftVinetasGPUTests/BatchIntegrationTests \
 	-only-testing:SwiftVinetasGPUTests/AllModelsExampleTests
 
-.PHONY: build release test test-unit test-gpu test-integration test-fixtures test-pixart-repro test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help
+.PHONY: build release test test-unit test-gpu test-integration test-fixtures test-fixtures-fp16 test-pixart-repro test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models link-fp16-models help
 
 help: ## Show all available targets with descriptions
 	@echo "SwiftVinetas — Makefile targets"
@@ -184,6 +184,27 @@ test-fixtures: link-test-models ## Generate reference fixtures for both engines 
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasGPUTests/FixtureGenerationTests
+	@open Tests/SwiftVinetasGPUTests/Fixtures/generations/*.png
+
+link-fp16-models: link-test-models ## Check fp16 DiT weights exist at PIXART_TEST_MODELS/pixart-sigma-xl-dit-fp16/ (dequantize_dit_to_fp16.py writes there directly)
+	@SAFETENSORS="$(PIXART_TEST_MODELS)/pixart-sigma-xl-dit-fp16/model.safetensors"; \
+	if [ ! -f "$$SAFETENSORS" ]; then \
+		echo "  MISSING: $$SAFETENSORS"; \
+		echo "  Generate it first:"; \
+		echo "    python3 /Users/stovak/Projects/pixart-swift-mlx/scripts/dequantize_dit_to_fp16.py"; \
+		exit 1; \
+	else \
+		echo "  OK: $$SAFETENSORS"; \
+	fi
+
+test-fixtures-fp16: link-fp16-models ## Generate fp16 DiT fixture to compare against int4 baseline — saves pixart-seed42-fp16.png
+	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) \
+	TEST_RUNNER_PIXART_PRECISION=fp16 xcodebuild test \
+		-scheme $(SCHEME_PKG) \
+		-destination $(DESTINATION_MACOS) \
+		-derivedDataPath $(DERIVED_DATA) \
+		-only-testing:SwiftVinetasGPUTests/FixtureGenerationTests
+	@open Tests/SwiftVinetasGPUTests/Fixtures/generations/pixart-seed42-fp16.png
 
 test-pixart-repro: link-test-models ## Run PixArt 5× across seeds 42-46 to diagnose garbage output — saves to ~/Desktop/SwiftVinetasDebug/
 	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \

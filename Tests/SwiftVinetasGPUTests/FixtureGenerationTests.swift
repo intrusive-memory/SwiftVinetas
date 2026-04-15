@@ -1,6 +1,10 @@
 import CoreGraphics
 import Foundation
+import PixArtBackbone
+import SwiftAcervo
 import Testing
+import Tuberia
+import TuberiaCatalog
 
 @testable import SwiftVinetas
 
@@ -98,15 +102,31 @@ struct FixtureGenerationTests {
   // MARK: - PixArt fixture
 
   /// Generates a single PixArt-Sigma XL image (seed 42, 512×512) and saves it
-  /// to `Fixtures/generations/pixart-seed42.png`.
+  /// to `Fixtures/generations/pixart-seed42.png` (int4) or
+  /// `Fixtures/generations/pixart-seed42-fp16.png` (fp16, for quantization comparison).
   ///
-  /// Skips gracefully if the model is not downloaded or memory is insufficient.
+  /// Set the environment variable `PIXART_PRECISION=fp16` (via `make test-fixtures-fp16`)
+  /// to load the fp16 DiT weights instead of the int4 weights. The fp16 weights must be
+  /// generated first by running `scripts/dequantize_dit_to_fp16.py`.
+  ///
+  /// Skips gracefully if the required model weights are not on disk.
   @Test(
     "Generate PixArt-Sigma XL fixture (seed 42)",
     .tags(.integration, .pixart),
     .timeLimit(.minutes(10))
   )
   func generatePixArtFixture() async throws {
+    let useFP16 = ProcessInfo.processInfo.environment["PIXART_PRECISION"] == "fp16"
+
+    if useFP16 {
+      try await generatePixArtFixtureFP16()
+    } else {
+      try await generatePixArtFixtureInt4()
+    }
+  }
+
+  /// Generates the int4 PixArt fixture using the default `PixArtRecipe`.
+  private func generatePixArtFixtureInt4() async throws {
     let model = PixArtModelDescriptor.sigmaXL
 
     let memValidation = try await VinetasClient.shared.validateMemory(for: model)
@@ -125,18 +145,122 @@ struct FixtureGenerationTests {
 
     try await engine.loadModel(model, progress: { _ in })
 
+    // NOTE: This model requires 1024×1024 (its native training resolution) to generate
+    // coherent images. At 512×512, the position-embedding grid is too small relative to
+    // the 1024px training base and produces colored noise instead of recognizable content.
+    // 1024×1024 takes ~2 min and peaks at ~22 GB GPU; confirm sufficient memory first.
     let request = GenerationRequest(
       prompt: "A red car parked on a cobblestone street",
       steps: model.defaultSteps,
       guidanceScale: model.defaultGuidance,
+      seed: 42,
+      width: 1024,
+      height: 1024,
+      mode: .textToImage
+    )
+
+    let result = try await engine.generate(request: request, stepProgress: nil)
+    try saveFixture(named: "pixart-seed42", result: result, request: request)
+  }
+
+  /// Generates the fp16 PixArt fixture using `PixArtFP16Recipe`.
+  ///
+  /// Assembles the pipeline directly from `PixArtFP16Recipe` because `PixArtEngine`
+  /// hardcodes `PixArtRecipe`. The fp16 DiT weights must exist at:
+  ///   `$VINETAS_TEST_MODELS_DIR/pixart-sigma-xl-dit-fp16/model.safetensors`
+  ///
+  /// Produce them first with:
+  ///   `python3 /Users/stovak/Projects/pixart-swift-mlx/scripts/dequantize_dit_to_fp16.py`
+  private func generatePixArtFixtureFP16() async throws {
+    // Ensure fp16 component is registered in CatalogRegistration
+    _ = PixArtComponents.registered
+
+    // The fp16 weights are produced locally by dequantize_dit_to_fp16.py and placed
+    // directly in the test models dir — they are not in the App Group container.
+    // Check for the safetensors file in the VINETAS_TEST_MODELS_DIR directly.
+    let testModelsDir = ProcessInfo.processInfo.environment["VINETAS_TEST_MODELS_DIR"]
+      ?? "/tmp/vinetas-test-models"
+    let fp16SafetensorsPath =
+      "\(testModelsDir)/pixart-sigma-xl-dit-fp16/model.safetensors"
+    guard FileManager.default.fileExists(atPath: fp16SafetensorsPath) else {
+      Issue.record(
+        "fp16 DiT weights not found at \(fp16SafetensorsPath) — run: python3 /Users/stovak/Projects/pixart-swift-mlx/scripts/dequantize_dit_to_fp16.py"
+      )
+      return
+    }
+
+    let recipe = PixArtFP16Recipe()
+
+    // Bridge CatalogRegistration → Acervo ComponentRegistry so that WeightLoader's
+    // withModelAccess(componentId) can resolve component IDs to their repo paths.
+    // This mirrors the bridge in PixArtEngine.loadModel.
+    let catalogRegistry = CatalogRegistration.shared
+    for componentId in recipe.allComponentIds {
+      guard Acervo.component(componentId) == nil,
+        let catalogDescriptor = catalogRegistry.descriptor(for: componentId)
+      else { continue }
+      let descriptor = SwiftAcervo.ComponentDescriptor(
+        id: catalogDescriptor.componentId,
+        type: .backbone,
+        displayName: catalogDescriptor.componentId,
+        repoId: catalogDescriptor.huggingFaceRepo,
+        files: [SwiftAcervo.ComponentFile(relativePath: "config.json")],
+        estimatedSizeBytes: Int64(catalogDescriptor.estimatedSizeBytes),
+        minimumMemoryBytes: 0
+      )
+      Acervo.register(descriptor)
+    }
+
+    // Assemble the pipeline (same type as PixArtEngine's internal pipeline)
+    let pipeline: DiffusionPipeline<T5XXLEncoder, DPMSolverScheduler, PixArtDiT, SDXLVAEDecoder, ImageRenderer>
+    do {
+      pipeline = try .init(recipe: recipe)
+    } catch {
+      throw error
+    }
+
+    try await pipeline.loadModels { fraction, component in
+      print("[fp16 fixture] Loading \(component) (\(Int(fraction * 100))%)")
+    }
+    defer { Task { await pipeline.unloadModels() } }
+
+    let diffusionRequest = DiffusionGenerationRequest(
+      prompt: "A red car parked on a cobblestone street",
+      negativePrompt: nil,
+      width: 512,
+      height: 512,
+      steps: PixArtFP16Recipe.defaultSteps,
+      guidanceScale: PixArtFP16Recipe.defaultGuidanceScale,
+      seed: UInt32(42),
+      loRA: nil
+    )
+
+    let startTime = Date()
+    let diffusionResult = try await pipeline.generate(request: diffusionRequest) { _ in }
+    let duration = Date().timeIntervalSince(startTime)
+
+    guard case .image(let cgImage) = diffusionResult.output else {
+      throw VinetasError.generationFailed("fp16 pipeline returned unexpected output type")
+    }
+
+    let result = GenerationResult(
+      image: cgImage,
+      usedPrompt: diffusionRequest.prompt,
+      seed: UInt64(diffusionResult.seed),
+      durationSeconds: duration,
+      modelID: "pixart-sigma-xl-fp16"
+    )
+    let request = GenerationRequest(
+      prompt: diffusionRequest.prompt,
+      steps: PixArtFP16Recipe.defaultSteps,
+      guidanceScale: PixArtFP16Recipe.defaultGuidanceScale,
       seed: 42,
       width: 512,
       height: 512,
       mode: .textToImage
     )
 
-    let result = try await engine.generate(request: request, stepProgress: nil)
-    try saveFixture(named: "pixart-seed42", result: result, request: request)
+    try saveFixture(named: "pixart-seed42-fp16", result: result, request: request)
   }
 
   // MARK: - Flux2 fixture

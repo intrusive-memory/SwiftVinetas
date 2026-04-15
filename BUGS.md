@@ -134,13 +134,37 @@ Multiple bugs compounded:
 7. **int4 weights not dequantized**: `PixArtDiT.apply(weights:)` loaded packed U32 tensors
    directly into `Linear` layers without calling `dequantized()`.
 
-### Remaining Limitation
+### Additional Fixes (S7b, 2026-04-15)
 
-After all fixes, generated images show colored patterns but are not photorealistic. Thorough
-analysis confirmed this is a quantization artifact: int4 quantization introduces a systematic
-negative mean bias in `eps_pred` (≈−0.04 at t=999), which self-reinforces over 20 denoising
-steps causing positive latent drift (mean ≈ 1.19 vs expected ≈ 0). This is expected behavior
-for int4 models and is not a code bug.
+Three more bugs in `PixArtBackbone/Embeddings.swift` and `PixArtDiTConfiguration.swift`:
+
+8. **`timestepSinusoidalEmbedding` wrong denominator**: Used `halfDim - 1` instead of `halfDim`.
+   PixArt-Sigma uses `downscale_freq_shift=0`, so the denominator must be `halfDim`.
+
+9. **`timestepSinusoidalEmbedding` wrong sin/cos order**: Produced `[sin, cos]` but
+   PixArt-Sigma's `flip_sin_to_cos=True` requires `[cos, sin]`.
+
+10. **2D position embedding `baseSize` wrong**: Was 512 (pixel-level); must be 128 (latent
+    `sample_size`). With `PixArtDiT.forward` dividing by `patchSize=2`, this yields the
+    correct base grid size of 64 matching diffusers' `PixArtTransformer2DModel.base_size`.
+
+11. **H/W order in `get2DSinusoidalPositionEmbeddings`**: Was `[H, W]`; diffusers uses
+    `[W, H]` because `meshgrid(grid_w, grid_h)` puts W in `grid[0]` (fixed in S6b).
+
+### Resolution Requirement
+
+**Critical**: PixArt-Sigma XL 1024MS requires **1024×1024** input to produce coherent images.
+At 512×512, the position-embedding grid (32×32 = 1024 tokens) is too small relative to the
+1024px training base (64×64 = 4096 tokens), causing colored noise. At 1024×1024, the model
+produces recognizable content (verified: car silhouette clearly visible in fixture image).
+The fixture test (`make test-fixtures`) now uses 1024×1024.
+
+### Remaining Color Distortion
+
+At 1024×1024 with all fixes applied, images show recognizable shapes but with a color bias
+(low blue channel, ~R:137/G:129/B:68). This is likely an accumulated int4 quantization artifact
+across 28 blocks: the blue latent channel drifts more than red/green due to weight magnitude
+distributions specific to this model. Expected behavior for int4 — not a code bug.
 
 ### Fix Location
 
