@@ -1,7 +1,5 @@
 import CoreGraphics
-#if !VINETAS_FLUX2_DISABLED
 import Flux2Core
-#endif
 import Foundation
 import Tuberia
 
@@ -39,16 +37,15 @@ public final class VinetasClient: Sendable {
   /// configurations). This eliminates compile-time platform gates in favour of runtime checks,
   /// so both engines compile on every platform and only registration is conditional.
   public init() {
-    // Sync Flux2Core and FluxTextEncoders storage to Acervo's resolved path
-    // (App Group container on macOS/iOS, Application Support fallback otherwise).
+    // Sync model storage to Acervo's resolved path. As of flux-2-swift-mlx v3.0.0
+    // all flux2 downloads route through Acervo's CDN, so configuring Acervo's
+    // base directory propagates to every engine.
     VinetasModelManager.configureStorage()
 
     var engines: [any ImageGenerationEngine] = [PixArtEngine()]
-    #if !VINETAS_FLUX2_DISABLED
     if DeviceCapability.current.totalMemoryGB >= 16 {
       engines.append(Flux2Engine())
     }
-    #endif
     self.router = EngineRouter(engines: engines)
   }
 
@@ -227,9 +224,6 @@ extension VinetasClient {
   /// - Parameter prompt: Text description of the panel to preview.
   /// - Returns: The generated image as a `CGImage` at 512x512.
   public func preview(prompt: String) async throws -> CGImage {
-    #if VINETAS_FLUX2_DISABLED
-    throw VinetasError.engineNotFound(engineID: "flux2")
-    #else
     let previewModel = Flux2ModelDescriptor.klein4B
     let engine = try await router.engine(forEngineID: "flux2")
     try await engine.loadModel(previewModel, progress: { _ in })
@@ -243,7 +237,6 @@ extension VinetasClient {
     )
     let result = try await engine.generate(request: request, stepProgress: nil)
     return result.image
-    #endif
   }
 }
 
@@ -393,13 +386,7 @@ extension VinetasClient {
 
 extension VinetasClient {
 
-  /// The default model for generation.
-  ///
-  /// When FLUX.2 is enabled, this is FLUX.2 Klein 4B. When FLUX.2 is disabled
-  /// (see `docs/incomplete/FLUX2_REENABLE.md`), this falls back to PixArt-Sigma XL.
-  #if VINETAS_FLUX2_DISABLED
-  public static var defaultModel: any ModelDescriptor { PixArtModelDescriptor.sigmaXL }
-  #else
+  /// The default model for generation: FLUX.2 Klein 4B.
   public static var defaultModel: any ModelDescriptor { Flux2ModelDescriptor.klein4B }
 
   /// FLUX.2 Klein 4B model descriptor.
@@ -407,13 +394,11 @@ extension VinetasClient {
 
   /// FLUX.2 Klein 9B model descriptor.
   public static var klein9B: any ModelDescriptor { Flux2ModelDescriptor.klein9B }
-  #endif
 
   /// PixArt-Sigma XL model descriptor.
   public static var pixartSigmaXL: any ModelDescriptor { PixArtModelDescriptor.sigmaXL }
 }
 
-#if !VINETAS_FLUX2_DISABLED
 // MARK: - Deprecated Vinetas Enum
 
 /// SwiftVinetas - Storyboard and comic panel generation from text prompts.
@@ -965,7 +950,6 @@ public enum Vinetas: Sendable {
     )
   }
 }
-#endif // !VINETAS_FLUX2_DISABLED
 
 // MARK: - Deprecated VinetasModel Enum
 
@@ -977,10 +961,8 @@ public enum Vinetas: Sendable {
   *, deprecated, message: "Use ModelDescriptor types directly (e.g., VinetasClient.klein4B)"
 )
 public enum VinetasModel: String, Sendable, Codable, CaseIterable {
-  #if !VINETAS_FLUX2_DISABLED
   case klein4b = "klein4b"
   case klein9b = "klein9b"
-  #endif
   case pixartSigma = "pixart-sigma"
 
   /// Bridge to ``ModelDescriptor``.
@@ -988,26 +970,22 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
   /// Converts this legacy enum case to the corresponding concrete ``ModelDescriptor``.
   public var descriptor: any ModelDescriptor {
     switch self {
-    #if !VINETAS_FLUX2_DISABLED
     case .klein4b:
       Flux2ModelDescriptor.klein4B
     case .klein9b:
       Flux2ModelDescriptor.klein9B
-    #endif
     case .pixartSigma:
       PixArtModelDescriptor.sigmaXL
     }
   }
 
   /// The HuggingFace repository identifier for this model.
-  public var huggingFaceRepo: String {
+  public var repoId: String {
     switch self {
-    #if !VINETAS_FLUX2_DISABLED
     case .klein4b:
       "black-forest-labs/FLUX.2-klein-4B"
     case .klein9b:
       "black-forest-labs/FLUX.2-klein-9B"
-    #endif
     case .pixartSigma:
       "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS"
     }
@@ -1016,12 +994,10 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
   /// Minimum system memory in GB required to run this model.
   public var minimumMemoryGB: Int {
     switch self {
-    #if !VINETAS_FLUX2_DISABLED
     case .klein4b:
       16
     case .klein9b:
       24
-    #endif
     case .pixartSigma:
       8
     }
@@ -1030,12 +1006,10 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
   /// The quantization format used for inference.
   public var quantization: String {
     switch self {
-    #if !VINETAS_FLUX2_DISABLED
     case .klein4b:
       "int4"
     case .klein9b:
       "qint8"
-    #endif
     case .pixartSigma:
       "int4"
     }
@@ -1044,12 +1018,10 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
   /// Estimated generation time per image in seconds on M3/M4 Pro.
   public var estimatedSecondsPerImage: Int {
     switch self {
-    #if !VINETAS_FLUX2_DISABLED
     case .klein4b:
       26
     case .klein9b:
       62
-    #endif
     case .pixartSigma:
       10
     }

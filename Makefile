@@ -45,10 +45,10 @@ PIXART_SHARED_MODELS = $(HOME)/Library/Group Containers/group.intrusive-memory.m
 # Integration test suites (class names within SwiftVinetasGPUTests).
 # These correspond to all test files tagged .integration in TestTags.swift.
 # Update this list when adding new integration test suites.
-# NOTE: Flux2IntegrationTests and BatchIntegrationTests are excluded while
-# FLUX.2 is disabled (see docs/incomplete/FLUX2_REENABLE.md). Restore on re-enable.
 INTEGRATION_SUITES = \
 	-only-testing:SwiftVinetasGPUTests/PixArtIntegrationTests \
+	-only-testing:SwiftVinetasGPUTests/Flux2IntegrationTests \
+	-only-testing:SwiftVinetasGPUTests/BatchIntegrationTests \
 	-only-testing:SwiftVinetasGPUTests/AllModelsExampleTests
 
 .PHONY: build release test test-unit test-gpu test-integration test-fixtures test-fixtures-fp16 test-pixart-repro test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models link-fp16-models help

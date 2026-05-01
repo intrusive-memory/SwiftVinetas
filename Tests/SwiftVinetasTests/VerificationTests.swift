@@ -134,7 +134,6 @@ struct VerificationReportTests {
 @Suite("Vinetas verifyCharacter API")
 struct VinetasVerifyCharacterAPITests {
 
-  #if !VINETAS_FLUX2_DISABLED
   @Test("verifyCharacter signature compiles")
   func verifyCharacterSignatureCompiles() {
     // Verify that the method reference compiles with the expected signature.
@@ -142,7 +141,6 @@ struct VinetasVerifyCharacterAPITests {
     let _verifyFn: (Character, Float) async throws -> VerificationReport = Vinetas.verifyCharacter
     _ = _verifyFn
   }
-  #endif
 
   @Test("VerificationReport is Sendable")
   func verificationReportIsSendable() {

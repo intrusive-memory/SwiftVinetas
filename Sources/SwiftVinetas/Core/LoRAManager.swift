@@ -1,6 +1,4 @@
-#if !VINETAS_FLUX2_DISABLED
 import Flux2Core
-#endif
 import Foundation
 
 /// Manages LoRA adapter loading and unloading.
@@ -46,7 +44,6 @@ internal struct VinetasLoRAManager: Sendable {
     await engine.unloadLoRA()
   }
 
-  #if !VINETAS_FLUX2_DISABLED
   // MARK: - Legacy Flux2Pipeline-based API (preserved for VinetasPipeline.swift)
 
   /// Load a LoRA adapter from a safetensors file onto the pipeline.
@@ -118,5 +115,4 @@ internal struct VinetasLoRAManager: Sendable {
       on: pipeline
     )
   }
-  #endif // !VINETAS_FLUX2_DISABLED
 }

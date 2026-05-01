@@ -1,4 +1,3 @@
-#if !VINETAS_FLUX2_DISABLED
 import Foundation
 import Testing
 
@@ -165,4 +164,3 @@ struct BatchIntegrationTests {
     }
   }
 }
-#endif // !VINETAS_FLUX2_DISABLED
