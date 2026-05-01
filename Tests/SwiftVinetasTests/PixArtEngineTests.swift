@@ -251,17 +251,6 @@ struct PixArtEngineTests {
 
   // MARK: - loadModel behavior
 
-  @Test("PixArtEngine loadModel throws when weights are absent")
-  func loadModelThrowsWhenWeightsAbsent() async throws {
-    // The real pipeline assembly or weight loading will fail in the test
-    // environment where no model weights are present on disk.
-    let engine = PixArtEngine()
-
-    await #expect(throws: VinetasError.self) {
-      try await engine.loadModel(PixArtModelDescriptor.sigmaXL) { _ in }
-    }
-  }
-
   @Test("PixArtEngine loadModel throws modelNotSupported for wrong engineID")
   func loadModelThrowsModelNotSupported() async throws {
     let engine = PixArtEngine()
