@@ -1,5 +1,7 @@
+#if !VINETAS_FLUX2_DISABLED
 import Flux2Core
 import FluxTextEncoders
+#endif
 import Foundation
 import SwiftAcervo
 
@@ -75,7 +77,9 @@ public enum VinetasModelManager: Sendable {
   ///
   /// - Parameter baseURL: The CDN base URL (e.g. `https://cdn.example.com`).
   public static func configureCDN(baseURL: URL) {
+    #if !VINETAS_FLUX2_DISABLED
     ModelRegistry.cdnBaseURL = baseURL
+    #endif
   }
 
   // MARK: - Storage Configuration
@@ -98,24 +102,28 @@ public enum VinetasModelManager: Sendable {
     // com.apple.security.application-groups entitlement — including xctest.
     //
     // When VINETAS_TEST_MODELS_DIR is set AND the directory exists, redirect
-    // ModelRegistry (Flux2Core) to use pre-hardlinked files there instead of
-    // the App Group Container path. This mirrors the same pattern used by
-    // WeightLoader and T5XXLEncoder in SwiftTuberia for PixArt weights.
+    // model storage (both Flux2's ModelRegistry and Acervo's base directory) to
+    // use pre-hardlinked files there instead of the App Group Container path.
     //
     // In production (entitled processes), VINETAS_TEST_MODELS_DIR is not set,
     // so this block is skipped and the Group Container path is used normally.
     if let testDir = ProcessInfo.processInfo.environment["VINETAS_TEST_MODELS_DIR"] {
       let testURL = URL(fileURLWithPath: testDir)
       if FileManager.default.fileExists(atPath: testURL.path) {
+        Acervo.customBaseDirectory = testURL
+        #if !VINETAS_FLUX2_DISABLED
         ModelRegistry.customModelsDirectory = testURL
         TextEncoderModelDownloader.customModelsDirectory = testURL
+        #endif
         return
       }
     }
 
+    #if !VINETAS_FLUX2_DISABLED
     let storageURL = Acervo.sharedModelsDirectory
     ModelRegistry.customModelsDirectory = storageURL
     TextEncoderModelDownloader.customModelsDirectory = storageURL
+    #endif
   }
 
   /// Overrides all model storage systems to use an explicit base URL.
@@ -127,10 +135,13 @@ public enum VinetasModelManager: Sendable {
   /// - Parameter baseURL: The directory URL for all model downloads.
   public static func configureStorage(baseURL: URL) {
     Acervo.customBaseDirectory = baseURL
+    #if !VINETAS_FLUX2_DISABLED
     ModelRegistry.customModelsDirectory = baseURL
     TextEncoderModelDownloader.customModelsDirectory = baseURL
+    #endif
   }
 
+  #if !VINETAS_FLUX2_DISABLED
   // MARK: - Deprecated API (VinetasModel)
 
   /// Downloads a FLUX.2 model by its legacy ``VinetasModel`` enum case.
@@ -196,4 +207,5 @@ public enum VinetasModelManager: Sendable {
   private static func modelComponents(for model: VinetasModel) -> [ModelRegistry.ModelComponent] {
     [.transformer(transformerVariant(for: model)), .vae(.standard)]
   }
+  #endif // !VINETAS_FLUX2_DISABLED
 }

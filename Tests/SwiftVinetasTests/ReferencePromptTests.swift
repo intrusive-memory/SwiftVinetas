@@ -214,6 +214,7 @@ struct VinetasReferenceSheetAPITests {
     #expect(result == .front)
   }
 
+  #if !VINETAS_FLUX2_DISABLED
   @Test("generateReferenceSheets method reference compiles with correct signature")
   func generateReferenceSheetsSignature() {
     // Verify the method exists and has the expected signature
@@ -229,6 +230,7 @@ struct VinetasReferenceSheetAPITests {
     // This line would fail to compile if the signature is wrong
     let _: RefSheetFn = Vinetas.generateReferenceSheets(for:views:strength:model:progress:)
   }
+  #endif
 }
 
 /// A simple actor used to verify Sendable conformance of ReferenceView.

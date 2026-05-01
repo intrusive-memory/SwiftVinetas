@@ -304,3 +304,57 @@ Flux2Engine remains unchanged throughout. FLUX.2 migration to SwiftTubería is d
 - **No timed tests**: Tests must not use `sleep()`, `Task.sleep()`, `Thread.sleep()`, fixed-duration `XCTestExpectation` timeouts, or any wall-clock assertions. All asynchronous behavior must be validated via deterministic synchronization (`async`/`await`, `AsyncStream`, fulfilled expectations with immediate triggers).
 - **No environment-dependent tests**: Engine adapter tests, pipeline assembly tests, and request/result mapping tests must use mock pipelines and run without real model weights, network access, or GPU. Tests requiring real image generation are integration tests and must be clearly separated (separate test target or `#if INTEGRATION_TESTS` gate).
 - **Flaky tests are test failures**: A test that passes intermittently is treated as a failing test until fixed. CI must not use retry-on-failure to mask flakiness.
+
+---
+
+## S11. Acervo Integration Engine Audit (Low Priority, Deferred)
+
+**Status**: Library-level integration ✅ (Acervo storage works), engine-level compliance ⏳ (deferred audit)
+
+### S11.1 Current State
+
+SwiftVinetas correctly delegates model storage to SwiftAcervo via `configureStorage()`:
+
+```swift
+public static func configureStorage() {
+    let storageURL = Acervo.sharedModelsDirectory
+    ModelRegistry.customModelsDirectory = storageURL
+    TextEncoderModelDownloader.customModelsDirectory = storageURL
+}
+```
+
+This ensures all engines (Flux2Engine, PixArtEngine) use the same App Group container for models.
+
+**However**: The underlying engines themselves (Flux2Core, FluxTextEncoders) have their own model managers that may or may not follow SwiftAcervo's ComponentDescriptor pattern. These need audit.
+
+### S11.2 Audit Required (When Adding New Engines)
+
+Before integrating a new image generation engine (e.g., FLUX.3, Hunyuan, etc.), audit its model manager:
+
+- [ ] Does it register models via SwiftAcervo ComponentDescriptor?
+- [ ] Does it use `Acervo.ensureComponentReady()` or `Acervo.ensureComponentAvailable()`?
+- [ ] Are file lists pre-declared, or dynamically discovered?
+- [ ] Does it follow scoped file access pattern (withComponentAccess)?
+- [ ] Does it validate memory requirements before loading?
+
+**If audit fails** (engine does not follow pattern):
+- [ ] Migrate engine to ComponentDescriptor pattern
+- [ ] Update engine's model manifest to include SHA-256 checksums
+- [ ] Use scoped file access (withComponentAccess) instead of exposing paths
+- [ ] Document migration in engine's REQUIREMENTS.md
+
+### S11.3 Flux2Core & FluxTextEncoders (Current Engines)
+
+**Flux2Core**: Assumed compliant (used by current Flux2Engine integration). If not verified, audit as part of FLUX.2 migration to SwiftTuberia.
+
+**FluxTextEncoders**: Assumed compliant (used by current Flux2Engine integration). If not verified, audit as part of FLUX.2 migration to SwiftTuberia.
+
+**Action**: When time permits, audit these engines and document findings in their respective AGENTS.md files.
+
+### S11.4 Reference
+
+See `/Users/stovak/Projects/ACERVO_INTEGRATION_REQUIREMENTS.md` (master reference) for:
+- Pattern A–D: Four integration patterns for consuming libraries
+- ComponentDescriptor best practices
+- Scoped file access (Pattern D)
+- SwiftAcervo/AGENTS.md for complete API reference

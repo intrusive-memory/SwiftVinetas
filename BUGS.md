@@ -1,5 +1,11 @@
 # Known Bugs
 
+> **⚠️ FLUX.2 is temporarily disabled.** The package only builds with PixArt support
+> while an upstream tokenizer-target collision is resolved. See
+> [`docs/incomplete/FLUX2_REENABLE.md`](docs/incomplete/FLUX2_REENABLE.md) for the
+> full story and the re-enable checklist. Set `VINETAS_ENABLE_FLUX2=1` to opt back in
+> once upstream is fixed. The CLI (`vinetas` executable) is unavailable during this window.
+
 ## CLI: `list` always shows models as "Not downloaded"
 
 **Severity**: High — users cannot tell which models are cached  

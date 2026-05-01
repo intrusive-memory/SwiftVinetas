@@ -129,7 +129,7 @@ public actor PixArtEngine: ImageGenerationEngine {
 
   public func loadModel(
     _ model: any ModelDescriptor,
-    progress: @Sendable (LoadProgress) -> Void
+    progress: @escaping @Sendable (LoadProgress) -> Void
   ) async throws {
     guard model.engineID == engineID || model.id == PixArtModelDescriptor.sigmaXL.id else {
       throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
@@ -157,10 +157,10 @@ public actor PixArtEngine: ImageGenerationEngine {
         let catalogDescriptor = catalogRegistry.descriptor(for: componentId)
       else { continue }
       let descriptor = SwiftAcervo.ComponentDescriptor(
-        id: catalogDescriptor.componentId,
+        id: catalogDescriptor.id,
         type: .backbone,
-        displayName: catalogDescriptor.componentId,
-        repoId: catalogDescriptor.huggingFaceRepo,
+        displayName: catalogDescriptor.id,
+        repoId: catalogDescriptor.repoId,
         files: [SwiftAcervo.ComponentFile(relativePath: "config.json")],
         estimatedSizeBytes: Int64(catalogDescriptor.estimatedSizeBytes),
         minimumMemoryBytes: 0
@@ -250,7 +250,7 @@ public actor PixArtEngine: ImageGenerationEngine {
       }
     } catch {
       throw VinetasError.generationFailed(
-        "PixArt generation failed: \(error.localizedDescription)"
+        "PixArt generation failed: \(String(describing: error))"
       )
     }
 
@@ -328,7 +328,7 @@ public actor PixArtEngine: ImageGenerationEngine {
             "Component '\(componentId)' is not registered in CatalogRegistration."
           )
         }
-        let repoId = descriptor.huggingFaceRepo
+        let repoId = descriptor.repoId
 
         // Debug: log the CDN URL being requested
         let slug = repoId.replacingOccurrences(of: "/", with: "_")
@@ -376,7 +376,7 @@ public actor PixArtEngine: ImageGenerationEngine {
     let registry = CatalogRegistration.shared
     return ids.allSatisfy { componentId in
       guard let descriptor = registry.descriptor(for: componentId) else { return false }
-      return Acervo.isModelAvailable(descriptor.huggingFaceRepo)
+      return Acervo.isModelAvailable(descriptor.repoId)
     }
   }
 
@@ -391,7 +391,7 @@ public actor PixArtEngine: ImageGenerationEngine {
     for componentId in ids {
       guard let descriptor = registry.descriptor(for: componentId) else { continue }
       do {
-        try Acervo.deleteModel(descriptor.huggingFaceRepo)
+        try Acervo.deleteModel(descriptor.repoId)
       } catch let acervoError as AcervoError {
         // Silently skip components that are not present on disk.
         if case .modelNotFound = acervoError { continue }
@@ -412,7 +412,7 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     for componentId in ids {
       guard let descriptor = registry.descriptor(for: componentId),
-        let dir = try? Acervo.modelDirectory(for: descriptor.huggingFaceRepo)
+        let dir = try? Acervo.modelDirectory(for: descriptor.repoId)
       else {
         return nil
       }
@@ -421,7 +421,7 @@ public actor PixArtEngine: ImageGenerationEngine {
         return nil
       }
       while let fileURL = enumerator.nextObject() as? URL {
-        if let resourceValues = try? fileURL.resourceValues(forKeys: [.fileSizeKey]),
+        if let resourceValues = try? fileURL.resourceValues(forKeys: Set<URLResourceKey>([.fileSizeKey])),
           let fileSize = resourceValues.fileSize
         {
           totalSize += Int64(fileSize)

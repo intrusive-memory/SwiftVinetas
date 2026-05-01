@@ -1,3 +1,4 @@
+#if !VINETAS_FLUX2_DISABLED
 import CoreGraphics
 import Foundation
 import Metal
@@ -350,3 +351,4 @@ private func renderToBytes(_ image: CGImage) -> [UInt8]? {
   context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
   return pixelData
 }
+#endif // !VINETAS_FLUX2_DISABLED

@@ -45,10 +45,10 @@ PIXART_SHARED_MODELS = $(HOME)/Library/Group Containers/group.intrusive-memory.m
 # Integration test suites (class names within SwiftVinetasGPUTests).
 # These correspond to all test files tagged .integration in TestTags.swift.
 # Update this list when adding new integration test suites.
+# NOTE: Flux2IntegrationTests and BatchIntegrationTests are excluded while
+# FLUX.2 is disabled (see docs/incomplete/FLUX2_REENABLE.md). Restore on re-enable.
 INTEGRATION_SUITES = \
-	-only-testing:SwiftVinetasGPUTests/Flux2IntegrationTests \
 	-only-testing:SwiftVinetasGPUTests/PixArtIntegrationTests \
-	-only-testing:SwiftVinetasGPUTests/BatchIntegrationTests \
 	-only-testing:SwiftVinetasGPUTests/AllModelsExampleTests
 
 .PHONY: build release test test-unit test-gpu test-integration test-fixtures test-fixtures-fp16 test-pixart-repro test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models link-fp16-models help
@@ -110,9 +110,9 @@ link-test-models: ## Hardlink all model weights + tokenizer files from App Group
 	DEST="$(PIXART_TEST_MODELS)"; \
 	echo "Linking PixArt / T5 / VAE (Acervo component directories)..."; \
 	for pair in \
-		"intrusive-memory_t5-xxl-int4-mlx:t5-xxl-encoder-int4" \
-		"intrusive-memory_pixart-sigma-xl-dit-int4-mlx:pixart-sigma-xl-dit-int4" \
-		"intrusive-memory_sdxl-vae-fp16-mlx:sdxl-vae-decoder-fp16"; do \
+		"intrusive-memory_t5-xxl-int4-mlx:intrusive-memory_t5-xxl-int4-mlx" \
+		"intrusive-memory_pixart-sigma-xl-dit-int4-mlx:intrusive-memory_pixart-sigma-xl-dit-int4-mlx" \
+		"intrusive-memory_sdxl-vae-fp16-mlx:intrusive-memory_sdxl-vae-fp16-mlx"; do \
 		srcdir=$$(echo "$$pair" | cut -d: -f1); \
 		dstdir=$$(echo "$$pair" | cut -d: -f2); \
 		srcpath="$$SHARED/$$srcdir"; \
@@ -186,12 +186,14 @@ test-fixtures: link-test-models ## Generate reference fixtures for both engines 
 		-only-testing:SwiftVinetasGPUTests/FixtureGenerationTests
 	@open Tests/SwiftVinetasGPUTests/Fixtures/generations/*.png
 
-link-fp16-models: link-test-models ## Check fp16 DiT weights exist at PIXART_TEST_MODELS/pixart-sigma-xl-dit-fp16/ (dequantize_dit_to_fp16.py writes there directly)
-	@SAFETENSORS="$(PIXART_TEST_MODELS)/pixart-sigma-xl-dit-fp16/model.safetensors"; \
+link-fp16-models: link-test-models ## Check fp16 DiT weights exist at PIXART_TEST_MODELS/intrusive-memory_pixart-sigma-xl-dit-fp16-mlx/ (dequantize_dit_to_fp16.py writes there)
+	@SAFETENSORS="$(PIXART_TEST_MODELS)/intrusive-memory_pixart-sigma-xl-dit-fp16-mlx/model.safetensors"; \
 	if [ ! -f "$$SAFETENSORS" ]; then \
 		echo "  MISSING: $$SAFETENSORS"; \
 		echo "  Generate it first:"; \
-		echo "    python3 /Users/stovak/Projects/pixart-swift-mlx/scripts/dequantize_dit_to_fp16.py"; \
+		echo "    python3 /Users/stovak/Projects/pixart-swift-mlx/scripts/dequantize_dit_to_fp16.py \\"; \
+		echo "        --input  $(PIXART_TEST_MODELS)/intrusive-memory_pixart-sigma-xl-dit-int4-mlx \\"; \
+		echo "        --output $(PIXART_TEST_MODELS)/intrusive-memory_pixart-sigma-xl-dit-fp16-mlx"; \
 		exit 1; \
 	else \
 		echo "  OK: $$SAFETENSORS"; \

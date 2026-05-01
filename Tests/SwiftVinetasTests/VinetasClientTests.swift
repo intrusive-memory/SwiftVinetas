@@ -83,6 +83,7 @@ struct VinetasClientTests {
     }
   }
 
+  #if !VINETAS_FLUX2_DISABLED
   @Test func previewRoutesToFlux2Engine() async throws {
     let flux2Engine = MockEngine(
       engineID: "flux2",
@@ -96,6 +97,7 @@ struct VinetasClientTests {
     let calls = await flux2Engine.calls
     #expect(calls.contains(.loadModel("flux2-klein-4b")))
   }
+  #endif
 }
 
 // MARK: - generateSequence Tests

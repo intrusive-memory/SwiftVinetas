@@ -1,3 +1,7 @@
+// VinetasCLICore is built on top of the deprecated `Vinetas` namespace and
+// `.klein4b`/`.klein9b` enum cases, both of which are gated out while FLUX.2
+// is disabled. Re-enable instructions: docs/incomplete/FLUX2_REENABLE.md
+#if !VINETAS_FLUX2_DISABLED
 import ArgumentParser
 import CoreGraphics
 import Foundation
@@ -906,3 +910,4 @@ public struct Similarity: AsyncParsableCommand {
     }
   }
 }
+#endif // !VINETAS_FLUX2_DISABLED

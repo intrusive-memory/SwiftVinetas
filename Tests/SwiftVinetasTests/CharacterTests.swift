@@ -419,6 +419,7 @@ struct VinetasCharacterAPITests {
     #expect(character.triggerWord.hasPrefix("sks_"))
   }
 
+  #if !VINETAS_FLUX2_DISABLED
   @Test("Vinetas module provides character API symbols")
   func vinetasAPISymbolsAvailable() {
     // Verify method references compile — execution requires disk I/O, so we only check type
@@ -429,4 +430,5 @@ struct VinetasCharacterAPITests {
     _ = _listFn
     _ = _loadFn
   }
+  #endif
 }

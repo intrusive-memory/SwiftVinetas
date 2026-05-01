@@ -38,7 +38,7 @@ public protocol ImageGenerationEngine: Sendable {
   ///   - progress: A callback reporting load progress phases and fractions.
   func loadModel(
     _ model: any ModelDescriptor,
-    progress: @Sendable (LoadProgress) -> Void
+    progress: @escaping @Sendable (LoadProgress) -> Void
   ) async throws
 
   /// Unload the current model, freeing memory.
