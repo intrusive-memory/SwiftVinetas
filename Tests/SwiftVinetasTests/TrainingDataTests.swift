@@ -379,7 +379,6 @@ struct TrainingPreparationTests {
 
 // MARK: - Vinetas Public API Compilation Test
 
-#if !VINETAS_FLUX2_DISABLED
 @Suite("Vinetas Training Data API")
 struct VinetasTrainingDataAPITests {
 
@@ -391,4 +390,3 @@ struct VinetasTrainingDataAPITests {
     _ = _fn
   }
 }
-#endif

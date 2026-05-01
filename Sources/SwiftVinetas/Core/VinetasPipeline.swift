@@ -1,4 +1,3 @@
-#if !VINETAS_FLUX2_DISABLED
 import CoreGraphics
 import Flux2Core
 import Foundation
@@ -678,4 +677,3 @@ internal enum VinetasPipeline {
     return outputs
   }
 }
-#endif // !VINETAS_FLUX2_DISABLED

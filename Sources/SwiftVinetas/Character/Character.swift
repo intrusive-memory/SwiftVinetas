@@ -66,10 +66,8 @@ public struct LoRAMetadata: Sendable {
     self.trainingSteps = trainingSteps
     // Migrate model to compatibleEngines
     switch model {
-    #if !VINETAS_FLUX2_DISABLED
     case .klein4b, .klein9b:
       self.compatibleEngines = ["flux2"]
-    #endif
     case .pixartSigma:
       self.compatibleEngines = ["pixart-sigma"]
     case nil:

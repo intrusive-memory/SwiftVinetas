@@ -172,7 +172,6 @@ struct EngineRouterTests {
 
   // MARK: - Real Engine Integration
 
-  #if !VINETAS_FLUX2_DISABLED
   @Test("Router works with real Flux2Engine and PixArtEngine types")
   func routerWithRealEngines() async throws {
     let flux2 = Flux2Engine()
@@ -196,18 +195,12 @@ struct EngineRouterTests {
     let engine = try await router.engine(for: Flux2ModelDescriptor.klein4B)
     #expect(engine.engineID == "flux2")
   }
-  #endif
 
   @Test("Router resolves PixArtModelDescriptor to PixArtEngine")
   func routerResolvesPixArt() async throws {
-    #if !VINETAS_FLUX2_DISABLED
     let flux2 = Flux2Engine()
     let pixart = PixArtEngine()
     let router = EngineRouter(engines: [flux2, pixart])
-    #else
-    let pixart = PixArtEngine()
-    let router = EngineRouter(engines: [pixart])
-    #endif
 
     let engine = try await router.engine(for: PixArtModelDescriptor.sigmaXL)
     #expect(engine.engineID == "pixart-sigma")

@@ -263,7 +263,6 @@ struct FixtureGenerationTests {
     try saveFixture(named: "pixart-seed42-fp16", result: result, request: request)
   }
 
-  #if !VINETAS_FLUX2_DISABLED
   // MARK: - Flux2 fixture
 
   /// Generates a single Flux2 Klein 4B image (seed 42, 512×512) and saves it
@@ -307,5 +306,4 @@ struct FixtureGenerationTests {
     let result = try await engine.generate(request: request, stepProgress: nil)
     try saveFixture(named: "flux2-seed42", result: result, request: request)
   }
-  #endif // !VINETAS_FLUX2_DISABLED
 }

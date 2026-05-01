@@ -47,7 +47,6 @@ struct AllModelsExampleTests {
     try await generateFrame(model: PixArtModelDescriptor.sigmaXL)
   }
 
-  #if !VINETAS_FLUX2_DISABLED
   // MARK: - FLUX.2 Klein 4B
 
   @Test(
@@ -69,7 +68,6 @@ struct AllModelsExampleTests {
   func generateFlux2Klein9B() async throws {
     try await generateFrame(model: Flux2ModelDescriptor.klein9B)
   }
-  #endif
 
   // MARK: - Open in Preview
 

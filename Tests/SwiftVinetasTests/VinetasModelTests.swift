@@ -36,12 +36,12 @@ struct VinetasModelTests {
 
   @Test("Klein 4B HuggingFace repo")
   func klein4bRepo() {
-    #expect(VinetasModel.klein4b.huggingFaceRepo == "black-forest-labs/FLUX.2-klein-4B")
+    #expect(VinetasModel.klein4b.repoId == "black-forest-labs/FLUX.2-klein-4B")
   }
 
   @Test("Klein 9B HuggingFace repo")
   func klein9bRepo() {
-    #expect(VinetasModel.klein9b.huggingFaceRepo == "black-forest-labs/FLUX.2-klein-9B")
+    #expect(VinetasModel.klein9b.repoId == "black-forest-labs/FLUX.2-klein-9B")
   }
 
   // MARK: - Minimum Memory
@@ -114,7 +114,7 @@ struct VinetasModelTests {
 
   @Test("PixArt Sigma HuggingFace repo")
   func pixartSigmaRepo() {
-    #expect(VinetasModel.pixartSigma.huggingFaceRepo == "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS")
+    #expect(VinetasModel.pixartSigma.repoId == "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS")
   }
 
   @Test("PixArt Sigma init from raw value")

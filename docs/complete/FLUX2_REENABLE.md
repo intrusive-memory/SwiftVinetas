@@ -1,8 +1,12 @@
 # Re-enabling FLUX.2 — Breadcrumbs
 
-**Status**: FLUX.2 is **temporarily disabled** in this package as of 2026-04-30.
-**Intent**: Re-enable once the upstream tokenizer collision (below) is resolved.
-**Owner**: Whoever next picks up the SwiftTubería integration in `REQUIREMENTS.md`.
+**Status**: COMPLETE — FLUX.2 was re-enabled on 2026-05-01.
+**Resolution**: `flux-2-swift-mlx` v3.0.0 switched off `huggingface/swift-transformers`,
+removing the `Tokenizers` target collision with `SwiftTubería` 0.6 (which uses
+`DePasqualeOrg/swift-tokenizers`). The package graph now resolves cleanly with
+both flux2 and PixArt deps active. `make resolve` and `make build` both succeed.
+
+Historical detail below; preserved for future reference if the collision recurs.
 
 ---
 
