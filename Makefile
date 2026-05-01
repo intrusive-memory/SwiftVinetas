@@ -89,12 +89,22 @@ build-ios: ## Build the library for iOS Simulator
 		-destination $(DESTINATION_IOS) \
 		-derivedDataPath $(DERIVED_DATA)
 
-release: ## Release build of the vinetas CLI
+release: ## Release build of the vinetas CLI + copy binary and Metal bundle to ./bin/
 	xcodebuild build \
 		-scheme $(SCHEME_CLI) \
 		-destination $(DESTINATION_MACOS) \
 		-configuration Release \
 		-derivedDataPath $(DERIVED_DATA)
+	@mkdir -p $(BINDIR)
+	@cp $(DERIVED_DATA)/Build/Products/Release/vinetas $(BINDIR)/vinetas
+	@if [ -d "$(DERIVED_DATA)/Build/Products/Release/mlx-swift_Cmlx.bundle" ]; then \
+		rm -rf $(BINDIR)/mlx-swift_Cmlx.bundle; \
+		cp -R $(DERIVED_DATA)/Build/Products/Release/mlx-swift_Cmlx.bundle $(BINDIR)/; \
+		echo "Installed: $(BINDIR)/vinetas + mlx-swift_Cmlx.bundle (Release)"; \
+	else \
+		echo "Error: mlx-swift_Cmlx.bundle not found in Release products"; \
+		exit 1; \
+	fi
 
 test: ## Run all macOS tests (unit + GPU)
 	xcodebuild test \
@@ -234,11 +244,7 @@ test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required)
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasTests
 
-install: release ## Release build + copy binary to ./bin/vinetas
-	@mkdir -p $(BINDIR)
-	@cp $(DERIVED_DATA)/Build/Products/Release/vinetas $(BINDIR)/vinetas
-	@rsync -a --include='*.bundle' --include='*.bundle/**' --exclude='*' $(DERIVED_DATA)/Build/Products/Release/ $(BINDIR)/
-	@echo "Installed: $(BINDIR)/vinetas (with bundles)"
+install: release ## Alias for `release` (Release build + copy to ./bin/)
 
 lint: ## Format Swift source files with swift-format
 	swift format -i -r .
