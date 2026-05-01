@@ -31,6 +31,14 @@ import TuberiaCatalog
 @Suite("Fixture Generation", .tags(.integration), .serialized)
 struct FixtureGenerationTests {
 
+  /// Prompt used by every fixture generator. Overridable via `make test-fixtures PROMPT="..."`,
+  /// which sets `VINETAS_FIXTURE_PROMPT` (xcodebuild strips the `TEST_RUNNER_` prefix).
+  private static let fixturePrompt: String = {
+    let env = ProcessInfo.processInfo.environment["VINETAS_FIXTURE_PROMPT"]
+    if let env, !env.isEmpty { return env }
+    return "A red car parked on a cobblestone street"
+  }()
+
   // MARK: - Shared helpers
 
   /// Absolute path to `Fixtures/generations/`, resolved at compile time from
@@ -113,7 +121,7 @@ struct FixtureGenerationTests {
   @Test(
     "Generate PixArt-Sigma XL fixture (seed 42)",
     .tags(.integration, .pixart),
-    .timeLimit(.minutes(10))
+    .timeLimit(.minutes(60))
   )
   func generatePixArtFixture() async throws {
     let useFP16 = ProcessInfo.processInfo.environment["PIXART_PRECISION"] == "fp16"
@@ -150,7 +158,7 @@ struct FixtureGenerationTests {
     // the 1024px training base and produces colored noise instead of recognizable content.
     // 1024×1024 takes ~2 min and peaks at ~22 GB GPU; confirm sufficient memory first.
     let request = GenerationRequest(
-      prompt: "A red car parked on a cobblestone street",
+      prompt: Self.fixturePrompt,
       steps: model.defaultSteps,
       guidanceScale: model.defaultGuidance,
       seed: 42,
@@ -225,7 +233,7 @@ struct FixtureGenerationTests {
     defer { Task { await pipeline.unloadModels() } }
 
     let diffusionRequest = DiffusionGenerationRequest(
-      prompt: "A red car parked on a cobblestone street",
+      prompt: Self.fixturePrompt,
       negativePrompt: nil,
       width: 512,
       height: 512,
@@ -272,7 +280,7 @@ struct FixtureGenerationTests {
   @Test(
     "Generate Flux2 Klein 4B fixture (seed 42)",
     .tags(.integration, .flux2),
-    .timeLimit(.minutes(10))
+    .timeLimit(.minutes(60))
   )
   func generateFlux2Fixture() async throws {
     let model = Flux2ModelDescriptor.klein4B
@@ -294,7 +302,7 @@ struct FixtureGenerationTests {
     try await engine.loadModel(model, progress: { _ in })
 
     let request = GenerationRequest(
-      prompt: "A red car parked on a cobblestone street",
+      prompt: Self.fixturePrompt,
       steps: model.defaultSteps,
       guidanceScale: model.defaultGuidance,
       seed: 42,

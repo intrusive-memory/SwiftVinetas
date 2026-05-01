@@ -42,6 +42,10 @@ BINDIR = ./bin
 PIXART_TEST_MODELS = /tmp/vinetas-test-models
 PIXART_SHARED_MODELS = $(HOME)/Library/Group Containers/group.intrusive-memory.models/SharedModels
 
+# Default prompt for fixture generation. Override via:
+#   make test-fixtures PROMPT="A field of sunflowers bathed in sunshine underneath a blue sky."
+PROMPT ?= A red car parked on a cobblestone street
+
 # Integration test suites (class names within SwiftVinetasGPUTests).
 # These correspond to all test files tagged .integration in TestTags.swift.
 # Update this list when adding new integration test suites.
@@ -178,8 +182,9 @@ test-integration: link-test-models ## Run integration tests only (model download
 		-derivedDataPath $(DERIVED_DATA) \
 		$(INTEGRATION_SUITES)
 
-test-fixtures: link-test-models ## Generate reference fixtures for both engines — saves PNGs + JSON to Fixtures/generations/
-	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+test-fixtures: link-test-models ## Generate reference fixtures for both engines — saves PNGs + JSON to Fixtures/generations/ (override prompt: PROMPT="...")
+	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) \
+	TEST_RUNNER_VINETAS_FIXTURE_PROMPT="$(PROMPT)" xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
@@ -199,8 +204,9 @@ link-fp16-models: link-test-models ## Check fp16 DiT weights exist at PIXART_TES
 		echo "  OK: $$SAFETENSORS"; \
 	fi
 
-test-fixtures-fp16: link-fp16-models ## Generate fp16 DiT fixture to compare against int4 baseline — saves pixart-seed42-fp16.png
+test-fixtures-fp16: link-fp16-models ## Generate fp16 DiT fixture to compare against int4 baseline — saves pixart-seed42-fp16.png (override prompt: PROMPT="...")
 	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) \
+	TEST_RUNNER_VINETAS_FIXTURE_PROMPT="$(PROMPT)" \
 	TEST_RUNNER_PIXART_PRECISION=fp16 xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
