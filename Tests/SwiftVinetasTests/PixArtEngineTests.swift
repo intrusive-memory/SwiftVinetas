@@ -135,7 +135,9 @@ struct PixArtEngineTests {
 
   // MARK: - Availability and Memory
 
-  @Test("PixArtEngine isAvailable returns false when not downloaded", .disabled("Fails when model is already downloaded on dev machine"))
+  @Test(
+    "PixArtEngine isAvailable returns false when not downloaded",
+    .disabled("Fails when model is already downloaded on dev machine"))
   func isAvailableReturnsFalse() {
     let engine = PixArtEngine()
     // Components are not downloaded in the test environment, so isAvailable returns false.
@@ -278,7 +280,9 @@ struct PixArtEngineTests {
 
   // MARK: - Delete behavior
 
-  @Test("PixArtEngine delete does not throw for undownloaded model", .disabled("Fails when model is already downloaded on dev machine"))
+  @Test(
+    "PixArtEngine delete does not throw for undownloaded model",
+    .disabled("Fails when model is already downloaded on dev machine"))
   func deleteDoesNotThrowWhenNotDownloaded() async throws {
     let engine = PixArtEngine()
     // The real implementation iterates componentIds and silently skips

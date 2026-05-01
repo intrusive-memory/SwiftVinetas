@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.9.1
+**Version**: 0.10.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -225,14 +225,19 @@ SwiftVinetas/
 
 ## Recent Changes
 
-### Unreleased (post-v0.9.1, on `development`)
+### Unreleased (post-v0.10.0, on `development`)
+
+- _No changes yet._
+
+### v0.10.0
 
 - **FLUX.2 re-enabled** — engine restored after upstream tokenizer-collision fix landed in `flux-2-swift-mlx` 3.0.0 (PR #20).
 - **MLX reentrancy guard + memory/clock/seed hardening** in the engine layer to keep concurrent generations deterministic and crash-free.
 - **PixArt garbage-image fix** — 7 bugs across 3 repos resolved; PixArt-Sigma now requires native 1024×1024 (other resolutions error early) and includes S7b text-embedding fixes.
 - **Local sibling overrides** — `Package.swift` prefers `../<sibling>` checkouts when not in CI; non-CI dev no longer needs released versions of in-flight upstream changes. CI always uses the pinned remotes.
-- **Dependency floors raised**: flux-2-swift-mlx → 3.0.0, SwiftAcervo → 0.8.4, SwiftTubería → 0.6.0, pixart-swift-mlx → 0.5.0.
+- **Dependency floors raised**: flux-2-swift-mlx → 3.0.1, SwiftAcervo → 0.8.4, SwiftTubería → 0.6.0, pixart-swift-mlx → 0.5.1.
 - **New fixture/repro tooling**: `make test-fixtures`, `make test-fixtures-fp16`, `make test-pixart-repro`; tests `FixtureGenerationTests`, `PixArtGarbageReproTests`, `T5DiffuserComparisonDump`, `AllModelsExampleTests`.
+- **Configurable fixture prompt** — `make test-fixtures PROMPT="..."` overrides the default red-car prompt without editing source.
 - **Makefile fix**: switched env-var pass-through to `TEST_RUNNER_` prefix so `VINETAS_TEST_MODELS_DIR` actually reaches the xctest process.
 - Dropped `loadModelThrowsWhenWeightsAbsent` (test rot after weight-loading refactor).
 - In-flight design note: [docs/incomplete/FIXTURE_CACHE_WARMER.md](docs/incomplete/FIXTURE_CACHE_WARMER.md) — proposal for a CI fixture-test cache warmer so cold-cache PRs fail loudly instead of silently skipping.

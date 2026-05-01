@@ -92,9 +92,14 @@ struct FixtureGenerationTests {
     print("  PNG:  \(pngURL.path)")
     print("  JSON: \(jsonURL.path)")
     print("  size:           \(metrics.width)×\(metrics.height)")
-    print("  distinctColors: 5×5=\(metrics.distinctColors5x5)  10×10=\(metrics.distinctColors10x10)")
-    print("  luminance:      mean=\(String(format: "%.1f", metrics.meanLuminance))  std=\(String(format: "%.1f", metrics.stdLuminance))")
-    print("  channels:       R=\(String(format: "%.1f", metrics.meanRed))  G=\(String(format: "%.1f", metrics.meanGreen))  B=\(String(format: "%.1f", metrics.meanBlue))")
+    print(
+      "  distinctColors: 5×5=\(metrics.distinctColors5x5)  10×10=\(metrics.distinctColors10x10)")
+    print(
+      "  luminance:      mean=\(String(format: "%.1f", metrics.meanLuminance))  std=\(String(format: "%.1f", metrics.stdLuminance))"
+    )
+    print(
+      "  channels:       R=\(String(format: "%.1f", metrics.meanRed))  G=\(String(format: "%.1f", metrics.meanGreen))  B=\(String(format: "%.1f", metrics.meanBlue))"
+    )
     print("  allBlack=\(metrics.isAllBlack)  allWhite=\(metrics.isAllWhite)")
     print("  duration:       \(String(format: "%.1f", result.durationSeconds))s")
 
@@ -186,7 +191,8 @@ struct FixtureGenerationTests {
     // The fp16 weights are produced locally by dequantize_dit_to_fp16.py and placed
     // directly in the test models dir — they are not in the App Group container.
     // Check for the safetensors file in the VINETAS_TEST_MODELS_DIR directly.
-    let testModelsDir = ProcessInfo.processInfo.environment["VINETAS_TEST_MODELS_DIR"]
+    let testModelsDir =
+      ProcessInfo.processInfo.environment["VINETAS_TEST_MODELS_DIR"]
       ?? "/tmp/vinetas-test-models"
     let fp16SafetensorsPath =
       "\(testModelsDir)/pixart-sigma-xl-dit-fp16/model.safetensors"
@@ -220,7 +226,8 @@ struct FixtureGenerationTests {
     }
 
     // Assemble the pipeline (same type as PixArtEngine's internal pipeline)
-    let pipeline: DiffusionPipeline<T5XXLEncoder, DPMSolverScheduler, PixArtDiT, SDXLVAEDecoder, ImageRenderer>
+    let pipeline:
+      DiffusionPipeline<T5XXLEncoder, DPMSolverScheduler, PixArtDiT, SDXLVAEDecoder, ImageRenderer>
     do {
       pipeline = try .init(recipe: recipe)
     } catch {

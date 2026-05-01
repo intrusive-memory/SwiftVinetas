@@ -1,7 +1,7 @@
 // swift-tools-version: 6.2
 
-import PackageDescription
 import Foundation
+import PackageDescription
 
 // In CI we always pin to released remotes. Locally, prefer a sibling checkout
 // at ../<name> if present so in-flight changes can be exercised end-to-end
@@ -63,7 +63,7 @@ let package = Package(
     sibling(
       "pixart-swift-mlx",
       remote: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
-      from: "0.5.0"),
+      from: "0.5.1"),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),

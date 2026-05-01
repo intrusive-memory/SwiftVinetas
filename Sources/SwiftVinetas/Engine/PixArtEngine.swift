@@ -231,7 +231,8 @@ public actor PixArtEngine: ImageGenerationEngine {
       )
     }
 
-    let resolvedSeed: UInt32 = request.seed.map { UInt32($0 & 0xFFFF_FFFF) }
+    let resolvedSeed: UInt32 =
+      request.seed.map { UInt32($0 & 0xFFFF_FFFF) }
       ?? UInt32.random(in: 0...UInt32.max)
     let diffusionRequest = translateRequest(request, seed: resolvedSeed)
 
@@ -262,7 +263,8 @@ public actor PixArtEngine: ImageGenerationEngine {
     }
 
     let elapsed = clock.now - startTime
-    let durationSeconds = Double(elapsed.components.seconds)
+    let durationSeconds =
+      Double(elapsed.components.seconds)
       + Double(elapsed.components.attoseconds) / 1e18
 
     return GenerationResult(
@@ -421,7 +423,8 @@ public actor PixArtEngine: ImageGenerationEngine {
         return nil
       }
       while let fileURL = enumerator.nextObject() as? URL {
-        if let resourceValues = try? fileURL.resourceValues(forKeys: Set<URLResourceKey>([.fileSizeKey])),
+        if let resourceValues = try? fileURL.resourceValues(
+          forKeys: Set<URLResourceKey>([.fileSizeKey])),
           let fileSize = resourceValues.fileSize
         {
           totalSize += Int64(fileSize)
@@ -455,7 +458,9 @@ public actor PixArtEngine: ImageGenerationEngine {
   /// Translate a SwiftVinetas ``GenerationRequest`` into a Tuberia ``DiffusionGenerationRequest``.
   ///
   /// - Parameter seed: Pre-resolved seed (always concrete; caller generates random value if request has none).
-  private func translateRequest(_ request: GenerationRequest, seed: UInt32) -> DiffusionGenerationRequest {
+  private func translateRequest(_ request: GenerationRequest, seed: UInt32)
+    -> DiffusionGenerationRequest
+  {
     return DiffusionGenerationRequest(
       prompt: request.prompt,
       negativePrompt: request.negativePrompt,

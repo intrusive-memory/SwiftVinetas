@@ -21,6 +21,7 @@
 // hard-linked /tmp/vinetas-test-models layout produced by `make link-test-models`.
 import Foundation
 import MLX
+import PixArtBackbone
 import SwiftAcervo
 import Testing
 @preconcurrency import Tokenizers
@@ -28,7 +29,6 @@ import Tuberia
 import TuberiaCatalog
 
 @testable import SwiftVinetas
-import PixArtBackbone
 
 @Suite("T5 Diffusers Comparison Dump", .serialized)
 struct T5DiffuserComparisonDumpTests {
@@ -138,8 +138,13 @@ struct T5DiffuserComparisonDumpTests {
     // ordering explicit and verify the offsets at write time.
     var tensors: [(name: String, dtype: SafetensorsDtype, shape: [Int32], data: Data)] = [
       ("input_ids", .int32, tokenShape, tokenIds.withUnsafeBufferPointer { Data(buffer: $0) }),
-      ("attention_mask", .float32, maskShape, maskFloats.withUnsafeBufferPointer { Data(buffer: $0) }),
-      ("embeddings", .float32, embedShape, embedFloats.withUnsafeBufferPointer { Data(buffer: $0) }),
+      (
+        "attention_mask", .float32, maskShape,
+        maskFloats.withUnsafeBufferPointer { Data(buffer: $0) }
+      ),
+      (
+        "embeddings", .float32, embedShape, embedFloats.withUnsafeBufferPointer { Data(buffer: $0) }
+      ),
     ]
     for tap in taps {
       tensors.append((name: tap.name, dtype: .float32, shape: tap.shape, data: tap.data))
@@ -191,11 +196,12 @@ private func writeSafetensors(
 
   var headerObj: [String: Any] = ["__metadata__": metadata]
   for (i, t) in tensors.enumerated() {
-    headerObj[t.name] = [
-      "dtype": t.dtype.rawValue,
-      "shape": t.shape.map { Int($0) },
-      "data_offsets": [offsets[i].start, offsets[i].end],
-    ] as [String: Any]
+    headerObj[t.name] =
+      [
+        "dtype": t.dtype.rawValue,
+        "shape": t.shape.map { Int($0) },
+        "data_offsets": [offsets[i].start, offsets[i].end],
+      ] as [String: Any]
   }
   let headerJSON = try JSONSerialization.data(
     withJSONObject: headerObj,
@@ -230,6 +236,9 @@ private func stdOf(_ xs: [Float]) -> Float {
   guard xs.count > 1 else { return 0 }
   let m = Double(meanOf(xs))
   var ss: Double = 0
-  for x in xs { let d = Double(x) - m; ss += d * d }
+  for x in xs {
+    let d = Double(x) - m
+    ss += d * d
+  }
   return Float((ss / Double(xs.count - 1)).squareRoot())
 }

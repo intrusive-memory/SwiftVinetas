@@ -172,9 +172,14 @@ struct PixArtGarbageReproTests {
 
       // Print per-attempt metrics
       print("  size:           \(metrics.width)×\(metrics.height)")
-      print("  distinctColors: 5×5=\(metrics.distinctColors5x5)  10×10=\(metrics.distinctColors10x10)")
-      print("  luminance:      mean=\(String(format: "%.1f", metrics.meanLuminance))  std=\(String(format: "%.1f", metrics.stdLuminance))")
-      print("  channels:       R=\(String(format: "%.1f", metrics.meanRed))  G=\(String(format: "%.1f", metrics.meanGreen))  B=\(String(format: "%.1f", metrics.meanBlue))")
+      print(
+        "  distinctColors: 5×5=\(metrics.distinctColors5x5)  10×10=\(metrics.distinctColors10x10)")
+      print(
+        "  luminance:      mean=\(String(format: "%.1f", metrics.meanLuminance))  std=\(String(format: "%.1f", metrics.stdLuminance))"
+      )
+      print(
+        "  channels:       R=\(String(format: "%.1f", metrics.meanRed))  G=\(String(format: "%.1f", metrics.meanGreen))  B=\(String(format: "%.1f", metrics.meanBlue))"
+      )
       print("  allBlack=\(metrics.isAllBlack)  allWhite=\(metrics.isAllWhite)")
       print("  duration:       \(String(format: "%.1f", result.durationSeconds))s")
 
@@ -196,21 +201,23 @@ struct PixArtGarbageReproTests {
     // Summary table
     print("")
     print("══════════════════ SUMMARY ════════════════════════")
-    print(String(
-      format: "  %-4s %-6s %-10s %-11s %-9s %-7s %-7s %-8s",
-      "#", "seed", "dist5x5", "dist10x10", "meanLuma", "stdLuma", "black", "threw"
-    ))
+    print(
+      String(
+        format: "  %-4s %-6s %-10s %-11s %-9s %-7s %-7s %-8s",
+        "#", "seed", "dist5x5", "dist10x10", "meanLuma", "stdLuma", "black", "threw"
+      ))
     print("  " + String(repeating: "─", count: 60))
     for r in records {
       let m = r.metrics
-      print(String(
-        format: "  %-4d %-6d %-10d %-11d %-9.1f %-7.1f %-7s %-8s",
-        r.attempt, r.seed,
-        m.distinctColors5x5, m.distinctColors10x10,
-        m.meanLuminance, m.stdLuminance,
-        m.isAllBlack ? "YES" : "no",
-        r.threw ? "YES" : "no"
-      ))
+      print(
+        String(
+          format: "  %-4d %-6d %-10d %-11d %-9.1f %-7.1f %-7s %-8s",
+          r.attempt, r.seed,
+          m.distinctColors5x5, m.distinctColors10x10,
+          m.meanLuminance, m.stdLuminance,
+          m.isAllBlack ? "YES" : "no",
+          r.threw ? "YES" : "no"
+        ))
     }
     print("")
     print("All outputs saved to: \(debugDir.path)")

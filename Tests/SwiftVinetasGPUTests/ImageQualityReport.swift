@@ -175,7 +175,9 @@ func computeMetrics(for image: CGImage) -> ImageQualityMetrics {
       set10.insert((UInt32(r) << 16) | (UInt32(g) << 8) | UInt32(b))
       if r != 0 || g != 0 || b != 0 { allBlack = false }
       if r != 255 || g != 255 || b != 255 { allWhite = false }
-      let rd = Double(r), gd = Double(g), bd = Double(b)
+      let rd = Double(r)
+      let gd = Double(g)
+      let bd = Double(b)
       reds.append(rd)
       greens.append(gd)
       blues.append(bd)
@@ -216,19 +218,25 @@ func metricObservations(_ m: ImageQualityMetrics) -> [String] {
     obs.append("⚠️  ALL WHITE — degenerate output (saturated latents or decoder fault)")
   }
   if m.distinctColors5x5 < 16 {
-    obs.append("⚠️  Only \(m.distinctColors5x5)/25 distinct colors in 5×5 grid — may be monotone or near-single-color")
+    obs.append(
+      "⚠️  Only \(m.distinctColors5x5)/25 distinct colors in 5×5 grid — may be monotone or near-single-color"
+    )
   }
   if m.distinctColors10x10 < 40 {
     obs.append("⚠️  Only \(m.distinctColors10x10)/100 distinct colors in 10×10 grid — low diversity")
   }
   if m.stdLuminance < 5.0 && !m.isAllBlack && !m.isAllWhite {
-    obs.append("⚠️  stdLuminance=\(String(format: "%.2f", m.stdLuminance)) — very low contrast (washed-out or near-flat image)")
+    obs.append(
+      "⚠️  stdLuminance=\(String(format: "%.2f", m.stdLuminance)) — very low contrast (washed-out or near-flat image)"
+    )
   }
   if m.meanLuminance < 5.0 {
     obs.append("⚠️  meanLuminance=\(String(format: "%.1f", m.meanLuminance)) — image is very dark")
   }
   if m.meanLuminance > 250.0 {
-    obs.append("⚠️  meanLuminance=\(String(format: "%.1f", m.meanLuminance)) — image is very bright / near-white")
+    obs.append(
+      "⚠️  meanLuminance=\(String(format: "%.1f", m.meanLuminance)) — image is very bright / near-white"
+    )
   }
   return obs
 }
