@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.9.0
+**Version**: 0.9.1
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -23,29 +23,39 @@
 - **Model cache**: App Group container (`group.intrusive-memory.models`) via SwiftAcervo, with Application Support fallback — sandbox-safe on all platforms
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full design decisions.
-See [docs/REQUIREMENTS_V1.md](docs/REQUIREMENTS_V1.md) for prioritized requirements.
+See [docs/V1_REQUIREMENTS.md](docs/V1_REQUIREMENTS.md) for prioritized library requirements.
+See [docs/GUI_REQUIREMENTS.md](docs/GUI_REQUIREMENTS.md) for GUI/host-app requirements.
+See [docs/ENGINE_ABSTRACTION_REQUIREMENTS.md](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) for the engine plugin contract.
 See [docs/LEARNING.md](docs/LEARNING.md) for research findings.
+Active investigations / in-flight design notes live in [docs/incomplete/](docs/incomplete/); shipped/landed plans get archived to [docs/complete/](docs/complete/).
 
 ## Build System
 
 **CRITICAL**: Always use `xcodebuild` or Makefile targets. NEVER use `swift build` or `swift test` — Metal shaders required by MLX won't compile.
 
 ```bash
-# Using Makefile (preferred)
-make build          # Debug build + copy to ./bin/vinetas
-make test           # Run all macOS tests
-make test-unit      # macOS unit tests only (no GPU) — CI-safe
-make test-gpu       # GPU tests only (requires Apple Silicon + downloaded model) — local only
-make test-integration  # Integration tests: model download + image generation — local only
-make test-ios       # Run all iOS Simulator tests
-make test-unit-ios  # iOS unit tests only (no GPU)
-make build-ios      # Build library for iOS Simulator
-make release        # Release build
-make install        # Release build + copy to ./bin/vinetas
+# Using Makefile (preferred) — `make help` lists every target
+make build               # Debug build + copy to ./bin/vinetas
+make test                # All macOS tests (unit + GPU)
+make test-unit           # macOS unit tests only (no GPU) — CI-safe
+make test-gpu            # GPU tests only (requires Apple Silicon + cached models) — local only
+make test-integration    # Integration tests: model download + image generation — local only
+make test-fixtures       # Generate seed-42 reference fixtures for both engines (PNGs + JSON) — local only
+make test-fixtures-fp16  # Generate fp16 DiT fixture for int4-vs-fp16 PixArt comparison — local only
+make test-pixart-repro   # Run PixArt 5× across seeds 42–46 for garbage-output diagnosis — local only
+make test-ios            # All iOS Simulator tests
+make test-unit-ios       # iOS unit tests only (no GPU)
+make build-ios           # Build library for iOS Simulator
+make release             # Release build
+make install             # Release build + copy to ./bin/vinetas
+make lint                # Format Swift sources via swift-format
 
-# NOTE: test-gpu and test-integration are LOCAL-ONLY targets.
+# NOTE: test-gpu, test-integration, test-fixtures*, and test-pixart-repro are LOCAL-ONLY.
 # They require Apple Silicon hardware and pre-downloaded model weights.
-# These targets are NEVER run in CI (GitHub Actions uses make test-unit only).
+# CI (GitHub Actions) only runs `make test-unit` and `make test-unit-ios`.
+# The GPU-test Makefile targets depend on `link-test-models`, which hardlinks model
+# weights from the App Group container into /tmp so the xctest process can open them
+# (the Makefile passes them through as TEST_RUNNER_VINETAS_TEST_MODELS_DIR).
 
 # Using xcodebuild directly
 xcodebuild build -scheme SwiftVinetas -destination 'platform=macOS,arch=arm64'
@@ -87,14 +97,18 @@ GenerationResult    // image, seed, duration
 
 ## Dependencies
 
-| Package | Import | Purpose |
-|---------|--------|---------|
-| flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | FLUX.2 pipeline (MIT) |
-| SwiftTubería | `Tuberia`, `TuberiaCatalog` | Componentized diffusion pipeline protocols |
-| pixart-swift-mlx | `PixArtBackbone` | PixArt-Sigma DiT model plugin |
-| SwiftAcervo | `SwiftAcervo` | Model download/cache |
-| Universal | `YAML`, `JSON` | Prompt file parsing |
-| swift-argument-parser | `ArgumentParser` | CLI (vinetas target only) |
+Pinned floors (see [Package.swift](Package.swift) for the source of truth):
+
+| Package | Import | Min version | Purpose |
+|---------|--------|-------------|---------|
+| flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | 3.0.0 | FLUX.2 pipeline (MIT) |
+| SwiftTubería | `Tuberia`, `TuberiaCatalog` | 0.6.0 | Componentized diffusion pipeline protocols |
+| pixart-swift-mlx | `PixArtBackbone` | 0.5.0 | PixArt-Sigma DiT model plugin |
+| SwiftAcervo | `SwiftAcervo` | 0.8.4 | Model download/cache |
+| Universal | `YAML`, `JSON` | 5.3.0 | Prompt file parsing |
+| swift-argument-parser | `ArgumentParser` | 1.7.1 | CLI (vinetas target only) |
+
+**Local sibling overrides**: `Package.swift` automatically prefers `../<package-name>` sibling checkouts when present and `CI != "true"`, falling back to the pinned remote otherwise. Lets in-flight upstream changes be exercised end-to-end without cutting a release. CI always uses the pinned remotes.
 
 **Rejected**: `mzbac/flux.swift` — GPL-3.0 license incompatible with Produciesta.
 
@@ -139,25 +153,42 @@ SwiftVinetas/
 │   └── vinetas/                # CLI executable (thin wrapper over VinetasCLICore)
 │       └── VinetasCLI.swift
 ├── Tests/
-│   ├── SwiftVinetasTests/
+│   ├── SwiftVinetasTests/                   # Unit tests (CI-safe, no GPU)
 │   │   ├── VinetasClientTests.swift         # VinetasClient routing and validation
 │   │   ├── VinetasErrorTests.swift          # Parameterized error type tests
+│   │   ├── EngineRouterTests.swift          # EngineRouter dispatch
+│   │   ├── Flux2EngineTests.swift           # Flux2Engine unit-level behavior
+│   │   ├── PixArtEngineTests.swift          # PixArtEngine unit-level behavior
 │   │   ├── CLIArgumentTests.swift           # CLI argument parsing (VinetasCLICore)
 │   │   ├── LoRAManagerTests.swift           # LoRA sequencing tests
+│   │   ├── LoRACompatibilityTests.swift     # LoRA<->engine compatibility checks
 │   │   ├── ConcurrentClientTests.swift      # Actor isolation stress tests
+│   │   ├── PlatformRegistrationTests.swift  # Engine/component registration on cold start
+│   │   ├── …                                # plus: Aspect/Character/Classification/Prompt/Style/Verification suites
 │   │   └── MockEngine.swift                 # Test double for ImageGenerationEngine
-│   └── SwiftVinetasGPUTests/
+│   └── SwiftVinetasGPUTests/                # Local-only GPU + integration tests
 │       ├── TestTags.swift                   # Shared tag taxonomy (.integration, .gpu, .flux2, .pixart)
 │       ├── IntegrationTestHelpers.swift     # assertImageNotGarbage, assertModelDownloaded
 │       ├── Flux2IntegrationTests.swift      # FLUX.2 pipeline: compile, download, generate, determinism
 │       ├── PixArtIntegrationTests.swift     # PixArt-Sigma pipeline: compile, download, generate
 │       ├── BatchIntegrationTests.swift      # Batch generation integration tests
-│       └── ImagePreprocessorTests.swift     # GPU-accelerated image preprocessing tests
+│       ├── FixtureGenerationTests.swift     # Seed-42 cross-engine fixture generation (make test-fixtures)
+│       ├── PixArtGarbageReproTests.swift    # PixArt 5×-seed garbage-output diagnostic harness
+│       ├── T5DiffuserComparisonDump.swift   # T5 vs diffusers parity dump (research aid)
+│       ├── AllModelsExampleTests.swift      # End-to-end smoke across every registered model
+│       ├── ImagePreprocessorTests.swift     # GPU-accelerated image preprocessing
+│       ├── ImageQualityReport.swift         # Output-quality scoring helpers
+│       ├── Fixtures/                        # Reference images / metadata committed to the repo
+│       └── SwiftVinetasGPUTests.entitlements
 ├── docs/
-│   ├── LEARNING.md
 │   ├── ARCHITECTURE.md
-│   ├── REQUIREMENTS_V1.md
-│   └── ENGINE_ABSTRACTION_REQUIREMENTS.md
+│   ├── V1_REQUIREMENTS.md
+│   ├── GUI_REQUIREMENTS.md
+│   ├── ENGINE_ABSTRACTION_REQUIREMENTS.md
+│   ├── LEARNING.md
+│   ├── incomplete/                          # Active investigations + in-flight design notes
+│   ├── complete/                            # Shipped/landed plans (archived)
+│   └── archive/                             # Superseded historical docs
 └── .github/workflows/tests.yml
 ```
 
@@ -193,6 +224,24 @@ SwiftVinetas/
 7. Follow agent-specific instructions — see [CLAUDE.md](CLAUDE.md) or [GEMINI.md](GEMINI.md)
 
 ## Recent Changes
+
+### Unreleased (post-v0.9.1, on `development`)
+
+- **FLUX.2 re-enabled** — engine restored after upstream tokenizer-collision fix landed in `flux-2-swift-mlx` 3.0.0 (PR #20).
+- **MLX reentrancy guard + memory/clock/seed hardening** in the engine layer to keep concurrent generations deterministic and crash-free.
+- **PixArt garbage-image fix** — 7 bugs across 3 repos resolved; PixArt-Sigma now requires native 1024×1024 (other resolutions error early) and includes S7b text-embedding fixes.
+- **Local sibling overrides** — `Package.swift` prefers `../<sibling>` checkouts when not in CI; non-CI dev no longer needs released versions of in-flight upstream changes. CI always uses the pinned remotes.
+- **Dependency floors raised**: flux-2-swift-mlx → 3.0.0, SwiftAcervo → 0.8.4, SwiftTubería → 0.6.0, pixart-swift-mlx → 0.5.0.
+- **New fixture/repro tooling**: `make test-fixtures`, `make test-fixtures-fp16`, `make test-pixart-repro`; tests `FixtureGenerationTests`, `PixArtGarbageReproTests`, `T5DiffuserComparisonDump`, `AllModelsExampleTests`.
+- **Makefile fix**: switched env-var pass-through to `TEST_RUNNER_` prefix so `VINETAS_TEST_MODELS_DIR` actually reaches the xctest process.
+- Dropped `loadModelThrowsWhenWeightsAbsent` (test rot after weight-loading refactor).
+- In-flight design note: [docs/incomplete/FIXTURE_CACHE_WARMER.md](docs/incomplete/FIXTURE_CACHE_WARMER.md) — proposal for a CI fixture-test cache warmer so cold-cache PRs fail loudly instead of silently skipping.
+
+### v0.9.1
+
+- Flux2 MACF (memory-aware compute facility) bypass fix via SwiftTubería 0.3.5 WeightLoader update.
+- `Flux2Engine`: removed `diskSize(for:)` call (not present in `flux-2-swift-mlx` v2.6.0).
+- CLI bug fixes and a cross-model test suite.
 
 ### v0.9.0
 

@@ -45,7 +45,7 @@ let package = Package(
     sibling(
       "flux-2-swift-mlx",
       remote: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
-      from: "3.0.0"),
+      from: "3.0.1"),
 
     // Shared model management (download, cache, discovery)
     sibling(
