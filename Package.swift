@@ -50,7 +50,7 @@ packageDependencies.append(contentsOf: [
   sibling(
     "pixart-swift-mlx",
     remote: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
-    from: "0.4.3"),
+    from: "0.5.0"),
 
   // YAML/JSON prompt file parsing (zero dependencies)
   .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
