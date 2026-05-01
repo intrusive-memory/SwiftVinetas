@@ -1,6 +1,21 @@
 // swift-tools-version: 6.2
 
+import Foundation
 import PackageDescription
+
+// In CI we always pin to released remotes. Locally, prefer a sibling checkout
+// at ../<name> if present so in-flight changes can be exercised end-to-end
+// without publishing a release. Falls back to the remote pin if the sibling
+// directory is missing, so fresh clones still build.
+let useLocalSiblings = ProcessInfo.processInfo.environment["CI"] != "true"
+
+func sibling(_ name: String, remote: String, from version: Version) -> Package.Dependency {
+  let localPath = "../\(name)"
+  if useLocalSiblings && FileManager.default.fileExists(atPath: localPath) {
+    return .package(path: localPath)
+  }
+  return .package(url: remote, from: version)
+}
 
 let package = Package(
   name: "SwiftVinetas",
@@ -27,16 +42,28 @@ let package = Package(
   ],
   dependencies: [
     // FLUX.2 image generation pipeline (MIT license, includes mlx-swift transitively)
-    .package(url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", from: "2.6.0"),
+    sibling(
+      "flux-2-swift-mlx",
+      remote: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
+      from: "3.0.1"),
 
     // Shared model management (download, cache, discovery)
-    .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", from: "0.6.0"),
+    sibling(
+      "SwiftAcervo",
+      remote: "https://github.com/intrusive-memory/SwiftAcervo.git",
+      from: "0.8.4"),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
-    .package(url: "https://github.com/intrusive-memory/SwiftTuberia.git", from: "0.3.4"),
+    sibling(
+      "SwiftTuberia",
+      remote: "https://github.com/intrusive-memory/SwiftTuberia.git",
+      from: "0.6.0"),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
-    .package(url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", from: "0.4.2"),
+    sibling(
+      "pixart-swift-mlx",
+      remote: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
+      from: "0.5.1"),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
@@ -50,7 +77,6 @@ let package = Package(
       name: "SwiftVinetas",
       dependencies: [
         .product(name: "Flux2Core", package: "flux-2-swift-mlx"),
-        .product(name: "FluxTextEncoders", package: "flux-2-swift-mlx"),
         .product(name: "SwiftAcervo", package: "SwiftAcervo"),
         .product(name: "Tuberia", package: "SwiftTuberia"),
         .product(name: "TuberiaCatalog", package: "SwiftTuberia"),
@@ -93,6 +119,11 @@ let package = Package(
       dependencies: [
         "SwiftVinetas"
       ],
+      // T5DiffuserComparisonDump is a one-off diagnostic that depends on
+      // unreleased SwiftTuberia public surface (`transformer`, `blocks`,
+      // `debugTap` exposed at module scope). Excluded until SwiftTuberia
+      // ships a release that makes those symbols public.
+      exclude: ["T5DiffuserComparisonDump.swift"],
       resources: [
         .copy("Fixtures")
       ]

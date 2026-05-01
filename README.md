@@ -34,7 +34,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.9.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.10.0")
 ]
 ```
 
@@ -160,10 +160,15 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 
 - [Learning Document](docs/LEARNING.md) — Research findings on MLX, FLUX, and the image generation ecosystem
 - [Architecture](docs/ARCHITECTURE.md) — Technical design decisions and component architecture
-- [Requirements v1.0](docs/REQUIREMENTS_V1.md) — Prioritized feature requirements
+- [V1 Library Requirements](docs/V1_REQUIREMENTS.md) — Prioritized library feature requirements
+- [GUI Requirements](docs/GUI_REQUIREMENTS.md) — Host-app/GUI requirements
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 
 ## Status
+
+**v0.10.0** — FLUX.2 re-enabled (upstream tokenizer-collision fix); MLX reentrancy guard + memory/clock/seed hardening; PixArt garbage-image fix (now requires native 1024×1024); local sibling overrides in `Package.swift` for non-CI dev; configurable fixture prompt via `make test-fixtures PROMPT="..."`; new fixture/repro tooling. Dependency floors: flux-2-swift-mlx 3.0.1, SwiftAcervo 0.8.4, SwiftTubería 0.6.0, pixart-swift-mlx 0.5.1.
+
+**v0.9.1** — Flux2 MACF bypass fix via SwiftTubería 0.3.5; CLI bug fixes; cross-model test suite.
 
 **v0.9.0** — Comprehensive test suite: `VinetasCLICore` library target, unit tests for client routing, error types, CLI argument parsing, LoRA sequencing, and actor isolation; expanded GPU tests for fixed-seed determinism and memory release.
 

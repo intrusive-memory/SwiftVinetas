@@ -129,7 +129,7 @@ public actor PixArtEngine: ImageGenerationEngine {
 
   public func loadModel(
     _ model: any ModelDescriptor,
-    progress: @Sendable (LoadProgress) -> Void
+    progress: @escaping @Sendable (LoadProgress) -> Void
   ) async throws {
     guard model.engineID == engineID || model.id == PixArtModelDescriptor.sigmaXL.id else {
       throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
@@ -157,10 +157,10 @@ public actor PixArtEngine: ImageGenerationEngine {
         let catalogDescriptor = catalogRegistry.descriptor(for: componentId)
       else { continue }
       let descriptor = SwiftAcervo.ComponentDescriptor(
-        id: catalogDescriptor.componentId,
+        id: catalogDescriptor.id,
         type: .backbone,
-        displayName: catalogDescriptor.componentId,
-        repoId: catalogDescriptor.huggingFaceRepo,
+        displayName: catalogDescriptor.id,
+        repoId: catalogDescriptor.repoId,
         files: [SwiftAcervo.ComponentFile(relativePath: "config.json")],
         estimatedSizeBytes: Int64(catalogDescriptor.estimatedSizeBytes),
         minimumMemoryBytes: 0
@@ -231,10 +231,17 @@ public actor PixArtEngine: ImageGenerationEngine {
       )
     }
 
-    let diffusionRequest = translateRequest(request)
-    let startTime = Date()
+    let resolvedSeed: UInt32 =
+      request.seed.map { UInt32($0 & 0xFFFF_FFFF) }
+      ?? UInt32.random(in: 0...UInt32.max)
+    let diffusionRequest = translateRequest(request, seed: resolvedSeed)
+
+    let clock = ContinuousClock()
+    let startTime = clock.now
 
     isGenerating = true
+    defer { isGenerating = false }
+
     let result: DiffusionGenerationResult
     do {
       result = try await pipeline.generate(request: diffusionRequest) { pipelineProgress in
@@ -243,12 +250,10 @@ public actor PixArtEngine: ImageGenerationEngine {
         }
       }
     } catch {
-      isGenerating = false
       throw VinetasError.generationFailed(
-        "PixArt generation failed: \(error.localizedDescription)"
+        "PixArt generation failed: \(String(describing: error))"
       )
     }
-    isGenerating = false
 
     // Extract CGImage from RenderedOutput
     guard case .image(let cgImage) = result.output else {
@@ -257,13 +262,16 @@ public actor PixArtEngine: ImageGenerationEngine {
       )
     }
 
-    let duration = Date().timeIntervalSince(startTime)
+    let elapsed = clock.now - startTime
+    let durationSeconds =
+      Double(elapsed.components.seconds)
+      + Double(elapsed.components.attoseconds) / 1e18
 
     return GenerationResult(
       image: cgImage,
       usedPrompt: request.prompt,
-      seed: UInt64(result.seed),
-      durationSeconds: duration,
+      seed: UInt64(resolvedSeed),
+      durationSeconds: durationSeconds,
       modelID: modelID
     )
   }
@@ -322,7 +330,7 @@ public actor PixArtEngine: ImageGenerationEngine {
             "Component '\(componentId)' is not registered in CatalogRegistration."
           )
         }
-        let repoId = descriptor.huggingFaceRepo
+        let repoId = descriptor.repoId
 
         // Debug: log the CDN URL being requested
         let slug = repoId.replacingOccurrences(of: "/", with: "_")
@@ -370,7 +378,7 @@ public actor PixArtEngine: ImageGenerationEngine {
     let registry = CatalogRegistration.shared
     return ids.allSatisfy { componentId in
       guard let descriptor = registry.descriptor(for: componentId) else { return false }
-      return Acervo.isModelAvailable(descriptor.huggingFaceRepo)
+      return Acervo.isModelAvailable(descriptor.repoId)
     }
   }
 
@@ -385,7 +393,7 @@ public actor PixArtEngine: ImageGenerationEngine {
     for componentId in ids {
       guard let descriptor = registry.descriptor(for: componentId) else { continue }
       do {
-        try Acervo.deleteModel(descriptor.huggingFaceRepo)
+        try Acervo.deleteModel(descriptor.repoId)
       } catch let acervoError as AcervoError {
         // Silently skip components that are not present on disk.
         if case .modelNotFound = acervoError { continue }
@@ -406,7 +414,7 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     for componentId in ids {
       guard let descriptor = registry.descriptor(for: componentId),
-        let dir = try? Acervo.modelDirectory(for: descriptor.huggingFaceRepo)
+        let dir = try? Acervo.modelDirectory(for: descriptor.repoId)
       else {
         return nil
       }
@@ -415,7 +423,8 @@ public actor PixArtEngine: ImageGenerationEngine {
         return nil
       }
       while let fileURL = enumerator.nextObject() as? URL {
-        if let resourceValues = try? fileURL.resourceValues(forKeys: [.fileSizeKey]),
+        if let resourceValues = try? fileURL.resourceValues(
+          forKeys: Set<URLResourceKey>([.fileSizeKey])),
           let fileSize = resourceValues.fileSize
         {
           totalSize += Int64(fileSize)
@@ -447,11 +456,11 @@ public actor PixArtEngine: ImageGenerationEngine {
   // MARK: - Private Helpers
 
   /// Translate a SwiftVinetas ``GenerationRequest`` into a Tuberia ``DiffusionGenerationRequest``.
-  private func translateRequest(_ request: GenerationRequest) -> DiffusionGenerationRequest {
-    // Seed: GenerationRequest uses UInt64, DiffusionGenerationRequest uses UInt32.
-    // Truncate to UInt32 range for compatibility.
-    let seed32: UInt32? = request.seed.map { UInt32($0 & 0xFFFF_FFFF) }
-
+  ///
+  /// - Parameter seed: Pre-resolved seed (always concrete; caller generates random value if request has none).
+  private func translateRequest(_ request: GenerationRequest, seed: UInt32)
+    -> DiffusionGenerationRequest
+  {
     return DiffusionGenerationRequest(
       prompt: request.prompt,
       negativePrompt: request.negativePrompt,
@@ -459,7 +468,7 @@ public actor PixArtEngine: ImageGenerationEngine {
       height: request.height,
       steps: request.steps,
       guidanceScale: request.guidanceScale,
-      seed: seed32,
+      seed: seed,
       loRA: activeLoRAConfig
     )
   }

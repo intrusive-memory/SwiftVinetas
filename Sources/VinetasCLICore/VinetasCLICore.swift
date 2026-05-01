@@ -256,7 +256,7 @@ public struct Download: AsyncParsableCommand {
     let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
 
     stderrPrint("[vinetas] Downloading model: \(vinetasModel.rawValue)")
-    stderrPrint("[vinetas] Repo: \(vinetasModel.huggingFaceRepo)")
+    stderrPrint("[vinetas] Repo: \(vinetasModel.repoId)")
 
     try await Vinetas.download(model: vinetasModel) { progress in
       let pct = String(format: "%.1f", progress.overallProgress * 100)
@@ -348,14 +348,14 @@ public struct Info: AsyncParsableCommand {
     let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
 
     print("Model:              \(vinetasModel.rawValue)")
-    print("HuggingFace Repo:   \(vinetasModel.huggingFaceRepo)")
+    print("HuggingFace Repo:   \(vinetasModel.repoId)")
     print("Quantization:       \(vinetasModel.quantization)")
     print("Min. Memory (GB):   \(vinetasModel.minimumMemoryGB) GB")
     print("Est. Time/Image:    ~\(vinetasModel.estimatedSecondsPerImage)s (M3/M4 Pro)")
 
     // Show cache status
     let allModels = await Vinetas.listModels()
-    if let info = allModels.first(where: { $0.name == vinetasModel.huggingFaceRepo }) {
+    if let info = allModels.first(where: { $0.name == vinetasModel.repoId }) {
       let cacheStatus =
         info.isDownloaded
         ? "Downloaded (\(info.formattedSize))"

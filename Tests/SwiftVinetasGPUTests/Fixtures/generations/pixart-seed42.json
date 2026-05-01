@@ -1,0 +1,27 @@
+{
+  "generation" : {
+    "durationSeconds" : 97.233894292,
+    "generatedAt" : "2026-05-01T20:31:32Z",
+    "guidanceScale" : 4.5,
+    "height" : 1024,
+    "modelID" : "pixart-sigma-xl",
+    "prompt" : "A field of sunflowers bathed in sunshine underneath a blue sky.",
+    "seed" : 42,
+    "steps" : 20,
+    "width" : 1024
+  },
+  "metrics" : {
+    "computedAt" : "2026-05-01T20:31:32Z",
+    "distinctColors10x10" : 76,
+    "distinctColors5x5" : 18,
+    "height" : 1024,
+    "isAllBlack" : false,
+    "isAllWhite" : false,
+    "meanBlue" : 92.65,
+    "meanGreen" : 89.62,
+    "meanLuminance" : 84.17677999999998,
+    "meanRed" : 70.26,
+    "stdLuminance" : 67.34414611569143,
+    "width" : 1024
+  }
+}

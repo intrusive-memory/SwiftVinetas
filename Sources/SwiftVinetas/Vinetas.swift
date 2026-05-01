@@ -28,7 +28,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.9.1"
+  public static let version = "0.10.0"
 
   /// Default initializer that registers engines based on runtime memory detection.
   ///
@@ -37,8 +37,9 @@ public final class VinetasClient: Sendable {
   /// configurations). This eliminates compile-time platform gates in favour of runtime checks,
   /// so both engines compile on every platform and only registration is conditional.
   public init() {
-    // Sync Flux2Core and FluxTextEncoders storage to Acervo's resolved path
-    // (App Group container on macOS/iOS, Application Support fallback otherwise).
+    // Sync model storage to Acervo's resolved path. As of flux-2-swift-mlx v3.0.0
+    // all flux2 downloads route through Acervo's CDN, so configuring Acervo's
+    // base directory propagates to every engine.
     VinetasModelManager.configureStorage()
 
     var engines: [any ImageGenerationEngine] = [PixArtEngine()]
@@ -385,7 +386,7 @@ extension VinetasClient {
 
 extension VinetasClient {
 
-  /// The default model for generation. Currently FLUX.2 Klein 4B.
+  /// The default model for generation: FLUX.2 Klein 4B.
   public static var defaultModel: any ModelDescriptor { Flux2ModelDescriptor.klein4B }
 
   /// FLUX.2 Klein 4B model descriptor.
@@ -411,7 +412,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.9.0"
+  public static let version = "0.10.0"
 
   // MARK: - Generation
 
@@ -979,7 +980,7 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
   }
 
   /// The HuggingFace repository identifier for this model.
-  public var huggingFaceRepo: String {
+  public var repoId: String {
     switch self {
     case .klein4b:
       "black-forest-labs/FLUX.2-klein-4B"

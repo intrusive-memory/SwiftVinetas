@@ -1,5 +1,4 @@
 import Flux2Core
-import FluxTextEncoders
 import Foundation
 import SwiftAcervo
 
@@ -87,8 +86,10 @@ public enum VinetasModelManager: Sendable {
   /// - **iOS with entitlement**: App group shared container
   /// - **Fallback**: `Application Support/SwiftAcervo/SharedModels/`
   ///
-  /// This method sets the same resolved path on Flux2Core's `ModelRegistry`
-  /// and `TextEncoderModelDownloader` so all engines write to one location.
+  /// As of `flux-2-swift-mlx` v3.0.0, all FLUX.2 model downloads are routed
+  /// through SwiftAcervo (Cloudflare R2 CDN), so a single `Acervo.customBaseDirectory`
+  /// override propagates to every consumer — no additional Flux2-side configuration
+  /// is required.
   ///
   /// Called automatically by ``VinetasClient/init()``. Apps can call this
   /// again with ``configureStorage(baseURL:)`` to override.
@@ -98,37 +99,29 @@ public enum VinetasModelManager: Sendable {
     // com.apple.security.application-groups entitlement — including xctest.
     //
     // When VINETAS_TEST_MODELS_DIR is set AND the directory exists, redirect
-    // ModelRegistry (Flux2Core) to use pre-hardlinked files there instead of
-    // the App Group Container path. This mirrors the same pattern used by
-    // WeightLoader and T5XXLEncoder in SwiftTuberia for PixArt weights.
+    // Acervo's base directory to use pre-hardlinked files there instead of the
+    // App Group Container path. Flux2 reads from Acervo, so this is sufficient.
     //
     // In production (entitled processes), VINETAS_TEST_MODELS_DIR is not set,
     // so this block is skipped and the Group Container path is used normally.
     if let testDir = ProcessInfo.processInfo.environment["VINETAS_TEST_MODELS_DIR"] {
       let testURL = URL(fileURLWithPath: testDir)
       if FileManager.default.fileExists(atPath: testURL.path) {
-        ModelRegistry.customModelsDirectory = testURL
-        TextEncoderModelDownloader.customModelsDirectory = testURL
+        Acervo.customBaseDirectory = testURL
         return
       }
     }
-
-    let storageURL = Acervo.sharedModelsDirectory
-    ModelRegistry.customModelsDirectory = storageURL
-    TextEncoderModelDownloader.customModelsDirectory = storageURL
   }
 
   /// Overrides all model storage systems to use an explicit base URL.
   ///
-  /// Sets SwiftAcervo, Flux2Core, and FluxTextEncoders to all use the
-  /// same directory. Use this when the default Acervo-resolved path
-  /// doesn't fit your deployment (e.g., a custom sandbox location).
+  /// Sets SwiftAcervo's base directory, which all engines (Flux2 + PixArt)
+  /// read through. Use this when the default Acervo-resolved path doesn't
+  /// fit your deployment (e.g., a custom sandbox location).
   ///
   /// - Parameter baseURL: The directory URL for all model downloads.
   public static func configureStorage(baseURL: URL) {
     Acervo.customBaseDirectory = baseURL
-    ModelRegistry.customModelsDirectory = baseURL
-    TextEncoderModelDownloader.customModelsDirectory = baseURL
   }
 
   // MARK: - Deprecated API (VinetasModel)
