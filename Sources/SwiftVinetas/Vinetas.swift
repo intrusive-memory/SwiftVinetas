@@ -28,7 +28,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.10.0-dev"
+  public static let version = "0.10.1"
 
   /// Default initializer that registers engines based on runtime memory detection.
   ///
@@ -412,7 +412,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.10.0-dev"
+  public static let version = "0.10.1"
 
   // MARK: - Generation
 
