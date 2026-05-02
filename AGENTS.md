@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.10.0
+**Version**: 0.10.1
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -225,9 +225,15 @@ SwiftVinetas/
 
 ## Recent Changes
 
-### Unreleased (post-v0.10.0, on `development`)
+### Unreleased (post-v0.10.1, on `development`)
 
 - _No changes yet._
+
+### v0.10.1
+
+- **Release workflow** — added `.github/workflows/release.yml` that builds the canonical tarball with `make dist` on a clean runner, uploads it to the GitHub release, and dispatches `formula-update` to the homebrew-tap repo.
+- **Makefile reorganization** — split install/release targets so `make dist` is reproducible in CI without depending on local install state.
+- **CI release upload** — `GITHUB_TOKEN` is now passed explicitly to the upload step so release-asset uploads succeed under stricter token-scoping rules.
 
 ### v0.10.0
 

@@ -34,7 +34,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.10.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.10.1")
 ]
 ```
 
@@ -165,6 +165,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 
 ## Status
+
+**v0.10.1** — Release tooling: new `release.yml` workflow builds + uploads the canonical tarball and dispatches the Homebrew formula update on `release: published`; Makefile install/release targets reorganized so `make dist` is CI-reproducible; release upload step now passes `GITHUB_TOKEN` explicitly.
 
 **v0.10.0** — FLUX.2 re-enabled (upstream tokenizer-collision fix); MLX reentrancy guard + memory/clock/seed hardening; PixArt garbage-image fix (now requires native 1024×1024); local sibling overrides in `Package.swift` for non-CI dev; configurable fixture prompt via `make test-fixtures PROMPT="..."`; new fixture/repro tooling. Dependency floors: flux-2-swift-mlx 3.0.1, SwiftAcervo 0.8.4, SwiftTubería 0.6.0, pixart-swift-mlx 0.5.1.
 
