@@ -16,6 +16,7 @@ permissions:
 env:
   BINARY_NAME: vinetas
   SCHEME: vinetas
+  ACERVO_APP_GROUP_ID: group.intrusive-memory.models
 
 jobs:
   build-and-release:
