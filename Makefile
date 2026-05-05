@@ -107,13 +107,13 @@ release: ## Release build of the vinetas CLI + copy binary and Metal bundle to .
 	fi
 
 test: ## Run all macOS tests (unit + GPU)
-	xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA)
 
 test-unit: ## Run macOS unit tests only (no GPU or model required)
-	xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
@@ -179,20 +179,21 @@ link-test-models: ## Hardlink all model weights + tokenizer files from App Group
 link-pixart-models: link-test-models
 
 test-gpu: link-test-models ## Run GPU tests only (requires Apple Silicon + cached model)
-	ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasGPUTests
 
 test-integration: link-test-models ## Run integration tests only (model download + image generation)
-	ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		$(INTEGRATION_SUITES)
 
 test-fixtures: link-test-models ## Generate reference fixtures for both engines — saves PNGs + JSON to Fixtures/generations/ (override prompt: PROMPT="...")
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
 	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) \
 	TEST_RUNNER_VINETAS_FIXTURE_PROMPT="$(PROMPT)" xcodebuild test \
 		-scheme $(SCHEME_PKG) \
@@ -215,6 +216,7 @@ link-fp16-models: link-test-models ## Check fp16 DiT weights exist at PIXART_TES
 	fi
 
 test-fixtures-fp16: link-fp16-models ## Generate fp16 DiT fixture to compare against int4 baseline — saves pixart-seed42-fp16.png (override prompt: PROMPT="...")
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
 	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) \
 	TEST_RUNNER_VINETAS_FIXTURE_PROMPT="$(PROMPT)" \
 	TEST_RUNNER_PIXART_PRECISION=fp16 xcodebuild test \
@@ -225,6 +227,7 @@ test-fixtures-fp16: link-fp16-models ## Generate fp16 DiT fixture to compare aga
 	@open Tests/SwiftVinetasGPUTests/Fixtures/generations/pixart-seed42-fp16.png
 
 test-pixart-repro: link-test-models ## Run PixArt 5× across seeds 42-46 to diagnose garbage output — saves to ~/Desktop/SwiftVinetasDebug/
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
 	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
@@ -232,13 +235,13 @@ test-pixart-repro: link-test-models ## Run PixArt 5× across seeds 42-46 to diag
 		-only-testing:SwiftVinetasGPUTests/PixArtGarbageReproTests
 
 test-ios: ## Run all iOS Simulator tests
-	xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_IOS) \
 		-derivedDataPath $(DERIVED_DATA)
 
 test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required)
-	xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_IOS) \
 		-derivedDataPath $(DERIVED_DATA) \
