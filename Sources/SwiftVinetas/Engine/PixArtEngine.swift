@@ -153,16 +153,15 @@ public actor PixArtEngine: ImageGenerationEngine {
     // withModelAccess fallback looks up ComponentRegistry to get the repoId.
     let catalogRegistry = CatalogRegistration.shared
     for componentId in PixArtRecipe().allComponentIds {
-      guard Acervo.component(componentId) == nil,
-        let catalogDescriptor = catalogRegistry.descriptor(for: componentId)
-      else { continue }
+      guard let catalogDescriptor = catalogRegistry.descriptor(for: componentId) else { continue }
+      // Un-hydrated init: omit `files:` so the CDN manifest hydrates the file list.
+      // `Acervo.register` is idempotent in 0.11.1 — no nil-guard needed.
+      // TODO: source `type` from catalogDescriptor if it exposes one (R3.1).
       let descriptor = SwiftAcervo.ComponentDescriptor(
         id: catalogDescriptor.id,
         type: .backbone,
         displayName: catalogDescriptor.id,
         repoId: catalogDescriptor.repoId,
-        files: [SwiftAcervo.ComponentFile(relativePath: "config.json")],
-        estimatedSizeBytes: Int64(catalogDescriptor.estimatedSizeBytes),
         minimumMemoryBytes: 0
       )
       Acervo.register(descriptor)
@@ -325,30 +324,14 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     try await withoutActuallyEscaping(progress) { escapableProgress in
       for (index, componentId) in ids.enumerated() {
-        guard let descriptor = registry.descriptor(for: componentId) else {
+        guard registry.descriptor(for: componentId) != nil else {
           throw VinetasError.downloadFailed(
             "Component '\(componentId)' is not registered in CatalogRegistration."
           )
         }
-        let repoId = descriptor.repoId
-
-        // Debug: log the CDN URL being requested
-        let slug = repoId.replacingOccurrences(of: "/", with: "_")
-        print("[PixArtEngine] Downloading component '\(componentId)'")
-        print("[PixArtEngine]   HuggingFace repo: \(repoId)")
-        print("[PixArtEngine]   CDN slug: \(slug)")
-        print(
-          "[PixArtEngine]   CDN manifest URL: https://pub-8e049ed02be340cbb18f921765fd24f3.r2.dev/models/\(slug)/manifest.json"
-        )
 
         do {
-          // Pass empty files array to download ALL files listed in the
-          // CDN manifest. The registry's filePatterns are globs (e.g.
-          // "*.safetensors") which Acervo cannot match by exact path.
-          try await AcervoManager.shared.download(
-            repoId,
-            files: []
-          ) { acervoProgress in
+          try await Acervo.ensureComponentReady(componentId) { acervoProgress in
             let overall = (Double(index) + acervoProgress.overallProgress) / total
             escapableProgress(
               DownloadProgress(
