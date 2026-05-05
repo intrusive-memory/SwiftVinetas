@@ -330,18 +330,21 @@ public actor Flux2Engine: ImageGenerationEngine {
     }
   }
 
-  public nonisolated func diskSize(of model: any ModelDescriptor) -> Int64? {
+  public func diskSize(of model: any ModelDescriptor) async -> Int64? {
     guard let descriptor = resolveDescriptor(model) else { return nil }
     let components = Self.modelComponents(for: descriptor)
     let fm = FileManager.default
     var totalSize: Int64 = 0
     for component in components {
       guard let path = Flux2ModelDownloader.findModelPath(for: component) else { return nil }
-      // Walk the component directory and sum all file sizes.
+      // Walk the component directory and sum all file sizes. Uses
+      // `nextObject()` rather than for-in because `FileManager.DirectoryEnumerator`
+      // iterators are unavailable from async contexts (the protocol demoted
+      // `diskSize(of:)` to `async` as of the manifest-driven migration).
       guard
         let enumerator = fm.enumerator(at: path, includingPropertiesForKeys: [.fileSizeKey])
       else { return nil }
-      for case let fileURL as URL in enumerator {
+      while let fileURL = enumerator.nextObject() as? URL {
         if let resourceValues = try? fileURL.resourceValues(forKeys: [.fileSizeKey]),
           let fileSize = resourceValues.fileSize
         {

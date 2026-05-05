@@ -158,11 +158,11 @@ struct PixArtEngineTests {
   }
 
   @Test("PixArtEngine diskSize returns nil or non-negative bytes")
-  func diskSizeReturnsNilOrBytes() {
+  func diskSizeReturnsNilOrBytes() async {
     let engine = PixArtEngine()
     // The real implementation returns nil if components are not downloaded,
     // or a non-negative Int64 byte count if they are. Both are valid.
-    let size = engine.diskSize(of: PixArtModelDescriptor.sigmaXL)
+    let size = await engine.diskSize(of: PixArtModelDescriptor.sigmaXL)
     if let bytes = size {
       #expect(bytes >= 0)
     }

@@ -360,8 +360,8 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     let registry = CatalogRegistration.shared
     return ids.allSatisfy { componentId in
-      guard let descriptor = registry.descriptor(for: componentId) else { return false }
-      return Acervo.isModelAvailable(descriptor.repoId)
+      guard registry.descriptor(for: componentId) != nil else { return false }
+      return Acervo.isComponentReady(componentId)
     }
   }
 
@@ -374,12 +374,15 @@ public actor PixArtEngine: ImageGenerationEngine {
     let registry = CatalogRegistration.shared
 
     for componentId in ids {
-      guard let descriptor = registry.descriptor(for: componentId) else { continue }
+      guard registry.descriptor(for: componentId) != nil else { continue }
       do {
-        try Acervo.deleteModel(descriptor.repoId)
+        try Acervo.deleteComponent(componentId)
       } catch let acervoError as AcervoError {
-        // Silently skip components that are not present on disk.
-        if case .modelNotFound = acervoError { continue }
+        // Silently skip components that are not registered with the
+        // SwiftAcervo registry (per Acervo.swift:1820, deleteComponent
+        // throws `componentNotRegistered` in that case; if registered
+        // but absent on disk, it is a no-op and does not throw).
+        if case .componentNotRegistered = acervoError { continue }
         throw VinetasError.generationFailed(
           "Failed to delete component '\(componentId)': \(acervoError.localizedDescription)"
         )
@@ -387,32 +390,49 @@ public actor PixArtEngine: ImageGenerationEngine {
     }
   }
 
-  public nonisolated func diskSize(of model: any ModelDescriptor) -> Int64? {
+  public func diskSize(of model: any ModelDescriptor) async -> Int64? {
     let ids = model.componentIds
     guard !ids.isEmpty else { return nil }
 
     let registry = CatalogRegistration.shared
     var totalSize: Int64 = 0
-    let fm = FileManager.default
 
     for componentId in ids {
-      guard let descriptor = registry.descriptor(for: componentId),
-        let dir = try? Acervo.modelDirectory(for: descriptor.repoId)
-      else {
-        return nil
-      }
-      guard let enumerator = fm.enumerator(at: dir, includingPropertiesForKeys: [.fileSizeKey])
-      else {
-        return nil
-      }
-      while let fileURL = enumerator.nextObject() as? URL {
-        if let resourceValues = try? fileURL.resourceValues(
-          forKeys: Set<URLResourceKey>([.fileSizeKey])),
-          let fileSize = resourceValues.fileSize
-        {
-          totalSize += Int64(fileSize)
+      guard registry.descriptor(for: componentId) != nil else { return nil }
+      // Skip components that aren't downloaded — return nil to match the
+      // prior "missing directory means unknown size" semantics rather
+      // than letting `withComponentAccess` throw.
+      guard Acervo.isComponentReady(componentId) else { return nil }
+
+      let componentSize: Int64
+      do {
+        componentSize = try await AcervoManager.shared.withComponentAccess(componentId) {
+          handle -> Int64 in
+          // FileManager.default is fetched inside the @Sendable closure to
+          // avoid capturing a non-Sendable FileManager from the outer scope.
+          let fm = FileManager.default
+          var sum: Int64 = 0
+          guard
+            let enumerator = fm.enumerator(
+              at: handle.rootDirectoryURL,
+              includingPropertiesForKeys: [.fileSizeKey]
+            )
+          else { return 0 }
+          while let fileURL = enumerator.nextObject() as? URL {
+            if let resourceValues = try? fileURL.resourceValues(
+              forKeys: Set<URLResourceKey>([.fileSizeKey])),
+              let fileSize = resourceValues.fileSize
+            {
+              sum += Int64(fileSize)
+            }
+          }
+          return sum
         }
+      } catch {
+        // Integrity check or registry mismatch — surface as "unknown".
+        return nil
       }
+      totalSize += componentSize
     }
     return totalSize
   }

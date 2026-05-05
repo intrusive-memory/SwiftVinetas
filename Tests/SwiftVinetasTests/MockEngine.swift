@@ -110,9 +110,9 @@ actor MockEngine: ImageGenerationEngine {
   nonisolated(unsafe) var validateMemoryResult: MemoryValidation = .ok
 
   /// The value to return from `diskSize(of:)`.
-  /// Marked `nonisolated(unsafe)` because `diskSize` is nonisolated per protocol.
-  /// Set before concurrent access in test setup.
-  nonisolated(unsafe) var diskSizeResult: Int64?
+  /// Actor-isolated because `diskSize` is `async` per protocol (no longer
+  /// nonisolated as of the manifest-driven migration).
+  var diskSizeResult: Int64?
 
   /// If non-nil, `download` will throw this error.
   /// Marked `nonisolated(unsafe)` because `download` is nonisolated async per protocol.
@@ -251,7 +251,7 @@ actor MockEngine: ImageGenerationEngine {
     }
   }
 
-  nonisolated func diskSize(of model: any ModelDescriptor) -> Int64? {
+  func diskSize(of model: any ModelDescriptor) async -> Int64? {
     return diskSizeResult
   }
 
