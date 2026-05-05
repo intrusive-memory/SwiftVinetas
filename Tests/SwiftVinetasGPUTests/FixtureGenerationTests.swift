@@ -218,8 +218,6 @@ struct FixtureGenerationTests {
         type: .backbone,
         displayName: catalogDescriptor.id,
         repoId: catalogDescriptor.repoId,
-        files: [SwiftAcervo.ComponentFile(relativePath: "config.json")],
-        estimatedSizeBytes: Int64(catalogDescriptor.estimatedSizeBytes),
         minimumMemoryBytes: 0
       )
       Acervo.register(descriptor)
