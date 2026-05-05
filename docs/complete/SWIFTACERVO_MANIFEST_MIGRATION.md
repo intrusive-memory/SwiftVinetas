@@ -71,14 +71,14 @@ Use the un-hydrated `ComponentDescriptor` init at `ComponentDescriptor.swift:145
 ```swift
 let descriptor = SwiftAcervo.ComponentDescriptor(
   id: catalogDescriptor.id,
-  type: .backbone,                 // TODO: source from catalogDescriptor if it exposes a type
+  type: .backbone,                 // Chosen: .backbone for all PixArt bridge registrations (WU2 S1)
   displayName: catalogDescriptor.id,
   repoId: catalogDescriptor.repoId,
   minimumMemoryBytes: 0
 )
 Acervo.register(descriptor)
 ```
-The `if Acervo.component(componentId) == nil` guard becomes redundant under 0.11.1's idempotent short-circuit. Drop it once `files:` is gone — keeping it is harmless but adds noise.
+The `if Acervo.component(componentId) == nil` guard is retained in the bridge loop (WU7 S1 fix): the loop iterates all `allComponentIds` including `t5-xxl-encoder-int4` and `sdxl-vae-decoder-fp16` already correctly registered by `CatalogRegistration` with accurate type and memory values. Re-registering them with `type: .backbone` and `minimumMemoryBytes: 0` triggers the 0.11.1 re-registration warning. The nil-guard skips already-registered components.
 
 ### R3.2 Download (`PixArtEngine.swift:344–358`)
 Replace `AcervoManager.shared.download(repoId, files: [])` with `Acervo.ensureComponentReady(componentId, progress:)`. This:
