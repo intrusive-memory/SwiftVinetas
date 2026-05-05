@@ -257,7 +257,7 @@ check-acervo-warnings: ## Fail if build/test-output.log contains SwiftAcervo reg
 	@LOG=build/test-output.log; \
 	if [ ! -f "$$LOG" ]; then \
 		echo "ERROR: $$LOG not found — run 'make test-unit' before 'make check-acervo-warnings'"; \
-		echo "See: docs/incomplete/SWIFTACERVO_MANIFEST_MIGRATION.md § R7.1"; \
+		echo "See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R7.1"; \
 		exit 1; \
 	fi; \
 	if grep -qE '\[SwiftAcervo\] Warning: re-registering component|\[SwiftAcervo\] Manifest drift detected' "$$LOG"; then \
@@ -267,7 +267,7 @@ check-acervo-warnings: ## Fail if build/test-output.log contains SwiftAcervo reg
 		echo ""; \
 		echo "A component was registered with a hardcoded 'files:' list, or the CDN manifest"; \
 		echo "disagrees with the registered file list. Fix the registration and re-run tests."; \
-		echo "See: docs/incomplete/SWIFTACERVO_MANIFEST_MIGRATION.md § R7.1"; \
+		echo "See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R7.1"; \
 		exit 1; \
 	fi; \
 	echo "OK: no SwiftAcervo regression warnings in $$LOG"

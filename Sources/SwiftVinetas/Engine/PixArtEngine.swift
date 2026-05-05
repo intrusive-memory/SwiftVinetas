@@ -153,9 +153,13 @@ public actor PixArtEngine: ImageGenerationEngine {
     // withModelAccess fallback looks up ComponentRegistry to get the repoId.
     let catalogRegistry = CatalogRegistration.shared
     for componentId in PixArtRecipe().allComponentIds {
-      guard let catalogDescriptor = catalogRegistry.descriptor(for: componentId) else { continue }
+      // Only register components not already in the registry (e.g. those registered
+      // by CatalogRegistration/PixArtComponents with correct type/memory values).
+      // Re-registering with a different descriptor triggers a SwiftAcervo warning.
+      guard Acervo.component(componentId) == nil,
+        let catalogDescriptor = catalogRegistry.descriptor(for: componentId)
+      else { continue }
       // Un-hydrated init: omit `files:` so the CDN manifest hydrates the file list.
-      // `Acervo.register` is idempotent in 0.11.1 — no nil-guard needed.
       // TODO: source `type` from catalogDescriptor if it exposes one (R3.1).
       let descriptor = SwiftAcervo.ComponentDescriptor(
         id: catalogDescriptor.id,

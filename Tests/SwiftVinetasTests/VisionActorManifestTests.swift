@@ -14,9 +14,9 @@ import Testing
 // remains green. This keeps CI clean during the window between the WU3 S1 source migration
 // and WU4 S1 shipping the ViT manifests to the CDN.
 //
-// See: docs/incomplete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5
+// See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5
 //
-// Once docs/incomplete/SWIFTACERVO_MANIFEST_MIGRATION.md moves to docs/complete/ (WU7),
+// Once docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md moves to docs/complete/ (WU7),
 // verify that both skip guards below no longer fire (R8 criterion 8). At that point the
 // withKnownIssue wrappers can optionally be removed — but keeping them is also fine since
 // they cost nothing when the manifest is present (isIntermittent: true means no failure
@@ -34,7 +34,7 @@ struct VisionActorManifestTests {
   /// A single-line stderr message is emitted when the skip path fires, and xcodebuild exit
   /// code remains 0.
   ///
-  /// See: docs/incomplete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5
+  /// See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5
   @Test("ImageClassifier: component registration and manifest availability (skip-on-absent)")
   func imageClassifierManifestAvailability() async {
     let componentId = "vit-base-patch16-224-imagenet1k"
@@ -54,7 +54,7 @@ struct VisionActorManifestTests {
     // the absence of an issue as a failure, so the test stays green in both states.
     //
     // R4.5 skip-on-absent guard.
-    // See: docs/incomplete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5
+    // See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5
     var manifestResult: CDNManifest?
     do {
       manifestResult = try await Acervo.fetchManifest(forComponent: componentId)
@@ -65,7 +65,7 @@ struct VisionActorManifestTests {
     }
 
     await withKnownIssue(
-      "vit-base-patch16-224-imagenet1k manifest not yet published — see R9 (docs/incomplete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5)",
+      "vit-base-patch16-224-imagenet1k manifest not yet published — see R9 (docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5)",
       isIntermittent: true
     ) {
       guard let manifest = manifestResult else {
@@ -86,7 +86,7 @@ struct VisionActorManifestTests {
   /// A single-line stderr message is emitted when the skip path fires, and xcodebuild exit
   /// code remains 0.
   ///
-  /// See: docs/incomplete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5
+  /// See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5
   @Test("FeatureExtractor: component registration and manifest availability (skip-on-absent)")
   func featureExtractorManifestAvailability() async {
     let componentId = "dinov2-vit-base-patch14-518"
@@ -106,7 +106,7 @@ struct VisionActorManifestTests {
     // the absence of an issue as a failure, so the test stays green in both states.
     //
     // R4.5 skip-on-absent guard.
-    // See: docs/incomplete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5
+    // See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5
     var manifestResult: CDNManifest?
     do {
       manifestResult = try await Acervo.fetchManifest(forComponent: componentId)
@@ -117,7 +117,7 @@ struct VisionActorManifestTests {
     }
 
     await withKnownIssue(
-      "dinov2-vit-base-patch14-518 manifest not yet published — see R9 (docs/incomplete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5)",
+      "dinov2-vit-base-patch14-518 manifest not yet published — see R9 (docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R4.5)",
       isIntermittent: true
     ) {
       guard let manifest = manifestResult else {
