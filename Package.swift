@@ -55,7 +55,7 @@ let package = Package(
     sibling(
       "flux-2-swift-mlx",
       remote: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
-      from: "3.0.1"),
+      from: "3.0.3"),
 
     // Shared model management (download, cache, discovery)
     sibling(
@@ -67,13 +67,13 @@ let package = Package(
     sibling(
       "SwiftTuberia",
       remote: "https://github.com/intrusive-memory/SwiftTuberia.git",
-      from: "0.6.0"),
+      from: "0.6.5"),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
     sibling(
       "pixart-swift-mlx",
       remote: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
-      from: "0.5.1"),
+      from: "0.6.0"),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
