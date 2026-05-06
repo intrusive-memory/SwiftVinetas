@@ -79,49 +79,37 @@ public enum VinetasModelManager: Sendable {
 
   // MARK: - Storage Configuration
 
-  /// Syncs all model storage systems to use SwiftAcervo's resolved path.
+  /// No-op since SwiftAcervo 0.11.1 — storage is configured via the
+  /// `ACERVO_APP_GROUP_ID` environment variable (or the process entitlement).
   ///
   /// SwiftAcervo resolves the storage location automatically:
-  /// - **macOS**: `~/Library/Group Containers/group.intrusive-memory.models/SharedModels/`
+  /// - **macOS**: `~/Library/Group Containers/<ACERVO_APP_GROUP_ID>/SharedModels/`
   /// - **iOS with entitlement**: App group shared container
-  /// - **Fallback**: `Application Support/SwiftAcervo/SharedModels/`
   ///
-  /// As of `flux-2-swift-mlx` v3.0.0, all FLUX.2 model downloads are routed
-  /// through SwiftAcervo (Cloudflare R2 CDN), so a single `Acervo.customBaseDirectory`
-  /// override propagates to every consumer — no additional Flux2-side configuration
-  /// is required.
+  /// Set `ACERVO_APP_GROUP_ID` in `~/.zprofile` for CLI/test use, or declare
+  /// `com.apple.security.application-groups` in the app's `.entitlements` file.
   ///
-  /// Called automatically by ``VinetasClient/init()``. Apps can call this
-  /// again with ``configureStorage(baseURL:)`` to override.
+  /// Called automatically by ``VinetasClient/init()``.
   public static func configureStorage() {
-    // MACF workaround for xctest: On macOS, MACF blocks open()/fopen() on files
-    // inside ~/Library/Group Containers/… for processes that lack the
-    // com.apple.security.application-groups entitlement — including xctest.
-    //
-    // When VINETAS_TEST_MODELS_DIR is set AND the directory exists, redirect
-    // Acervo's base directory to use pre-hardlinked files there instead of the
-    // App Group Container path. Flux2 reads from Acervo, so this is sufficient.
-    //
-    // In production (entitled processes), VINETAS_TEST_MODELS_DIR is not set,
-    // so this block is skipped and the Group Container path is used normally.
-    if let testDir = ProcessInfo.processInfo.environment["VINETAS_TEST_MODELS_DIR"] {
-      let testURL = URL(fileURLWithPath: testDir)
-      if FileManager.default.fileExists(atPath: testURL.path) {
-        Acervo.customBaseDirectory = testURL
-        return
-      }
-    }
+    // SwiftAcervo ≥ 0.11.1 removed `customBaseDirectory`; storage path is now
+    // driven exclusively by ACERVO_APP_GROUP_ID (env var) or the process
+    // entitlement. No programmatic override is available. No-op.
   }
 
-  /// Overrides all model storage systems to use an explicit base URL.
+  /// No-op stub retained for source compatibility.
   ///
-  /// Sets SwiftAcervo's base directory, which all engines (Flux2 + PixArt)
-  /// read through. Use this when the default Acervo-resolved path doesn't
-  /// fit your deployment (e.g., a custom sandbox location).
+  /// `Acervo.customBaseDirectory` was removed in SwiftAcervo 0.11.1. Storage
+  /// path is now driven by `ACERVO_APP_GROUP_ID` (env var) or the app-group
+  /// entitlement. This overload can no longer redirect Acervo's base directory.
   ///
-  /// - Parameter baseURL: The directory URL for all model downloads.
+  /// - Parameter baseURL: Ignored.
+  @available(
+    *, deprecated,
+    message:
+      "Acervo.customBaseDirectory was removed in 0.11.1. Set ACERVO_APP_GROUP_ID instead."
+  )
   public static func configureStorage(baseURL: URL) {
-    Acervo.customBaseDirectory = baseURL
+    // No-op: Acervo.customBaseDirectory removed in SwiftAcervo 0.11.1.
   }
 
   // MARK: - Deprecated API (VinetasModel)

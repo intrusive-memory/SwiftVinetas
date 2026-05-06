@@ -18,11 +18,8 @@ public actor FeatureExtractor {
 
   // MARK: - Constants
 
-  /// HuggingFace repository for the DINOv2-B/14 weights.
-  static let modelRepo = "mlx-vision/vit_base_patch14_518.dinov2-mlxim"
-
-  /// Files required from the model repository.
-  static let requiredFiles = ["model.safetensors", "config.json"]
+  /// Vinetas-owned component ID for the DINOv2-B/14 feature extractor.
+  static let componentId = "dinov2-vit-base-patch14-518"
 
   // MARK: - Shared instance
 
@@ -53,10 +50,10 @@ public actor FeatureExtractor {
   public func extractFeatures(from image: CGImage) async throws -> [Float] {
     let vitModel = try await loadModelIfNeeded()
 
-    // Preprocess: CGImage → [1, 518, 518, 3] MLXArray
+    // Preprocess: CGImage -> [1, 518, 518, 3] MLXArray
     let tensor = preprocessor.preprocess(image: image)
 
-    // Forward pass → CLS token embedding [1, 768]
+    // Forward pass -> CLS token embedding [1, 768]
     let output = vitModel(tensor)
 
     // Extract the CLS token (first row): [768]
@@ -87,30 +84,23 @@ public actor FeatureExtractor {
       return existing
     }
 
-    // Ensure weights are downloaded
+    // Lazily register the component the first time the singleton is exercised.
+    // Acervo.register is idempotent under 0.11.1 -- safe to call on every first use.
+    Acervo.register(ComponentDescriptor(
+      id: Self.componentId,
+      type: .backbone,
+      displayName: "DINOv2-B/14 518px",
+      repoId: "mlx-vision/vit_base_patch14_518.dinov2-mlxim",
+      minimumMemoryBytes: 0
+    ))
+
+    // Ensure weights are downloaded via component-keyed API
     do {
-      try await Acervo.ensureAvailable(
-        Self.modelRepo,
-        files: Self.requiredFiles,
-        progress: { _ in }
-      )
+      try await Acervo.ensureComponentReady(Self.componentId, progress: { _ in })
     } catch {
       throw VinetasError.downloadFailed(
-        "Failed to download DINOv2-B/14 weights from \(Self.modelRepo): \(error.localizedDescription)"
+        "Failed to download DINOv2-B/14 weights for component \(Self.componentId): \(error.localizedDescription)"
       )
-    }
-
-    // Locate model directory
-    let modelDir: URL
-    do {
-      modelDir = try Acervo.modelDirectory(for: Self.modelRepo)
-    } catch {
-      throw VinetasError.modelNotFound(Self.modelRepo)
-    }
-
-    let weightsURL = modelDir.appendingPathComponent("model.safetensors")
-    guard FileManager.default.fileExists(atPath: weightsURL.path) else {
-      throw VinetasError.modelNotFound("model.safetensors not found at \(weightsURL.path)")
     }
 
     // Build DINOv2-B/14 model (no classification head)
@@ -123,13 +113,25 @@ public actor FeatureExtractor {
       numHeads: 12
     )
 
-    // Load safetensors weights
+    // Resolve the safetensors URL via scoped component handle, then load outside the closure.
+    // MLXArray is not Sendable, so loadArrays must be called after withComponentAccess returns.
+    let weightsURL: URL
+    do {
+      weightsURL = try await AcervoManager.shared.withComponentAccess(Self.componentId) { handle in
+        try handle.url(matching: ".safetensors")
+      }
+    } catch {
+      throw VinetasError.modelNotFound(
+        "Could not locate .safetensors for component \(Self.componentId): \(error.localizedDescription)"
+      )
+    }
+
     let weights: [String: MLXArray]
     do {
       weights = try loadArrays(url: weightsURL)
     } catch {
       throw VinetasError.generationFailed(
-        "Failed to load weights from \(weightsURL.path): \(error.localizedDescription)"
+        "Failed to load weights for component \(Self.componentId): \(error.localizedDescription)"
       )
     }
 

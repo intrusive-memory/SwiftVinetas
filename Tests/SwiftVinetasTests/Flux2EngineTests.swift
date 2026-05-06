@@ -206,12 +206,13 @@ struct Flux2EngineTests {
   }
 
   @Test("Flux2Engine diskSize returns nil for unknown model")
-  func diskSizeUnknownModel() {
+  func diskSizeUnknownModel() async {
     let engine = Flux2Engine()
     let unknownModel = MockModelDescriptor(
       id: "unknown", displayName: "Unknown", engineID: "other"
     )
-    #expect(engine.diskSize(of: unknownModel) == nil)
+    let size = await engine.diskSize(of: unknownModel)
+    #expect(size == nil)
   }
 
   // MARK: - Flux2ModelDescriptor Identifiable Conformance

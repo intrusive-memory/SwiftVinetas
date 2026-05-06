@@ -290,7 +290,7 @@ extension VinetasClient {
       let size: Int64
       if let engine = try? await router.engine(for: model) {
         downloaded = engine.isAvailable(model)
-        size = engine.diskSize(of: model) ?? 0
+        size = await engine.diskSize(of: model) ?? 0
       } else {
         downloaded = false
         size = 0

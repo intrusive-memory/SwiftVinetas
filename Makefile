@@ -25,6 +25,8 @@
 # integration test suites are added, they must be added to INTEGRATION_SUITES.
 # ──────────────────────────────────────────────────────────────────────────────
 
+SHELL := /bin/bash
+
 DERIVED_DATA = /tmp/SwiftVinetasBuild
 DESTINATION_MACOS = 'platform=macOS,arch=arm64'
 DESTINATION_IOS = 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=26.1'
@@ -55,7 +57,7 @@ INTEGRATION_SUITES = \
 	-only-testing:SwiftVinetasGPUTests/BatchIntegrationTests \
 	-only-testing:SwiftVinetasGPUTests/AllModelsExampleTests
 
-.PHONY: build release test test-unit test-gpu test-integration test-fixtures test-fixtures-fp16 test-pixart-repro test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models link-fp16-models help
+.PHONY: build release test test-unit test-gpu test-integration test-fixtures test-fixtures-fp16 test-pixart-repro test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models link-fp16-models help check-acervo-warnings
 
 help: ## Show all available targets with descriptions
 	@echo "SwiftVinetas — Makefile targets"
@@ -107,17 +109,19 @@ release: ## Release build of the vinetas CLI + copy binary and Metal bundle to .
 	fi
 
 test: ## Run all macOS tests (unit + GPU)
-	xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA)
 
-test-unit: ## Run macOS unit tests only (no GPU or model required)
-	xcodebuild test \
+test-unit: ## Run macOS unit tests only (no GPU or model required); output captured to build/test-output.log
+	@mkdir -p build
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
-		-only-testing:SwiftVinetasTests
+		-only-testing:SwiftVinetasTests \
+		2>&1 | tee build/test-output.log; exit $${PIPESTATUS[0]}
 
 link-test-models: ## Hardlink all model weights + tokenizer files from App Group container to /tmp so xctest can open them
 	@SHARED="$(PIXART_SHARED_MODELS)"; \
@@ -179,20 +183,21 @@ link-test-models: ## Hardlink all model weights + tokenizer files from App Group
 link-pixart-models: link-test-models
 
 test-gpu: link-test-models ## Run GPU tests only (requires Apple Silicon + cached model)
-	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasGPUTests
 
 test-integration: link-test-models ## Run integration tests only (model download + image generation)
-	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		$(INTEGRATION_SUITES)
 
 test-fixtures: link-test-models ## Generate reference fixtures for both engines — saves PNGs + JSON to Fixtures/generations/ (override prompt: PROMPT="...")
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
 	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) \
 	TEST_RUNNER_VINETAS_FIXTURE_PROMPT="$(PROMPT)" xcodebuild test \
 		-scheme $(SCHEME_PKG) \
@@ -215,6 +220,7 @@ link-fp16-models: link-test-models ## Check fp16 DiT weights exist at PIXART_TES
 	fi
 
 test-fixtures-fp16: link-fp16-models ## Generate fp16 DiT fixture to compare against int4 baseline — saves pixart-seed42-fp16.png (override prompt: PROMPT="...")
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
 	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) \
 	TEST_RUNNER_VINETAS_FIXTURE_PROMPT="$(PROMPT)" \
 	TEST_RUNNER_PIXART_PRECISION=fp16 xcodebuild test \
@@ -225,6 +231,7 @@ test-fixtures-fp16: link-fp16-models ## Generate fp16 DiT fixture to compare aga
 	@open Tests/SwiftVinetasGPUTests/Fixtures/generations/pixart-seed42-fp16.png
 
 test-pixart-repro: link-test-models ## Run PixArt 5× across seeds 42-46 to diagnose garbage output — saves to ~/Desktop/SwiftVinetasDebug/
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
 	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
@@ -232,17 +239,38 @@ test-pixart-repro: link-test-models ## Run PixArt 5× across seeds 42-46 to diag
 		-only-testing:SwiftVinetasGPUTests/PixArtGarbageReproTests
 
 test-ios: ## Run all iOS Simulator tests
-	xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_IOS) \
 		-derivedDataPath $(DERIVED_DATA)
 
-test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required)
-	xcodebuild test \
+test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required); output captured to build/test-output-ios.log
+	@mkdir -p build
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_IOS) \
 		-derivedDataPath $(DERIVED_DATA) \
-		-only-testing:SwiftVinetasTests
+		-only-testing:SwiftVinetasTests \
+		2>&1 | tee build/test-output-ios.log; exit $${PIPESTATUS[0]}
+
+check-acervo-warnings: ## Fail if build/test-output.log contains SwiftAcervo regression warnings (run after test-unit)
+	@LOG=build/test-output.log; \
+	if [ ! -f "$$LOG" ]; then \
+		echo "ERROR: $$LOG not found — run 'make test-unit' before 'make check-acervo-warnings'"; \
+		echo "See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R7.1"; \
+		exit 1; \
+	fi; \
+	if grep -qE '\[SwiftAcervo\] Warning: re-registering component|\[SwiftAcervo\] Manifest drift detected' "$$LOG"; then \
+		echo ""; \
+		echo "FAIL: SwiftAcervo regression warning detected in $$LOG:"; \
+		grep -E '\[SwiftAcervo\] Warning: re-registering component|\[SwiftAcervo\] Manifest drift detected' "$$LOG"; \
+		echo ""; \
+		echo "A component was registered with a hardcoded 'files:' list, or the CDN manifest"; \
+		echo "disagrees with the registered file list. Fix the registration and re-run tests."; \
+		echo "See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R7.1"; \
+		exit 1; \
+	fi; \
+	echo "OK: no SwiftAcervo regression warnings in $$LOG"
 
 install: release ## Alias for `release` (Release build + copy to ./bin/)
 

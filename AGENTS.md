@@ -272,3 +272,17 @@ SwiftVinetas/
 ### v0.8.3
 
 - Bumped SwiftTubería minimum from 0.2.0 to 0.2.6 to require the fix for the compiled silu op in the SDXL VAE decoder
+
+## SwiftAcervo manifest contract — decisions
+
+### R6.1 — Acervo.deleteFromCDN and Acervo.recache (tooling-only)
+
+They are NOT wired into `VinetasClient` at runtime. The `acervo-cdn-setup` skill covers this workflow. See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R6.1
+
+### R6.2 / Q2 — migrateFromLegacyPaths() is a consuming-app concern
+
+e.g. Produciesta owns the call, not the Vinetas library. A library shouldn't migrate user data on import. See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R6.2 and Q2
+
+### Q3 / R5.2 — PixArt component-bridge duplication is intentional
+
+Drift is caught by the WU6 stderr CI gate. Do NOT extract a helper until a third call site appears. See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R5.2 and Q3
