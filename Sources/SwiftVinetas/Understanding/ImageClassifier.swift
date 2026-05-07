@@ -102,13 +102,14 @@ public actor ImageClassifier {
 
     // Lazily register the component the first time the singleton is exercised.
     // Acervo.register is idempotent — safe to call on every first use.
-    Acervo.register(ComponentDescriptor(
-      id: Self.componentId,
-      type: .backbone,
-      displayName: "ViT-B/16 ImageNet-1K",
-      repoId: "mlx-vision/vit_base_patch16_224-mlxim",
-      minimumMemoryBytes: 0
-    ))
+    Acervo.register(
+      ComponentDescriptor(
+        id: Self.componentId,
+        type: .backbone,
+        displayName: "ViT-B/16 ImageNet-1K",
+        repoId: "mlx-vision/vit_base_patch16_224-mlxim",
+        minimumMemoryBytes: 0
+      ))
 
     // Ensure weights are downloaded via component-keyed API
     do {

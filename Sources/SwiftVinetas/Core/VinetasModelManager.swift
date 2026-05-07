@@ -102,8 +102,7 @@ public enum VinetasModelManager: Sendable {
   /// - Parameter baseURL: Ignored.
   @available(
     *, deprecated,
-    message:
-      "Acervo.customBaseDirectory was removed. Set ACERVO_APP_GROUP_ID instead."
+    message: "Acervo.customBaseDirectory was removed. Set ACERVO_APP_GROUP_ID instead."
   )
   public static func configureStorage(baseURL: URL) {
   }

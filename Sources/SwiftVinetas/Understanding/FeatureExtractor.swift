@@ -86,13 +86,14 @@ public actor FeatureExtractor {
 
     // Lazily register the component the first time the singleton is exercised.
     // Acervo.register is idempotent — safe to call on every first use.
-    Acervo.register(ComponentDescriptor(
-      id: Self.componentId,
-      type: .backbone,
-      displayName: "DINOv2-B/14 518px",
-      repoId: "mlx-vision/vit_base_patch14_518.dinov2-mlxim",
-      minimumMemoryBytes: 0
-    ))
+    Acervo.register(
+      ComponentDescriptor(
+        id: Self.componentId,
+        type: .backbone,
+        displayName: "DINOv2-B/14 518px",
+        repoId: "mlx-vision/vit_base_patch14_518.dinov2-mlxim",
+        minimumMemoryBytes: 0
+      ))
 
     // Ensure weights are downloaded via component-keyed API
     do {

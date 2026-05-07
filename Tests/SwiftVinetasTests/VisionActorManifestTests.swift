@@ -41,13 +41,14 @@ struct VisionActorManifestTests {
 
     // Register the component exactly as ImageClassifier.loadModelIfNeeded() does.
     // Acervo.register is idempotent — safe to call in tests.
-    Acervo.register(ComponentDescriptor(
-      id: componentId,
-      type: .backbone,
-      displayName: "ViT-B/16 ImageNet-1K",
-      repoId: "mlx-vision/vit_base_patch16_224-mlxim",
-      minimumMemoryBytes: 0
-    ))
+    Acervo.register(
+      ComponentDescriptor(
+        id: componentId,
+        type: .backbone,
+        displayName: "ViT-B/16 ImageNet-1K",
+        repoId: "mlx-vision/vit_base_patch16_224-mlxim",
+        minimumMemoryBytes: 0
+      ))
 
     // Probe manifest availability before asserting.
     // isIntermittent: true — when the manifest IS present, withKnownIssue does not treat
@@ -93,13 +94,14 @@ struct VisionActorManifestTests {
 
     // Register the component exactly as FeatureExtractor.loadModelIfNeeded() does.
     // Acervo.register is idempotent — safe to call in tests.
-    Acervo.register(ComponentDescriptor(
-      id: componentId,
-      type: .backbone,
-      displayName: "DINOv2-B/14 518px",
-      repoId: "mlx-vision/vit_base_patch14_518.dinov2-mlxim",
-      minimumMemoryBytes: 0
-    ))
+    Acervo.register(
+      ComponentDescriptor(
+        id: componentId,
+        type: .backbone,
+        displayName: "DINOv2-B/14 518px",
+        repoId: "mlx-vision/vit_base_patch14_518.dinov2-mlxim",
+        minimumMemoryBytes: 0
+      ))
 
     // Probe manifest availability before asserting.
     // isIntermittent: true — when the manifest IS present, withKnownIssue does not treat
