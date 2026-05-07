@@ -36,7 +36,10 @@ public struct Generate: AsyncParsableCommand {
   @Option(name: .shortAndLong, help: "Output file path.")
   public var output: String = "panel.png"
 
-  @Option(name: .long, help: "Model variant: klein4b (default, fast) or klein9b (quality).")
+  @Option(
+    name: .long,
+    help: "Model variant: klein4b (default, fast), klein9b (quality), or pixart-sigma."
+  )
   public var model: String = "klein4b"
 
   @Option(name: .long, help: "Path to a LoRA safetensors file.")
@@ -71,10 +74,28 @@ public struct Generate: AsyncParsableCommand {
   public var preview: Bool = false
 
   public func run() async throws {
-    let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
+    guard let vinetasModel = VinetasModel(rawValue: model) else {
+      let valid = VinetasModel.allCases.map(\.rawValue).joined(separator: ", ")
+      throw ValidationError("Unknown model '\(model)'. Valid models: \(valid)")
+    }
 
-    // Build StyleConfig from CLI options
-    var styleConfig = StyleConfig()
+    // --preview is a FLUX-only fast path (forces Klein 4B at 4 steps, 512×512).
+    // Combining it with a non-Klein-4B model would silently ignore --model.
+    if preview && vinetasModel != .klein4b {
+      throw ValidationError(
+        "--preview is FLUX.2-only (Klein 4B, 4 steps, 512×512). "
+          + "Drop --model or omit --preview."
+      )
+    }
+
+    // Seed StyleConfig with this model's per-engine defaults so PixArt's
+    // recommended guidance (4.5) and steps don't get overridden by FLUX-tuned
+    // defaults. User-supplied --steps / --guidance still take precedence.
+    let descriptor = vinetasModel.descriptor
+    var styleConfig = StyleConfig(
+      steps: descriptor.defaultSteps,
+      guidanceScale: descriptor.defaultGuidance
+    )
     if let stylePrompt = style { styleConfig.stylePrompt = stylePrompt }
     if let negative { styleConfig.negativePrompt = negative }
     if let steps { styleConfig.steps = steps }
@@ -169,7 +190,10 @@ public struct Batch: AsyncParsableCommand {
   @Option(name: .shortAndLong, help: "Output directory for generated panels.")
   public var outputDir: String = "./panels"
 
-  @Option(name: .long, help: "Model variant: klein4b (default) or klein9b.")
+  @Option(
+    name: .long,
+    help: "Model variant: klein4b (default), klein9b, or pixart-sigma."
+  )
   public var model: String = "klein4b"
 
   @Option(
@@ -244,12 +268,15 @@ public struct Batch: AsyncParsableCommand {
 
 public struct Download: AsyncParsableCommand {
   public static let configuration = CommandConfiguration(
-    abstract: "Download a FLUX.2 model for local generation."
+    abstract: "Download a model for local generation."
   )
 
   public init() {}
 
-  @Option(name: .shortAndLong, help: "Model to download: klein4b or klein9b.")
+  @Option(
+    name: .shortAndLong,
+    help: "Model to download: klein4b, klein9b, or pixart-sigma."
+  )
   public var model: String = "klein4b"
 
   public func run() async throws {
@@ -336,12 +363,15 @@ public struct ListModels: AsyncParsableCommand {
 
 public struct Info: AsyncParsableCommand {
   public static let configuration = CommandConfiguration(
-    abstract: "Display detailed information about a FLUX.2 model variant."
+    abstract: "Display detailed information about a model variant."
   )
 
   public init() {}
 
-  @Option(name: .shortAndLong, help: "Model variant: klein4b or klein9b.")
+  @Option(
+    name: .shortAndLong,
+    help: "Model variant: klein4b, klein9b, or pixart-sigma."
+  )
   public var model: String = "klein4b"
 
   public func run() async throws {

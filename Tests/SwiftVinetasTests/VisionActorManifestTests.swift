@@ -40,7 +40,7 @@ struct VisionActorManifestTests {
     let componentId = "vit-base-patch16-224-imagenet1k"
 
     // Register the component exactly as ImageClassifier.loadModelIfNeeded() does.
-    // Acervo.register is idempotent under 0.11.1 — safe to call in tests.
+    // Acervo.register is idempotent — safe to call in tests.
     Acervo.register(ComponentDescriptor(
       id: componentId,
       type: .backbone,
@@ -92,7 +92,7 @@ struct VisionActorManifestTests {
     let componentId = "dinov2-vit-base-patch14-518"
 
     // Register the component exactly as FeatureExtractor.loadModelIfNeeded() does.
-    // Acervo.register is idempotent under 0.11.1 — safe to call in tests.
+    // Acervo.register is idempotent — safe to call in tests.
     Acervo.register(ComponentDescriptor(
       id: componentId,
       type: .backbone,

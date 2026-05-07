@@ -85,7 +85,7 @@ public actor FeatureExtractor {
     }
 
     // Lazily register the component the first time the singleton is exercised.
-    // Acervo.register is idempotent under 0.11.1 -- safe to call on every first use.
+    // Acervo.register is idempotent — safe to call on every first use.
     Acervo.register(ComponentDescriptor(
       id: Self.componentId,
       type: .backbone,

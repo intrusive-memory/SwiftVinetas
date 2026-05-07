@@ -79,8 +79,8 @@ public enum VinetasModelManager: Sendable {
 
   // MARK: - Storage Configuration
 
-  /// No-op since SwiftAcervo 0.11.1 — storage is configured via the
-  /// `ACERVO_APP_GROUP_ID` environment variable (or the process entitlement).
+  /// No-op — storage is configured via the `ACERVO_APP_GROUP_ID` environment
+  /// variable (or the process entitlement).
   ///
   /// SwiftAcervo resolves the storage location automatically:
   /// - **macOS**: `~/Library/Group Containers/<ACERVO_APP_GROUP_ID>/SharedModels/`
@@ -91,25 +91,21 @@ public enum VinetasModelManager: Sendable {
   ///
   /// Called automatically by ``VinetasClient/init()``.
   public static func configureStorage() {
-    // SwiftAcervo ≥ 0.11.1 removed `customBaseDirectory`; storage path is now
-    // driven exclusively by ACERVO_APP_GROUP_ID (env var) or the process
-    // entitlement. No programmatic override is available. No-op.
   }
 
   /// No-op stub retained for source compatibility.
   ///
-  /// `Acervo.customBaseDirectory` was removed in SwiftAcervo 0.11.1. Storage
-  /// path is now driven by `ACERVO_APP_GROUP_ID` (env var) or the app-group
-  /// entitlement. This overload can no longer redirect Acervo's base directory.
+  /// `Acervo.customBaseDirectory` no longer exists; storage path is driven by
+  /// `ACERVO_APP_GROUP_ID` (env var) or the app-group entitlement. This
+  /// overload can no longer redirect Acervo's base directory.
   ///
   /// - Parameter baseURL: Ignored.
   @available(
     *, deprecated,
     message:
-      "Acervo.customBaseDirectory was removed in 0.11.1. Set ACERVO_APP_GROUP_ID instead."
+      "Acervo.customBaseDirectory was removed. Set ACERVO_APP_GROUP_ID instead."
   )
   public static func configureStorage(baseURL: URL) {
-    // No-op: Acervo.customBaseDirectory removed in SwiftAcervo 0.11.1.
   }
 
   // MARK: - Deprecated API (VinetasModel)

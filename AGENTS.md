@@ -172,7 +172,6 @@ SwiftVinetas/
 │       ├── Flux2IntegrationTests.swift      # FLUX.2 pipeline: compile, download, generate, determinism
 │       ├── PixArtIntegrationTests.swift     # PixArt-Sigma pipeline: compile, download, generate
 │       ├── BatchIntegrationTests.swift      # Batch generation integration tests
-│       ├── FixtureGenerationTests.swift     # Seed-42 cross-engine fixture generation (make test-fixtures)
 │       ├── PixArtGarbageReproTests.swift    # PixArt 5×-seed garbage-output diagnostic harness
 │       ├── T5DiffuserComparisonDump.swift   # T5 vs diffusers parity dump (research aid)
 │       ├── AllModelsExampleTests.swift      # End-to-end smoke across every registered model
@@ -242,7 +241,7 @@ SwiftVinetas/
 - **PixArt garbage-image fix** — 7 bugs across 3 repos resolved; PixArt-Sigma now requires native 1024×1024 (other resolutions error early) and includes S7b text-embedding fixes.
 - **Local sibling overrides** — `Package.swift` prefers `../<sibling>` checkouts when not in CI; non-CI dev no longer needs released versions of in-flight upstream changes. CI always uses the pinned remotes.
 - **Dependency floors raised**: flux-2-swift-mlx → 3.0.1, SwiftAcervo → 0.8.4, SwiftTubería → 0.6.0, pixart-swift-mlx → 0.5.1.
-- **New fixture/repro tooling**: `make test-fixtures`, `make test-fixtures-fp16`, `make test-pixart-repro`; tests `FixtureGenerationTests`, `PixArtGarbageReproTests`, `T5DiffuserComparisonDump`, `AllModelsExampleTests`.
+- **New fixture/repro tooling**: `make test-fixtures`, `make test-pixart-repro`; tests `PixArtGarbageReproTests`, `T5DiffuserComparisonDump`, `AllModelsExampleTests`.
 - **Configurable fixture prompt** — `make test-fixtures PROMPT="..."` overrides the default red-car prompt without editing source.
 - **Makefile fix**: switched env-var pass-through to `TEST_RUNNER_` prefix so `VINETAS_TEST_MODELS_DIR` actually reaches the xctest process.
 - Dropped `loadModelThrowsWhenWeightsAbsent` (test rot after weight-loading refactor).

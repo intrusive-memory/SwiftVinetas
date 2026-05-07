@@ -17,8 +17,9 @@
 // Loaded artifacts: tokens, mask (Float), embeddings (Float).
 //
 // This test is gated on the same TEST_RUNNER_VINETAS_TEST_MODELS_DIR plumbing
-// as the rest of the GPU suite — Acervo.customBaseDirectory must point at the
-// hard-linked /tmp/vinetas-test-models layout produced by `make link-test-models`.
+// as the rest of the GPU suite — Acervo's storage (resolved from
+// ACERVO_APP_GROUP_ID) must point at the hard-linked /tmp/vinetas-test-models
+// layout produced by `make link-test-models`.
 import Foundation
 import MLX
 import PixArtBackbone
@@ -46,7 +47,8 @@ struct T5DiffuserComparisonDumpTests {
     .timeLimit(.minutes(5))
   )
   func dumpT5() async throws {
-    // Sync Acervo's base directory to the test models dir (xctest can't read App Group).
+    // No-op now (kept for source compatibility); Acervo's base directory is
+    // resolved from ACERVO_APP_GROUP_ID, set by `make link-test-models`.
     VinetasModelManager.configureStorage()
 
     // Trigger PixArt component registration with Acervo + TuberiaCatalog.
