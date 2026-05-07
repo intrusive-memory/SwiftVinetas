@@ -153,16 +153,19 @@ public actor PixArtEngine: ImageGenerationEngine {
     // withModelAccess fallback looks up ComponentRegistry to get the repoId.
     let catalogRegistry = CatalogRegistration.shared
     for componentId in PixArtRecipe().allComponentIds {
+      // Only register components not already in the registry (e.g. those registered
+      // by CatalogRegistration/PixArtComponents with correct type/memory values).
+      // Re-registering with a different descriptor triggers a SwiftAcervo warning.
       guard Acervo.component(componentId) == nil,
         let catalogDescriptor = catalogRegistry.descriptor(for: componentId)
       else { continue }
+      // Un-hydrated init: omit `files:` so the CDN manifest hydrates the file list.
+      // TODO: source `type` from catalogDescriptor if it exposes one (R3.1).
       let descriptor = SwiftAcervo.ComponentDescriptor(
         id: catalogDescriptor.id,
         type: .backbone,
         displayName: catalogDescriptor.id,
         repoId: catalogDescriptor.repoId,
-        files: [SwiftAcervo.ComponentFile(relativePath: "config.json")],
-        estimatedSizeBytes: Int64(catalogDescriptor.estimatedSizeBytes),
         minimumMemoryBytes: 0
       )
       Acervo.register(descriptor)
@@ -325,30 +328,14 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     try await withoutActuallyEscaping(progress) { escapableProgress in
       for (index, componentId) in ids.enumerated() {
-        guard let descriptor = registry.descriptor(for: componentId) else {
+        guard registry.descriptor(for: componentId) != nil else {
           throw VinetasError.downloadFailed(
             "Component '\(componentId)' is not registered in CatalogRegistration."
           )
         }
-        let repoId = descriptor.repoId
-
-        // Debug: log the CDN URL being requested
-        let slug = repoId.replacingOccurrences(of: "/", with: "_")
-        print("[PixArtEngine] Downloading component '\(componentId)'")
-        print("[PixArtEngine]   HuggingFace repo: \(repoId)")
-        print("[PixArtEngine]   CDN slug: \(slug)")
-        print(
-          "[PixArtEngine]   CDN manifest URL: https://pub-8e049ed02be340cbb18f921765fd24f3.r2.dev/models/\(slug)/manifest.json"
-        )
 
         do {
-          // Pass empty files array to download ALL files listed in the
-          // CDN manifest. The registry's filePatterns are globs (e.g.
-          // "*.safetensors") which Acervo cannot match by exact path.
-          try await AcervoManager.shared.download(
-            repoId,
-            files: []
-          ) { acervoProgress in
+          try await Acervo.ensureComponentReady(componentId) { acervoProgress in
             let overall = (Double(index) + acervoProgress.overallProgress) / total
             escapableProgress(
               DownloadProgress(
@@ -378,6 +365,15 @@ public actor PixArtEngine: ImageGenerationEngine {
     let registry = CatalogRegistration.shared
     return ids.allSatisfy { componentId in
       guard let descriptor = registry.descriptor(for: componentId) else { return false }
+      // Acervo.isComponentReady is strict but requires a hydrated descriptor
+      // (file list populated from the CDN manifest). PixArt registers
+      // un-hydrated descriptors so the manifest can drive file lists at load
+      // time — which means this sync, offline-friendly check would always
+      // return false until something hits the network. Fall back to a local
+      // file-presence check at the component's repoId directory so a fully
+      // cached install is reported as available without requiring a CDN
+      // round-trip. Matches Flux2Engine's behavior.
+      if Acervo.isComponentReady(componentId) { return true }
       return Acervo.isModelAvailable(descriptor.repoId)
     }
   }
@@ -391,12 +387,15 @@ public actor PixArtEngine: ImageGenerationEngine {
     let registry = CatalogRegistration.shared
 
     for componentId in ids {
-      guard let descriptor = registry.descriptor(for: componentId) else { continue }
+      guard registry.descriptor(for: componentId) != nil else { continue }
       do {
-        try Acervo.deleteModel(descriptor.repoId)
+        try Acervo.deleteComponent(componentId)
       } catch let acervoError as AcervoError {
-        // Silently skip components that are not present on disk.
-        if case .modelNotFound = acervoError { continue }
+        // Silently skip components that are not registered with the
+        // SwiftAcervo registry (per Acervo.swift:1820, deleteComponent
+        // throws `componentNotRegistered` in that case; if registered
+        // but absent on disk, it is a no-op and does not throw).
+        if case .componentNotRegistered = acervoError { continue }
         throw VinetasError.generationFailed(
           "Failed to delete component '\(componentId)': \(acervoError.localizedDescription)"
         )
@@ -404,32 +403,49 @@ public actor PixArtEngine: ImageGenerationEngine {
     }
   }
 
-  public nonisolated func diskSize(of model: any ModelDescriptor) -> Int64? {
+  public func diskSize(of model: any ModelDescriptor) async -> Int64? {
     let ids = model.componentIds
     guard !ids.isEmpty else { return nil }
 
     let registry = CatalogRegistration.shared
     var totalSize: Int64 = 0
-    let fm = FileManager.default
 
     for componentId in ids {
-      guard let descriptor = registry.descriptor(for: componentId),
-        let dir = try? Acervo.modelDirectory(for: descriptor.repoId)
-      else {
-        return nil
-      }
-      guard let enumerator = fm.enumerator(at: dir, includingPropertiesForKeys: [.fileSizeKey])
-      else {
-        return nil
-      }
-      while let fileURL = enumerator.nextObject() as? URL {
-        if let resourceValues = try? fileURL.resourceValues(
-          forKeys: Set<URLResourceKey>([.fileSizeKey])),
-          let fileSize = resourceValues.fileSize
-        {
-          totalSize += Int64(fileSize)
+      guard registry.descriptor(for: componentId) != nil else { return nil }
+      // Skip components that aren't downloaded — return nil to match the
+      // prior "missing directory means unknown size" semantics rather
+      // than letting `withComponentAccess` throw.
+      guard Acervo.isComponentReady(componentId) else { return nil }
+
+      let componentSize: Int64
+      do {
+        componentSize = try await AcervoManager.shared.withComponentAccess(componentId) {
+          handle -> Int64 in
+          // FileManager.default is fetched inside the @Sendable closure to
+          // avoid capturing a non-Sendable FileManager from the outer scope.
+          let fm = FileManager.default
+          var sum: Int64 = 0
+          guard
+            let enumerator = fm.enumerator(
+              at: handle.rootDirectoryURL,
+              includingPropertiesForKeys: [.fileSizeKey]
+            )
+          else { return 0 }
+          while let fileURL = enumerator.nextObject() as? URL {
+            if let resourceValues = try? fileURL.resourceValues(
+              forKeys: Set<URLResourceKey>([.fileSizeKey])),
+              let fileSize = resourceValues.fileSize
+            {
+              sum += Int64(fileSize)
+            }
+          }
+          return sum
         }
+      } catch {
+        // Integrity check or registry mismatch — surface as "unknown".
+        return nil
       }
+      totalSize += componentSize
     }
     return totalSize
   }

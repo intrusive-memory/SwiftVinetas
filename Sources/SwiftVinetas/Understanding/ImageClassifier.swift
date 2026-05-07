@@ -18,11 +18,8 @@ public actor ImageClassifier {
 
   // MARK: - Constants
 
-  /// HuggingFace repository for the ViT-B/16 weights.
-  static let modelRepo = "mlx-vision/vit_base_patch16_224-mlxim"
-
-  /// Files required from the model repository.
-  static let requiredFiles = ["model.safetensors", "config.json"]
+  /// Vinetas-owned component ID for the ViT-B/16 classifier.
+  static let componentId = "vit-base-patch16-224-imagenet1k"
 
   // MARK: - Shared instance
 
@@ -55,13 +52,13 @@ public actor ImageClassifier {
   public func classify(image: CGImage, topK: Int = 5) async throws -> [Classification] {
     let vitModel = try await loadModelIfNeeded()
 
-    // Preprocess: CGImage → [1, 224, 224, 3] MLXArray
+    // Preprocess: CGImage -> [1, 224, 224, 3] MLXArray
     let tensor = preprocessor.preprocess(image: image)
 
-    // Forward pass → logits [1, 1000]
+    // Forward pass -> logits [1, 1000]
     let logits = vitModel(tensor)
 
-    // Softmax → probabilities [1, 1000]
+    // Softmax -> probabilities [1, 1000]
     let probs = softmax(logits, axis: -1)
 
     // Convert to Swift array
@@ -103,30 +100,24 @@ public actor ImageClassifier {
       return existing
     }
 
-    // Ensure weights are downloaded
+    // Lazily register the component the first time the singleton is exercised.
+    // Acervo.register is idempotent — safe to call on every first use.
+    Acervo.register(
+      ComponentDescriptor(
+        id: Self.componentId,
+        type: .backbone,
+        displayName: "ViT-B/16 ImageNet-1K",
+        repoId: "mlx-vision/vit_base_patch16_224-mlxim",
+        minimumMemoryBytes: 0
+      ))
+
+    // Ensure weights are downloaded via component-keyed API
     do {
-      try await Acervo.ensureAvailable(
-        Self.modelRepo,
-        files: Self.requiredFiles,
-        progress: { _ in }
-      )
+      try await Acervo.ensureComponentReady(Self.componentId, progress: { _ in })
     } catch {
       throw VinetasError.downloadFailed(
-        "Failed to download ViT-B/16 weights from \(Self.modelRepo): \(error.localizedDescription)"
+        "Failed to download ViT-B/16 weights for component \(Self.componentId): \(error.localizedDescription)"
       )
-    }
-
-    // Locate model directory
-    let modelDir: URL
-    do {
-      modelDir = try Acervo.modelDirectory(for: Self.modelRepo)
-    } catch {
-      throw VinetasError.modelNotFound(Self.modelRepo)
-    }
-
-    let weightsURL = modelDir.appendingPathComponent("model.safetensors")
-    guard FileManager.default.fileExists(atPath: weightsURL.path) else {
-      throw VinetasError.modelNotFound("model.safetensors not found at \(weightsURL.path)")
     }
 
     // Build ViT-B/16 model (1000 ImageNet classes)
@@ -139,13 +130,25 @@ public actor ImageClassifier {
       numHeads: 12
     )
 
-    // Load safetensors weights
+    // Resolve the safetensors URL via scoped component handle, then load outside the closure.
+    // MLXArray is not Sendable, so loadArrays must be called after withComponentAccess returns.
+    let weightsURL: URL
+    do {
+      weightsURL = try await AcervoManager.shared.withComponentAccess(Self.componentId) { handle in
+        try handle.url(matching: ".safetensors")
+      }
+    } catch {
+      throw VinetasError.modelNotFound(
+        "Could not locate .safetensors for component \(Self.componentId): \(error.localizedDescription)"
+      )
+    }
+
     let weights: [String: MLXArray]
     do {
       weights = try loadArrays(url: weightsURL)
     } catch {
       throw VinetasError.generationFailed(
-        "Failed to load weights from \(weightsURL.path): \(error.localizedDescription)"
+        "Failed to load weights for component \(Self.componentId): \(error.localizedDescription)"
       )
     }
 

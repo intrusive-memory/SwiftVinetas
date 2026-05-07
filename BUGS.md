@@ -173,7 +173,6 @@ distributions specific to this model. Expected behavior for int4 — not a code 
 
 ### Infrastructure Added
 
-- `make test-fixtures` → `Tests/SwiftVinetasGPUTests/Fixtures/generations/pixart-seed42.png` + `.json`
+- `make test-fixtures` → `tmp/fixtures/pixart-seed42.png` + `tmp/fixtures/flux2-seed42.png` (CLI-driven; no XCTest harness)
 - `Tests/SwiftVinetasGPUTests/ImageQualityReport.swift` — `computeMetrics()` + `metricObservations()`
-- `Tests/SwiftVinetasGPUTests/FixtureGenerationTests.swift`
 - `Tests/SwiftVinetasGPUTests/PixArtGarbageReproTests.swift`

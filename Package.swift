@@ -1,21 +1,6 @@
 // swift-tools-version: 6.2
 
-import Foundation
 import PackageDescription
-
-// In CI we always pin to released remotes. Locally, prefer a sibling checkout
-// at ../<name> if present so in-flight changes can be exercised end-to-end
-// without publishing a release. Falls back to the remote pin if the sibling
-// directory is missing, so fresh clones still build.
-let useLocalSiblings = ProcessInfo.processInfo.environment["CI"] != "true"
-
-func sibling(_ name: String, remote: String, from version: Version) -> Package.Dependency {
-  let localPath = "../\(name)"
-  if useLocalSiblings && FileManager.default.fileExists(atPath: localPath) {
-    return .package(path: localPath)
-  }
-  return .package(url: remote, from: version)
-}
 
 let package = Package(
   name: "SwiftVinetas",
@@ -42,28 +27,22 @@ let package = Package(
   ],
   dependencies: [
     // FLUX.2 image generation pipeline (MIT license, includes mlx-swift transitively)
-    sibling(
-      "flux-2-swift-mlx",
-      remote: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
-      from: "3.0.1"),
+    .package(
+      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.0.3")
+    ),
 
     // Shared model management (download, cache, discovery)
-    sibling(
-      "SwiftAcervo",
-      remote: "https://github.com/intrusive-memory/SwiftAcervo.git",
-      from: "0.8.4"),
+    .package(
+      url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.12.0")),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
-    sibling(
-      "SwiftTuberia",
-      remote: "https://github.com/intrusive-memory/SwiftTuberia.git",
-      from: "0.6.0"),
+    .package(
+      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.6.5")),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
-    sibling(
-      "pixart-swift-mlx",
-      remote: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
-      from: "0.5.1"),
+    .package(
+      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.6.0")
+    ),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),

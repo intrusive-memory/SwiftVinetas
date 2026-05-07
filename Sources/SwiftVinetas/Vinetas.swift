@@ -28,7 +28,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.10.1"
+  public static let version = "0.11.0"
 
   /// Default initializer that registers engines based on runtime memory detection.
   ///
@@ -290,7 +290,7 @@ extension VinetasClient {
       let size: Int64
       if let engine = try? await router.engine(for: model) {
         downloaded = engine.isAvailable(model)
-        size = engine.diskSize(of: model) ?? 0
+        size = await engine.diskSize(of: model) ?? 0
       } else {
         downloaded = false
         size = 0
@@ -412,7 +412,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.10.1"
+  public static let version = "0.11.0"
 
   // MARK: - Generation
 

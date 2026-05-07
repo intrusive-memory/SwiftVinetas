@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.10.1
+**Version**: 0.11.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -172,7 +172,6 @@ SwiftVinetas/
 │       ├── Flux2IntegrationTests.swift      # FLUX.2 pipeline: compile, download, generate, determinism
 │       ├── PixArtIntegrationTests.swift     # PixArt-Sigma pipeline: compile, download, generate
 │       ├── BatchIntegrationTests.swift      # Batch generation integration tests
-│       ├── FixtureGenerationTests.swift     # Seed-42 cross-engine fixture generation (make test-fixtures)
 │       ├── PixArtGarbageReproTests.swift    # PixArt 5×-seed garbage-output diagnostic harness
 │       ├── T5DiffuserComparisonDump.swift   # T5 vs diffusers parity dump (research aid)
 │       ├── AllModelsExampleTests.swift      # End-to-end smoke across every registered model
@@ -242,7 +241,7 @@ SwiftVinetas/
 - **PixArt garbage-image fix** — 7 bugs across 3 repos resolved; PixArt-Sigma now requires native 1024×1024 (other resolutions error early) and includes S7b text-embedding fixes.
 - **Local sibling overrides** — `Package.swift` prefers `../<sibling>` checkouts when not in CI; non-CI dev no longer needs released versions of in-flight upstream changes. CI always uses the pinned remotes.
 - **Dependency floors raised**: flux-2-swift-mlx → 3.0.1, SwiftAcervo → 0.8.4, SwiftTubería → 0.6.0, pixart-swift-mlx → 0.5.1.
-- **New fixture/repro tooling**: `make test-fixtures`, `make test-fixtures-fp16`, `make test-pixart-repro`; tests `FixtureGenerationTests`, `PixArtGarbageReproTests`, `T5DiffuserComparisonDump`, `AllModelsExampleTests`.
+- **New fixture/repro tooling**: `make test-fixtures`, `make test-pixart-repro`; tests `PixArtGarbageReproTests`, `T5DiffuserComparisonDump`, `AllModelsExampleTests`.
 - **Configurable fixture prompt** — `make test-fixtures PROMPT="..."` overrides the default red-car prompt without editing source.
 - **Makefile fix**: switched env-var pass-through to `TEST_RUNNER_` prefix so `VINETAS_TEST_MODELS_DIR` actually reaches the xctest process.
 - Dropped `loadModelThrowsWhenWeightsAbsent` (test rot after weight-loading refactor).
@@ -272,3 +271,17 @@ SwiftVinetas/
 ### v0.8.3
 
 - Bumped SwiftTubería minimum from 0.2.0 to 0.2.6 to require the fix for the compiled silu op in the SDXL VAE decoder
+
+## SwiftAcervo manifest contract — decisions
+
+### R6.1 — Acervo.deleteFromCDN and Acervo.recache (tooling-only)
+
+They are NOT wired into `VinetasClient` at runtime. The `acervo-cdn-setup` skill covers this workflow. See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R6.1
+
+### R6.2 / Q2 — migrateFromLegacyPaths() is a consuming-app concern
+
+e.g. Produciesta owns the call, not the Vinetas library. A library shouldn't migrate user data on import. See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R6.2 and Q2
+
+### Q3 / R5.2 — PixArt component-bridge duplication is intentional
+
+Drift is caught by the WU6 stderr CI gate. Do NOT extract a helper until a third call site appears. See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R5.2 and Q3

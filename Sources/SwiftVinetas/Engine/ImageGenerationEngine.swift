@@ -6,8 +6,10 @@ import Foundation
 /// It does not know about characters, trigger words, or prompt composition --
 /// those are orchestrator-level concerns handled by `VinetasClient`.
 ///
-/// Sync query methods (`supports`, `isAvailable`, `validateMemory`, `diskSize`)
+/// Sync query methods (`supports`, `isAvailable`, `validateMemory`)
 /// are `nonisolated` since they only read static or filesystem state.
+/// `diskSize(of:)` is `async` because it may need to acquire a SwiftAcervo
+/// `withComponentAccess` scope (path-agnostic file resolution requires async).
 /// Async lifecycle and generation methods are actor-isolated in conforming actors.
 public protocol ImageGenerationEngine: Sendable {
 
@@ -92,7 +94,10 @@ public protocol ImageGenerationEngine: Sendable {
   func delete(_ model: any ModelDescriptor) async throws
 
   /// Returns the disk size in bytes of a downloaded model, or nil if not downloaded.
-  func diskSize(of model: any ModelDescriptor) -> Int64?
+  ///
+  /// `async` because conforming engines may need to acquire a SwiftAcervo
+  /// `withComponentAccess` scope to resolve component file paths.
+  func diskSize(of model: any ModelDescriptor) async -> Int64?
 
   /// Validate whether the current system has enough memory to run the given model.
   func validateMemory(for model: any ModelDescriptor) -> MemoryValidation
