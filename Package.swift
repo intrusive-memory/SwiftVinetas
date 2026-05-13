@@ -94,17 +94,19 @@ let package = Package(
     // CLI argument parsing
     .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
 
-    // Pin swift-tokenizers to exactly 0.5.0. 0.6.0 is a breaking change: it
+    // Pin swift-tokenizers to the 0.5.x line. 0.6.0 is a breaking change: it
     // swaps the pure-Swift tokenizer implementation for a UniFFI-based Rust
     // artifactbundle whose module map fails to expose `RustBuffer`/
     // `RustCallStatus`/`ForeignBytes` to `TokenizersFFI` when consumed via
     // xcodebuild (works under `swift build`), so transitive resolution to
-    // 0.6.x breaks our CI Xcode build. Hold at 0.5.0 until either upstream
-    // ships a working xcodebuild story or our downstream deps explicitly
-    // require a newer line.
+    // 0.6.x breaks our CI Xcode build. The 0.6.2 tag ships an explicit
+    // "Temporary fix for Xcode builds" commit (37f999a) the maintainer
+    // flagged as a possible Xcode bug, so 0.6.x is not yet stable under
+    // xcodebuild. Wait for a 0.6.x release without these Xcode compile
+    // issues before bumping.
     .package(
       url: "https://github.com/DePasqualeOrg/swift-tokenizers.git",
-      exact: "0.5.0"),
+      .upToNextMinor(from: "0.5.0")),
   ],
   targets: [
     // Main library - storyboard/comic panel generation
