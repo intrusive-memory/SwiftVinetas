@@ -1,10 +1,11 @@
 # SwiftVinetas — Instrumentation Requirements
 
-**Status:** Draft, awaiting implementation
+**Status:** Ready for implementation. All dependency floors raised in `bf5b867`.
 **Pattern source:** [Vinetas `docs/INSTRUMENTATION_PLAN.md`](https://github.com/intrusive-memory/Vinetas/blob/development/docs/INSTRUMENTATION_PLAN.md) + Produciesta `Docs/TELEMETRY_IMPL_PATTERN.md`
 **Host:** Vinetas
-**Depends on:** SwiftTuberia ≥ 0.7.0 (for `TuberiaTensorStat`), flux-2-swift-mlx ≥ 3.2.0, pixart-swift-mlx ≥ 0.7.0
-**Priority:** **P2 — last to ship.** Sits on top of every other instrumented library; its events correlate the rest.
+**Depends on (all met):** SwiftTuberia ≥ 0.7.0 (for `TuberiaTensorStat`), flux-2-swift-mlx ≥ 3.2.0, pixart-swift-mlx ≥ 0.7.0, SwiftAcervo ≥ 0.13.0.
+**Target release:** **0.12.0** (minor bump from current `0.11.0-dev`). Matches the dep cohort, all of which shipped telemetry at their next minor.
+**Priority:** **P2 — last to ship.** Sits on top of every other instrumented library; its events correlate the rest at the app-boundary layer.
 
 ---
 
@@ -41,6 +42,25 @@ What it must NOT surface:
 
 ---
 
+## 2.5 Available dependency telemetry surfaces (host wires these directly)
+
+The four intrusive-memory deps SwiftVinetas pulls in each ship their own reporter protocol + event enum, exported as public symbols:
+
+| Dependency | Reporter protocol | Event enum | Module to import |
+|---|---|---|---|
+| SwiftTuberia ≥ 0.7.0 | `TuberiaTelemetryReporter` | `TuberiaTelemetryEvent` | `Tuberia` |
+| flux-2-swift-mlx ≥ 3.2.0 | `Flux2TelemetryReporter` | `Flux2TelemetryEvent` | `Flux2Core` |
+| pixart-swift-mlx ≥ 0.7.0 | `PixArtTelemetryReporter` | `PixArtTelemetryEvent` | `PixArtBackbone` |
+| SwiftAcervo ≥ 0.13.0 | `AcervoTelemetryReporter` | `AcervoTelemetryEvent` | `SwiftAcervo` |
+
+Each also exports a `Noop<Lib>TelemetryReporter` value type for tests and the "telemetry-on but doing nothing" overhead baseline. The `TuberiaTensorStat` summary type is re-exported from `Tuberia` and is the canonical Sendable bag for tensor snapshots used across all four event payloads.
+
+**Boundary contract (the part this doc binds to):** The host owns adapter conformance for all five protocols (the four above plus `VinetasTelemetryReporter` from this doc). SwiftVinetas does **not** bridge dep events into its own event surface, and does **not** wrap dep reporters. Each library's events flow to its own host-side adapter (`Flux2TelemetryAdapter`, `TuberiaTelemetryAdapter`, etc. per `Vinetas/Telemetry/Adapters/`). SwiftVinetas's only job is emitting Vinetas-scoped events — see §4.3.
+
+**runID convention.** SwiftVinetas events do not carry a `runID`. The host's `GenerationActor` mints a per-generation UUID, stores it on each adapter via `setRunID(_:)`, and the adapter stamps every forwarded event with the current runID via `GenerationTelemetry.capture(runID:phase:payload:)`. This matches the dep-event enums (none of which carry `runID` either) and avoids duplicating cross-cutting metadata into every payload.
+
+---
+
 ## 3. Public types to add
 
 ```
@@ -66,7 +86,6 @@ public enum VinetasTelemetryEvent: Sendable {
 
     // --- Generation request handoff (memory boundary on start/end) ---
     case generationStart(
-        runID: UUID,
         prompt: String,
         promptLength: Int,
         engineID: String,
@@ -84,7 +103,6 @@ public enum VinetasTelemetryEvent: Sendable {
         interpretImageCount: Int
     )
     case generationEnd(
-        runID: UUID,
         engineID: String,
         modelID: String,
         success: Bool,
@@ -124,7 +142,7 @@ public enum VinetasTelemetryEvent: Sendable {
     case featureExtractionComplete(featureDim: Int, featureStat: TuberiaTensorStat, durationSeconds: Double)
 
     // --- Error side-channel ---
-    case errorThrown(phase: ErrorPhase, errorDescription: String, runID: UUID?)
+    case errorThrown(phase: ErrorPhase, errorDescription: String)
 
     public enum GenerationModeTag: String, Sendable {
         case textToImage
@@ -158,7 +176,7 @@ public enum VinetasTelemetryEvent: Sendable {
 }
 ```
 
-**On `runID`.** This is the same UUID that Vinetas's app-side `GenerationActor` passes to `GenerationTelemetry.startRun`. SwiftVinetas accepts it via an extension parameter on the generate API (see §4.3) so every event downstream can be correlated to a single user-initiated generation.
+**On correlation.** SwiftVinetas events do not carry a `runID`. The host-side `VinetasEngineTelemetryAdapter` holds the current run UUID (updated by `GenerationActor` between runs) and stamps it onto every event it forwards via `GenerationTelemetry.capture(runID:phase:payload:)`. This matches the dep-event enums and is the contract documented in §2.5.
 
 ### 3.2 `VinetasTelemetryReporter.swift`
 
@@ -237,21 +255,19 @@ extension ImageGenerationEngine {
 }
 ```
 
-`Flux2Engine` and `PixArtEngine` override this. Inside the override they (a) store the Vinetas reporter locally so they can emit Vinetas-level events about generation, and (b) construct a thin shim that bridges `Flux2TelemetryEvent` / `PixArtTelemetryEvent` events back to the host adapter. The host typically prefers to wire the Flux2 and PixArt reporters directly itself; the Vinetas-level engine just emits Vinetas-level events.
+`Flux2Engine` and `PixArtEngine` override this. The override **only** stores the Vinetas reporter for engine-scoped Vinetas events that are not naturally covered by dep-level events: `concurrencyGateRejected` (Flux2 only — PixArt's `isGenerating` gate emits the same event but with `engineID = "pixart"`), `loraAttachStart` / `loraAttachComplete`, and `errorThrown(phase:)` for engine-internal throws.
+
+The override does **NOT** bridge `Flux2TelemetryEvent` or `PixArtTelemetryEvent` into `VinetasTelemetryEvent`. The host wires those dep reporters directly via the deps' own `setTelemetry(_:)` seams (see §2.5). Bridging would (a) duplicate every transformer/scheduler/VAE event into the Vinetas surface, polluting the handoff signal §1 calls out as SwiftVinetas's reason to exist, and (b) couple SwiftVinetas's event schema to upstream changes in Flux2/PixArt enums — a maintenance trap.
 
 ### 4.4 Static `Vinetas` enum entry points
 
-`Vinetas.swift` exposes static convenience entry points (`Vinetas.generate(prompt:)`, etc.). These get a defaulted `telemetry:` parameter:
+`Vinetas.swift:412` exposes static convenience entry points (`Vinetas.generate(prompt:)`, `Vinetas.preview(prompt:)`, etc.). These are pure wrappers around `VinetasClient.shared.<method>`. They get **no** new parameters.
 
-```swift
-public static func generate(
-    prompt: String,
-    /* ... existing params ... */,
-    telemetry: (any VinetasTelemetryReporter)? = nil  // ← added
-) async throws -> CGImage
-```
+Telemetry is wired exactly once per process via `VinetasClient.shared.setTelemetry(reporter)` at app startup (typically from `GenerationActor.init` in the host). The static wrappers inherit that setting transitively. A per-call `telemetry:` parameter was considered and rejected:
 
-If not provided, falls back to `VinetasClient.shared.currentTelemetry()`. This means existing call sites continue to work; instrumented call sites pass an explicit reporter.
+- The host's adapter holds the runID and forwards every event through a single sink — there is no consumer that benefits from per-call routing.
+- Per-call optionality would force every emission site to accept and thread a reporter argument, doubling the API surface for no observable gain.
+- Tests inject reporters by constructing a `VinetasClient(router:)` with a mock router and calling `setTelemetry` directly — same path as production.
 
 ### 4.5 Image understanding types
 
@@ -261,25 +277,33 @@ If not provided, falls back to `VinetasClient.shared.currentTelemetry()`. This m
 
 ## 5. Per-event emission spec
 
+**Single-emission rule.** Every event below has exactly one canonical emission site. The previous draft double-counted `generationStart`/`generationEnd` at both `VinetasClient.generate` and `<Engine>.generate` — that produced two events per run for one logical boundary. Resolution: emit at the `VinetasClient` API boundary only (rationale below the table).
+
 | Event | Emission site (file:line) | Notes |
 |---|---|---|
-| `clientInitialized` | `VinetasClient.init()` end (`Vinetas.swift:51`) | Once per process (singleton). Includes `DeviceCapability.current` snapshot. |
-| `engineRegistered` / `engineSkipped` | Inside the engine registration block (`Vinetas.swift:42–48`) | Two events for Flux2Engine (registered or skipped) + one for PixArtEngine (always registered). |
-| `generationStart` | `Vinetas.generate(...)` and `Vinetas.preview(...)` entry (`Vinetas.swift:83, 226`) and parallel entries in `Flux2Engine.generate(...)` / `PixArtEngine.generate(...)` (`Flux2Engine.swift:185`) | **Memory snapshot.** The `runID` is either passed in by the caller (preferred — matches the app-side run UUID) or generated. |
-| `generationEnd` | Same call sites, success and failure paths via `defer` | **Memory snapshot.** Carries success Bool, durationSeconds. |
+| `clientInitialized` | End of `VinetasClient.init()` (`Vinetas.swift:51`) | Once per process (singleton). Includes `DeviceCapability.current` snapshot. |
+| `engineRegistered` / `engineSkipped` | Inside the engine-registration block (`Vinetas.swift:45–48`) | One `engineRegistered` for PixArtEngine (always) + one of `engineRegistered`/`engineSkipped` for Flux2Engine depending on the 16 GB gate. |
+| `generationStart` | `VinetasClient.generate(...)` entry (`Vinetas.swift:79`, `113`, `167`) and `VinetasClient.preview(...)` entry (`Vinetas.swift:226`) | **Memory snapshot.** `mode` carries `.textToImage`, `.imageToImage`, or `.preview` to disambiguate the four entry points. Do NOT also emit inside `<Engine>.generate`. |
+| `generationEnd` | Same four sites; success and failure paths via `defer` | **Memory snapshot.** Carries `success`, `durationSeconds`. |
 | `engineSelected` | After `router.engine(for: model)` returns successfully (`EngineRouter.swift:61`) | Once per generate. |
-| `engineNotFound` | Inside `throw VinetasError.engineNotFound` branch (`EngineRouter.swift:63, 76`) | Before throw. |
-| `engineFeatureNegotiated` | When the caller passes a `feature:` hint and the engine resolves it | 0–1 per generate. |
-| `memoryValidationStart` / `Result` | Around `validateMemory(for:)` (`Vinetas.swift:315`) | One pair per generate. |
-| `modelLoadStart` / `Complete` | Around `engine.loadModel(_:progress:)` (`Flux2Engine.swift:131`, `PixArtEngine` equivalent) | One pair per first-time-this-process load. |
-| `modelUnload` | Inside `unloadModel()` (`Flux2Engine.swift:172`) | Once per unload. |
-| `modelAvailabilityChecked` | Inside `isAvailable(_:)` (`Vinetas.swift:269`) | One per check. |
-| `modelDeleted` | Inside `delete(_:)` (`Vinetas.swift:277`) | One per delete. |
-| `concurrencyGateRejected` | Inside the `guard !isGenerating else { throw ... }` block (`Flux2Engine.swift:186–189`) | Before throw. |
-| `loraAttachStart` / `Complete` | Around `Flux2Engine.loadLoRA(at:scale:)` (`Flux2Engine.swift:263`) | One pair per LoRA attach. |
-| `classifierForwardStart` / `Complete` | Around `ImageClassifier.classify(...)` | Used by image-understanding code path only. |
-| `featureExtractionStart` / `Complete` | Around `FeatureExtractor.extract(...)` | Used by image-understanding code path only. |
-| `errorThrown` | Every `throw VinetasError.…` in `EngineRouter.swift:63, 76`, `Flux2Engine.swift:133, 187, 192, 223, 244, 265, 271, 296, 311, 326`, `Vinetas.swift:85` and equivalents in `PixArtEngine.swift` | Fire immediately before throw. |
+| `engineNotFound` | Inside the `throw VinetasError.engineNotFound` branches (`EngineRouter.swift:63, 76`) | Before throw. |
+| `engineFeatureNegotiated` | When a caller passes a `feature:` hint and the engine resolves it (none today; reserved for the LoRA/ControlNet expansion) | 0–1 per generate. |
+| `memoryValidationStart` / `Result` | Around `VinetasClient.validateMemory(for:)` (`Vinetas.swift:315`) | One pair per generate. |
+| `modelLoadStart` / `Complete` | Around `engine.loadModel(_:progress:)` (`Flux2Engine.swift:128`, `PixArtEngine.swift:128` equivalent — verify on implement) | One pair per first-time-this-process load. |
+| `modelUnload` | Inside `Flux2Engine.unloadModel()` (`Flux2Engine.swift:172`) and `PixArtEngine.unloadModel()` equivalent | Once per unload. |
+| `modelAvailabilityChecked` | Inside `VinetasClient.isAvailable(_:)` (`Vinetas.swift:269`) | One per check. |
+| `modelDeleted` | Inside `VinetasClient.delete(_:)` (`Vinetas.swift:277`) | One per delete. |
+| `concurrencyGateRejected` | Inside the `guard !isGenerating else { throw ... }` blocks (`Flux2Engine.swift:186–187`, `PixArtEngine.swift:218–219`) | Before throw. |
+| `loraAttachStart` / `Complete` | Around `Flux2Engine.loadLoRA(at:scale:)` (`Flux2Engine.swift:263`) and `PixArtEngine.loadLoRA(at:scale:)` (`PixArtEngine.swift:284`) | One pair per LoRA attach. |
+| `classifierForwardStart` / `Complete` | Around `ImageClassifier.classify(...)` | Image-understanding code path only. |
+| `featureExtractionStart` / `Complete` | Around `FeatureExtractor.extract(...)` | Image-understanding code path only. |
+| `errorThrown` | Every `throw VinetasError.…` site: `EngineRouter.swift:63, 76`; `Flux2Engine.swift:133, 187, 192, 223, 244, 265, 271, 296, 311, 326`; `PixArtEngine.swift:135, 180, 193, 219, 224, 231, 256, 263, 286, 291, 313, 321, 332, 348, 383, 399`; `Vinetas.swift:85` (and other instance/static throws as they grow) | Fire immediately before throw. The `phase:` discriminant matches the enum in §3.1. |
+
+**Why VinetasClient-level emission for `generationStart`/`End`, not engine-level:**
+- The host plan's boundary memory phases are `vinetas_generation_start` / `vinetas_generation_end` (host plan §3.1) — defined at the Vinetas API boundary, not the engine boundary.
+- `mode: .preview` and `mode: .imageToImage` are VinetasClient-level concepts; the engines don't know which entry point dispatched them.
+- The engine boundary is already covered by `Flux2TelemetryEvent.pipelineStart` / `PixArtTelemetryEvent.pipelineStart` flowing through the host's `Flux2TelemetryAdapter` / `PixArtTelemetryAdapter`. A duplicate `generationStart` from inside the engine would just shadow those.
+- Tests that drive engines directly with a mock router still exercise `VinetasClient(router:)`, so emission coverage is unchanged.
 
 ### Hot-path discipline
 
@@ -291,7 +315,7 @@ The `OSAllocatedUnfairLock` on `VinetasClient.telemetry` is touched only at run 
 
 ## 6. Adapter mapping (Vinetas host side)
 
-`VinetasEngineTelemetryAdapter` at `Vinetas/Telemetry/Adapters/VinetasEngineTelemetryAdapter.swift`:
+`VinetasEngineTelemetryAdapter` at `Vinetas/Telemetry/Adapters/VinetasEngineTelemetryAdapter.swift`. The adapter holds the current `runID: UUID` (set by `GenerationActor` between runs via `setRunID(_:)`) and stamps every forwarded event with it through `GenerationTelemetry.capture(runID:phase:payload:)` or `captureWithMemorySnapshot(runID:phase:payload:)`. SwiftVinetas itself never sees the runID — see §2.5.
 
 | Event | Sink phase | Memory snapshot? |
 |---|---|---|
@@ -324,12 +348,13 @@ Add to `Tests/SwiftVinetasTests/`:
 
 | Test | Purpose |
 |---|---|
-| `VinetasTelemetryClientInitTests` | Construct `VinetasClient()` through `MockReporter`. Assert `clientInitialized`, plus the correct `engineRegistered`/`engineSkipped` pair based on a mocked `DeviceCapability`. |
-| `VinetasTelemetryHandoffTests` | Invoke `Vinetas.generate(prompt: "...", telemetry: mock)` against a mocked engine. Assert `generationStart` carries every field of the request (prompt, dims, seed, steps, guidance) and that the prompt string is verbatim. |
+| `VinetasTelemetryClientInitTests` | Build `VinetasClient(router:)` with a mock router, attach `MockReporter` via `setTelemetry`, then assert `clientInitialized` fires once and the correct `engineRegistered`/`engineSkipped` pair fires based on injected `DeviceCapability`. |
+| `VinetasTelemetryPropagationTests` | Call `VinetasClient.setTelemetry(reporter)`. Assert the reporter reaches `EngineRouter` (via its actor-internal state), every `ImageGenerationEngine` in the router (via `setTelemetry` override), and `ImageClassifier` / `FeatureExtractor`. Then call `setTelemetry(nil)` and assert teardown. |
+| `VinetasTelemetryHandoffTests` | Invoke `VinetasClient.generate(...)` against a mock engine. Assert `generationStart` fires exactly once (no double-emission from the engine), carries every field of the request verbatim (prompt, dims, seed, steps, guidance, mode), and is followed by `generationEnd` with `success: true` and a finite `durationSeconds`. |
 | `VinetasTelemetryEngineRoutingTests` | Build a router with two mock engines, request a model belonging to neither. Assert `engineNotFound` fires **before** the throw and `errorThrown(phase: .engineNotFound, ...)` fires next. |
-| `VinetasTelemetryConcurrencyTests` | Call `Flux2Engine.generate(...)` twice concurrently (the second await before the first resolves). Assert `concurrencyGateRejected` fires before the second call throws. |
-| `VinetasTelemetryMemoryValidationTests` | Drive `validateMemory` through mocked DeviceCapability for each `MemoryVerdict`. Assert correct verdict in event. |
-| `VinetasTelemetryNoopOverheadTests` | 100 generate() calls (with mocked engine) through `nil` and `NoopVinetasTelemetryReporter`. Wall-clock medians within ±2%. |
+| `VinetasTelemetryConcurrencyTests` | Call `Flux2Engine.generate(...)` twice concurrently (second `await` before the first resolves). Assert `concurrencyGateRejected` fires before the second call throws and that the failing path emits `generationEnd(success: false)`. Repeat for `PixArtEngine`. |
+| `VinetasTelemetryMemoryValidationTests` | Drive `validateMemory(for:)` through mocked `DeviceCapability` to produce each `MemoryVerdict`. Assert the correct verdict appears in `memoryValidationResult`. |
+| `VinetasTelemetryNoopOverheadTests` | 100 `VinetasClient.generate()` calls (with mocked engine) under three configs: `nil` reporter, `NoopVinetasTelemetryReporter`, and a counting reporter. Assert wall-clock median delta between `nil` and `Noop` within ±2% (the dep convention from `TuberiaTelemetryNoopOverheadTests`). |
 
 ---
 
@@ -345,20 +370,22 @@ Add to `Tests/SwiftVinetasTests/`:
 
 ## 9. Versioning
 
-**Minor** version bump (additive). Pin floor: `0.12.0` post-release. Must ship AFTER all four other intrusive-memory libraries — SwiftVinetas's runtime depends on them and its events reference their event types (indirectly, through the adapter's view in the host).
+**Minor** version bump (additive). Current is `0.11.0-dev`; ship as **`0.12.0`**. The dep cohort already shipped telemetry at their next minor (`flux-2-swift-mlx 3.2.0`, `SwiftAcervo 0.13.0`, `SwiftTuberia 0.7.0`, `pixart-swift-mlx 0.7.0`), and SwiftVinetas's runtime depends on those.
+
+Post-release, the next downstream consumer pin should be `from: "0.12.0"`. The Vinetas host should also bump SwiftVinetas in `Vinetas/Package.swift` (or wherever the SPM dep lives) once `0.12.0` ships, since the host's `VinetasEngineTelemetryAdapter` will fail to compile without the new public types.
 
 ---
 
 ## 10. Implementation checklist
 
-- [ ] Add `Sources/SwiftVinetas/Telemetry/VinetasTelemetryEvent.swift` per §3.1
-- [ ] Add `Sources/SwiftVinetas/Telemetry/VinetasTelemetryReporter.swift` per §3.2
-- [ ] Add `OSAllocatedUnfairLock<(any VinetasTelemetryReporter)?>` + `setTelemetry`/`currentTelemetry` to `VinetasClient`
-- [ ] Add `setTelemetry(_:)` to `EngineRouter` and propagate to engines
-- [ ] Extend `ImageGenerationEngine` protocol with defaulted `setTelemetry(_:)` and override in `Flux2Engine` + `PixArtEngine`
-- [ ] Add defaulted `telemetry:` parameter to `Vinetas.generate`, `Vinetas.generateSequence`, `Vinetas.preview`
-- [ ] Add `setTelemetry` to `ImageClassifier` and `FeatureExtractor`
-- [ ] Wire emission sites per §5; ensure every `throw` is preceded by `errorThrown`
-- [ ] Add tests per §7
-- [ ] Run baseline overhead test (100 mocked-engine generations, ±2%)
-- [ ] Tag release with `MINOR` bump (this is the final library in the instrumentation rollout — ship last)
+- [ ] Add `Sources/SwiftVinetas/Telemetry/VinetasTelemetryEvent.swift` per §3.1 (no `runID` fields)
+- [ ] Add `Sources/SwiftVinetas/Telemetry/VinetasTelemetryReporter.swift` per §3.2 (protocol + `NoopVinetasTelemetryReporter`)
+- [ ] Add `OSAllocatedUnfairLock<(any VinetasTelemetryReporter)?>` + `setTelemetry(_:)` + `currentTelemetry()` to `VinetasClient` (`Vinetas.swift:22`)
+- [ ] Add `setTelemetry(_:)` to `EngineRouter` (actor at `EngineRouter.swift:19`) and propagate to every engine and to `ImageClassifier` / `FeatureExtractor`
+- [ ] Extend `ImageGenerationEngine` protocol with defaulted `setTelemetry(_:)`; override in `Flux2Engine` and `PixArtEngine` per §4.3 (engine-scoped events only — no dep-event bridging)
+- [ ] Wire emission sites per §5: `generationStart`/`End` at `VinetasClient.generate/preview` only, never inside `<Engine>.generate`
+- [ ] Ensure every `throw VinetasError.…` in `EngineRouter.swift`, `Flux2Engine.swift`, `PixArtEngine.swift`, and `Vinetas.swift` is preceded by `errorThrown(phase:errorDescription:)` with the matching `ErrorPhase`
+- [ ] Add tests per §7, including the propagation test that asserts `setTelemetry` reaches router → engines → understanding actors
+- [ ] Run `VinetasTelemetryNoopOverheadTests` and verify ±2% wall-clock delta between `nil` and `Noop` reporters
+- [ ] Bump `VinetasClient.version` from `"0.11.0-dev"` to `"0.12.0"` and tag (final library in the instrumentation rollout — ship last)
+- [ ] In a follow-up PR on `Vinetas/`, bump the SwiftVinetas pin to `from: "0.12.0"` and add `VinetasEngineTelemetryAdapter` per host plan §2.1
