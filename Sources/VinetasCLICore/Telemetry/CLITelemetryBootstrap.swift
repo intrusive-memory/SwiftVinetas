@@ -5,53 +5,19 @@ import SwiftAcervo
 import SwiftVinetas
 import Tuberia
 
-// MARK: - OQ-1 RESOLUTION — per-dep setTelemetry entry points
+// MARK: - OQ-1 RESOLUTION — per-dep setTelemetry entry points (verified against v3.2.1/v0.7.1/v0.7.1 sibling releases):
+//   Vinetas:  VinetasClient.shared.setTelemetry(_:)   — instance-bound (S3 seam, singleton works)
+//   Acervo:   AcervoManager.shared.setTelemetry(_:)   — instance-bound (singleton works)
+//   Flux2:    Flux2Telemetry.setReporter(_:)          — process-wide (Flux2Core 3.2.1+)
+//   PixArt:   PixArtTelemetry.setReporter(_:)         — process-wide (PixArtBackbone 0.7.1+)
+//   Tuberia:  TuberiaTelemetry.setReporter(_:)        — process-wide (Tuberia 0.7.1+)
 //
-// Each dep ships a reporter protocol (verified against sibling checkouts under
-// /Users/stovak/Projects/<repo>) but only a subset expose a process-wide
-// install seam reachable from CLI bootstrap. The instance-bound seams
-// (`Flux2Pipeline.setTelemetry`, `PixArtDiT.setTelemetry`,
-// `DiffusionPipeline.setTelemetry`) live behind SwiftVinetas's engine actors;
-// the engines create those instances lazily during `loadModel(_:)`. Adapters
-// for all five protocols are constructed up front so they are ready to install
-// once a library-side propagation seam exists, but `enable()` only installs on
-// the seams that are actually reachable today.
-//
-//  Vinetas:  VinetasClient.shared.setTelemetry(_:)
-//            — Sources/SwiftVinetas/Vinetas.swift (S3 seam)
-//
-//  Acervo:   AcervoManager.shared.setTelemetry(_:)
-//            — /Users/stovak/Projects/SwiftAcervo/Sources/SwiftAcervo/AcervoManager.swift:70
-//              (singleton actor used by SwiftVinetas for component access)
-//
-//  Flux2:    Flux2WeightLoader.setTelemetry(_:)  [static, process-wide]
-//            — /Users/stovak/Projects/flux-2-swift-mlx/Sources/Flux2Core/Loading/WeightLoader.swift:23
-//              (per-instance Flux2Pipeline.setTelemetry at
-//               /Users/stovak/Projects/flux-2-swift-mlx/Sources/Flux2Core/Pipeline/Flux2Pipeline.swift:83
-//               is owned by SwiftVinetas's Flux2Engine actor and not reachable
-//               from CLI bootstrap; weight-load events still flow through the
-//               static seam, which captures the most diagnostically useful
-//               subset of dep events from the CLI's perspective.)
-//
-//  PixArt:   no process-wide seam.
-//            — Per-instance PixArtDiT.setTelemetry(_:) at
-//              /Users/stovak/Projects/pixart-swift-mlx/Sources/PixArtBackbone/PixArtDiT.swift:40
-//              is owned by SwiftVinetas's PixArtEngine actor and the DiT is
-//              instantiated lazily inside loadModel(_:). Adapter constructed
-//              but not installed; capture of PixArt events requires a future
-//              library-side seam (e.g. PixArtEngine.setPixArtReporter(_:)).
-//
-//  Tuberia:  no process-wide seam.
-//            — Per-instance DiffusionPipeline.setTelemetry(_:) at
-//              /Users/stovak/Projects/SwiftTuberia/Sources/Tuberia/Pipeline/DiffusionPipeline+Telemetry.swift:31
-//              is owned by individual engines and constructed lazily. Same
-//              future-seam requirement as PixArt.
-//
-// Library-side follow-up (out of scope for S8): SwiftVinetas grows a
-// public surface for installing dep-reporter triples (Flux2 / PixArt /
-// Tuberia) on each engine, so the CLI bootstrap can route adapters into the
-// engines' internal pipelines without breaking the §5.3 contract that
-// SwiftVinetas does not bridge dep events onto its own surface.
+// Note: `Flux2Telemetry.setReporter(_:)` is the process-wide seam that supersedes the
+// previously-used `Flux2WeightLoader.setTelemetry(_:)` static call. Per Flux2Core AGENTS.md,
+// `pipeline.setTelemetry(_:)` propagates the reporter to every owned subcomponent including
+// `Flux2WeightLoader`; the process-wide seam resolves through `effectiveReporter` at each
+// emission site (`instanceReporter ?? Flux2Telemetry.current`), so all 11 Flux2TelemetryEvent
+// cases — including weight-load events — reach the adapter via the single process-wide install.
 
 /// Holds the JSONL sink and the five CLI-side telemetry adapters for the
 /// duration of a single `vinetas` subcommand invocation.
@@ -139,14 +105,18 @@ public struct CLITelemetryBootstrap: Sendable {
       // Acervo: singleton actor, reachable everywhere.
       await AcervoManager.shared.setTelemetry(bootstrap.acervoAdapter)
 
-      // Flux2: static weight-loader seam. The Flux2Pipeline instance lives
-      // inside Flux2Engine and isn't reachable from CLI bootstrap; weight-
-      // load events still flow through this static seam.
-      Flux2WeightLoader.setTelemetry(bootstrap.flux2Adapter)
+      // Flux2: process-wide seam (Flux2Core 3.2.1+). Covers all 11 event cases
+      // including weight-load events — supersedes the previous
+      // Flux2WeightLoader.setTelemetry(_:) static call.
+      Flux2Telemetry.setReporter(bootstrap.flux2Adapter)
 
-      // PixArt and Tuberia: no process-wide install seam today. Adapters are
-      // built so the wiring is ready when SwiftVinetas grows a propagation
-      // seam, but the install is a no-op in this revision.
+      // PixArt: process-wide seam (PixArtBackbone 0.7.1+). Covers DiT instances
+      // constructed lazily inside PixArtEngine — unreachable directly from CLI bootstrap.
+      PixArtTelemetry.setReporter(bootstrap.pixartAdapter)
+
+      // Tuberia: process-wide seam (Tuberia 0.7.1+). Covers DiffusionPipeline
+      // instances constructed lazily inside engine actors.
+      TuberiaTelemetry.setReporter(bootstrap.tuberiaAdapter)
     }
 
     return bootstrap
@@ -164,7 +134,9 @@ public struct CLITelemetryBootstrap: Sendable {
 
     if mode == .full {
       await AcervoManager.shared.setTelemetry(nil)
-      Flux2WeightLoader.setTelemetry(nil)
+      Flux2Telemetry.setReporter(nil)
+      PixArtTelemetry.setReporter(nil)
+      TuberiaTelemetry.setReporter(nil)
     }
 
     await sink.close()
