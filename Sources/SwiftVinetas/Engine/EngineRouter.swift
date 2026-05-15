@@ -24,6 +24,11 @@ public actor EngineRouter {
   /// All registered engines.
   private let engines: [any ImageGenerationEngine]
 
+  /// The currently installed telemetry reporter, propagated from
+  /// ``VinetasClient/setTelemetry(_:)``. Engines receive their own copy via
+  /// ``ImageGenerationEngine/setTelemetry(_:)`` on each set.
+  private var telemetry: (any VinetasTelemetryReporter)?
+
   /// Initialize the router with one or more engine instances.
   ///
   /// Each engine's `engineID` must be unique. If duplicate IDs are provided,
@@ -76,5 +81,26 @@ public actor EngineRouter {
       throw VinetasError.engineNotFound(engineID: engineID)
     }
     return engine
+  }
+
+  // MARK: - Telemetry
+
+  /// Install (or clear) the telemetry reporter on this router and every
+  /// registered engine. Called from ``VinetasClient/setTelemetry(_:)``.
+  ///
+  /// Each engine receives the reporter via its ``ImageGenerationEngine/setTelemetry(_:)``
+  /// override; the default no-op implementation handles engines that don't
+  /// emit Vinetas-scope events.
+  public func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async {
+    self.telemetry = reporter
+    for engine in engines {
+      await engine.setTelemetry(reporter)
+    }
+  }
+
+  /// The currently installed telemetry reporter, if any. Internal accessor
+  /// for emission sites inside the router.
+  internal func currentTelemetry() -> (any VinetasTelemetryReporter)? {
+    telemetry
   }
 }

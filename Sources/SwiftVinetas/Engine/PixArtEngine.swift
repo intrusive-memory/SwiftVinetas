@@ -108,9 +108,21 @@ public actor PixArtEngine: ImageGenerationEngine {
   /// safe for concurrent graph execution — concurrent calls corrupt tensor shapes.
   private var isGenerating = false
 
+  /// Vinetas-scope telemetry reporter, propagated from
+  /// ``VinetasClient/setTelemetry(_:)`` via ``EngineRouter``. Stored only —
+  /// per REQUIREMENTS §5.3 this override does NOT bridge `PixArtTelemetryEvent`
+  /// onto the Vinetas surface.
+  private var telemetry: (any VinetasTelemetryReporter)?
+
   // MARK: - Init
 
   public init() {}
+
+  // MARK: - Telemetry
+
+  public func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async {
+    self.telemetry = reporter
+  }
 
   // MARK: - Capabilities
 

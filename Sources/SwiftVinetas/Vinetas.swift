@@ -2,6 +2,7 @@ import CoreGraphics
 import Flux2Core
 import Foundation
 import Tuberia
+import os.lock
 
 // MARK: - VinetasClient
 
@@ -29,6 +30,57 @@ public final class VinetasClient: Sendable {
 
   /// The current SwiftVinetas library version.
   public static let version = "0.11.0-dev"
+
+  /// Telemetry reporter storage, guarded by an unfair lock so the mutable
+  /// reporter can live on a `Sendable` class without making the class an actor.
+  /// Per REQUIREMENTS §5.1: the lock is touched only at run boundaries
+  /// (set/get on `setTelemetry` and emission sites), satisfying hot-path
+  /// discipline.
+  private let _telemetryLock = OSAllocatedUnfairLock<(any VinetasTelemetryReporter)?>(
+    initialState: nil
+  )
+
+  // MARK: - Telemetry propagation
+  //
+  // OQ-3 (REQUIREMENTS §5.5) resolution: `ImageClassifier` and `FeatureExtractor`
+  // are **long-lived process-wide singletons**, NOT instance-held properties on
+  // `VinetasClient`. Evidence:
+  //   - Sources/SwiftVinetas/Understanding/ImageClassifier.swift:27
+  //     `public static let shared = ImageClassifier()` (actor singleton, private init).
+  //   - Sources/SwiftVinetas/Understanding/FeatureExtractor.swift:27
+  //     `public static let shared = FeatureExtractor()` (actor singleton, private init).
+  //   - Sources/SwiftVinetas/Vinetas.swift:558, 573, 588, 598, 614–615, 672
+  //     every call site uses `.shared`; nothing constructs them per-call.
+  //
+  // Because they are singletons and not owned by `VinetasClient`, propagation
+  // from `VinetasClient.setTelemetry` reaches them by `await`ing
+  // `ImageClassifier.shared.setTelemetry(reporter)` and
+  // `FeatureExtractor.shared.setTelemetry(reporter)` directly inside
+  // `setTelemetry(_:)`. The router path handles engines; this comment block
+  // documents the parallel non-router path for the two image-understanding
+  // actors so that Sortie 5 inherits an obvious propagation contract.
+
+  /// Install (or clear) the process-wide telemetry reporter.
+  ///
+  /// Stores the reporter under the unfair lock, propagates to the
+  /// ``EngineRouter`` (which fans out to every registered engine), and also
+  /// propagates to the long-lived ``ImageClassifier`` and ``FeatureExtractor``
+  /// singletons per the OQ-3 resolution above. Pass `nil` to disable
+  /// telemetry; subsequent emissions become no-ops once stored.
+  ///
+  /// - Parameter reporter: The reporter to install, or `nil` to clear.
+  public func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async {
+    _telemetryLock.withLock { $0 = reporter }
+    await router.setTelemetry(reporter)
+    await ImageClassifier.shared.setTelemetry(reporter)
+    await FeatureExtractor.shared.setTelemetry(reporter)
+  }
+
+  /// The current telemetry reporter, if any. Internal accessor used by
+  /// emission sites in this module.
+  internal func currentTelemetry() -> (any VinetasTelemetryReporter)? {
+    _telemetryLock.withLock { $0 }
+  }
 
   /// Default initializer that registers engines based on runtime memory detection.
   ///

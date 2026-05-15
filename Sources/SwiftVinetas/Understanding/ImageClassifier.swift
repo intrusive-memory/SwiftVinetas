@@ -31,9 +31,23 @@ public actor ImageClassifier {
   private var model: VisionTransformer?
   private let preprocessor = ImagePreprocessor(config: .vitB16)
 
+  /// Vinetas telemetry reporter, propagated from
+  /// ``VinetasClient/setTelemetry(_:)`` per OQ-3 (REQUIREMENTS §5.5). Stored
+  /// only; emission sites land in Sortie 5.
+  private var telemetry: (any VinetasTelemetryReporter)?
+
   // MARK: - Init
 
   private init() {}
+
+  // MARK: - Telemetry
+
+  /// Install (or clear) the telemetry reporter on this singleton.
+  /// Called from ``VinetasClient/setTelemetry(_:)`` because
+  /// ``ImageClassifier`` is not reachable through ``EngineRouter``.
+  public func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async {
+    self.telemetry = reporter
+  }
 
   // MARK: - Public API
 

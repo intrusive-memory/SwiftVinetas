@@ -101,4 +101,25 @@ public protocol ImageGenerationEngine: Sendable {
 
   /// Validate whether the current system has enough memory to run the given model.
   func validateMemory(for model: any ModelDescriptor) -> MemoryValidation
+
+  // MARK: - Telemetry
+
+  /// Install (or clear) the telemetry reporter for engine-scoped Vinetas events
+  /// (e.g. `concurrencyGateRejected`, `modelLoadStart`/`Complete`, `modelUnload`,
+  /// `loraAttachStart`/`Complete`, `errorThrown(phase:)` for engine-internal
+  /// throws).
+  ///
+  /// Per REQUIREMENTS §5.3, the override **only** stores the reporter — it must
+  /// NOT bridge `Flux2TelemetryEvent` / `PixArtTelemetryEvent` into the Vinetas
+  /// schema; the host wires those dep reporters directly. Default
+  /// implementation is a no-op so engines without Vinetas-scope events compile
+  /// without changes.
+  func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async
+}
+
+extension ImageGenerationEngine {
+  public func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async {
+    // No-op default — engines override to store the reporter for their own
+    // emission sites. See REQUIREMENTS §5.3.
+  }
 }
