@@ -128,6 +128,10 @@ let package = Package(
       name: "VinetasCLICore",
       dependencies: [
         "SwiftVinetas",
+        .product(name: "Flux2Core", package: "flux-2-swift-mlx"),
+        .product(name: "PixArtBackbone", package: "pixart-swift-mlx"),
+        .product(name: "Tuberia", package: "SwiftTuberia"),
+        .product(name: "SwiftAcervo", package: "SwiftAcervo"),
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]
     ),
