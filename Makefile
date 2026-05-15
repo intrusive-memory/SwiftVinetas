@@ -48,16 +48,18 @@ PIXART_SHARED_MODELS = $(HOME)/Library/Group Containers/group.intrusive-memory.m
 #   make test-fixtures PROMPT="A field of sunflowers bathed in sunshine underneath a blue sky."
 PROMPT ?= A red car parked on a cobblestone street
 
-# Integration test suites (class names within SwiftVinetasGPUTests).
-# These correspond to all test files tagged .integration in TestTags.swift.
+# Integration test suites (class names within SwiftVinetasGPUTests and SwiftVinetasTests).
+# These correspond to all test files tagged .integration in TestTags.swift plus
+# the telemetry integration tests (Sortie 9) in SwiftVinetasTests.
 # Update this list when adding new integration test suites.
 INTEGRATION_SUITES = \
 	-only-testing:SwiftVinetasGPUTests/PixArtIntegrationTests \
 	-only-testing:SwiftVinetasGPUTests/Flux2IntegrationTests \
 	-only-testing:SwiftVinetasGPUTests/BatchIntegrationTests \
-	-only-testing:SwiftVinetasGPUTests/AllModelsExampleTests
+	-only-testing:SwiftVinetasGPUTests/AllModelsExampleTests \
+	-only-testing:SwiftVinetasTests/TelemetryIntegrationTests
 
-.PHONY: build release test test-unit test-gpu test-integration test-fixtures test-pixart-repro test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help check-acervo-warnings
+.PHONY: build release test test-unit test-gpu test-integration test-fixtures test-pixart-repro test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help check-acervo-warnings test-telemetry-debug
 
 help: ## Show all available targets with descriptions
 	@echo "SwiftVinetas — Makefile targets"
@@ -196,6 +198,15 @@ test-integration: link-test-models ## Run integration tests only (model download
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		$(INTEGRATION_SUITES)
+
+test-telemetry-debug: link-test-models ## Run only testEndToEndGenerationProducesCompleteTrace; pipes log to /tmp/test-telemetry.log and prints the trace path
+	@TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+		-scheme $(SCHEME_PKG) \
+		-destination $(DESTINATION_MACOS) \
+		-derivedDataPath $(DERIVED_DATA) \
+		-only-testing:SwiftVinetasTests/TelemetryIntegrationTests/testEndToEndGenerationProducesCompleteTrace \
+		2>&1 | tee /tmp/test-telemetry.log
+	@echo "Telemetry integration trace:" $$(grep -oE '/tmp/[^ ]+\.jsonl|/var/folders/[^ ]+\.jsonl' /tmp/test-telemetry.log | head -1)
 
 test-fixtures: build ## Generate one image per engine via the CLI, save to tmp/fixtures/, and open in Preview (override prompt: PROMPT="...")
 	$(eval _PROMPT := $(if $(PROMPT),$(PROMPT),A red car parked on a cobblestone street))
