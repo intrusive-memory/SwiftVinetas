@@ -154,32 +154,38 @@ link-test-models: ## Hardlink all model weights + tokenizer files from App Group
 		done; \
 		[ $$copied -gt 0 ] && echo "  $$dstdir: $$copied config/tokenizer file(s) copied" || :; \
 	done; \
-	echo "Linking Flux2 Klein models (ModelRegistry directory structure)..."; \
-	for pair in \
-		"black-forest-labs/FLUX.2-klein-4B-klein4b-bf16:black-forest-labs/FLUX.2-klein-4B-klein4b-bf16" \
-		"black-forest-labs/FLUX.2-klein-4B-vae:black-forest-labs/FLUX.2-klein-4B-vae"; do \
-		srcrel=$$(echo "$$pair" | cut -d: -f1); \
-		dstrel=$$(echo "$$pair" | cut -d: -f2); \
-		srcpath="$$SHARED/$$srcrel"; \
-		dstpath="$$DEST/$$dstrel"; \
-		if [ ! -d "$$srcpath" ]; then \
-			echo "  SKIP $$dstrel (not downloaded: $$srcpath)"; \
-			continue; \
-		fi; \
-		mkdir -p "$$dstpath"; \
+	echo "Linking Flux2 Klein models (Acervo slug directory structure)..."; \
+	KLEIN_SLUG="black-forest-labs_FLUX.2-klein-4B"; \
+	KLEIN_SRC="$$SHARED/$$KLEIN_SLUG"; \
+	if [ ! -d "$$KLEIN_SRC" ]; then \
+		echo "  SKIP Klein 4B (not downloaded: $$KLEIN_SRC)"; \
+	else \
+		XFMR_DEST="$$DEST/$$KLEIN_SLUG-klein4b-bf16"; \
+		mkdir -p "$$XFMR_DEST"; \
 		linked=0; \
-		for f in "$$srcpath/"*.safetensors; do \
+		for f in "$$KLEIN_SRC/"*.safetensors; do \
 			[ -e "$$f" ] || continue; \
-			ln -f "$$f" "$$dstpath/" && linked=$$((linked + 1)); \
+			ln -f "$$f" "$$XFMR_DEST/" && linked=$$((linked + 1)); \
 		done; \
-		echo "  $$dstrel: $$linked shard(s) linked"; \
-		copied=0; \
-		for f in "$$srcpath/"*.json; do \
+		echo "  $$KLEIN_SLUG-klein4b-bf16 (transformer): $$linked shard(s) linked"; \
+		for f in "$$KLEIN_SRC/"*.json; do \
 			[ -e "$$f" ] || continue; \
-			cp -n "$$f" "$$dstpath/" 2>/dev/null && copied=$$((copied + 1)); \
+			cp -n "$$f" "$$XFMR_DEST/" 2>/dev/null || :; \
 		done; \
-		[ $$copied -gt 0 ] && echo "  $$dstrel: $$copied json file(s) copied" || :; \
-	done
+		VAE_SRC="$$KLEIN_SRC/vae"; \
+		VAE_DEST="$$DEST/$$KLEIN_SLUG-vae"; \
+		mkdir -p "$$VAE_DEST"; \
+		linked=0; \
+		for f in "$$VAE_SRC/"*.safetensors; do \
+			[ -e "$$f" ] || continue; \
+			ln -f "$$f" "$$VAE_DEST/" && linked=$$((linked + 1)); \
+		done; \
+		echo "  $$KLEIN_SLUG-vae (VAE): $$linked shard(s) linked"; \
+		for f in "$$VAE_SRC/"*.json; do \
+			[ -e "$$f" ] || continue; \
+			cp -n "$$f" "$$VAE_DEST/" 2>/dev/null || :; \
+		done; \
+	fi
 
 # Keep the old name as an alias for backwards compatibility with any scripts.
 link-pixart-models: link-test-models
