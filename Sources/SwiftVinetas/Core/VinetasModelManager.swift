@@ -37,14 +37,44 @@ public enum VinetasModelManager: Sendable {
     try await VinetasClient.shared.download(model: model, progress: progress)
   }
 
+  // MARK: - Canonical Availability API
+
+  /// Checks whether a model is available locally in SwiftAcervo's shared
+  /// models directory.
+  ///
+  /// This is the **canonical** answer to "is this model on disk". It mirrors
+  /// `Acervo.isModelAvailable(_:)` (file-presence check for `config.json` in
+  /// the model's slugified directory) and returns synchronously without
+  /// throwing.
+  ///
+  /// Mirrors the VoxAlta `VoxAltaModelManager.isModelInAcervo(_:)` pattern so
+  /// consumers across intrusive-memory libraries share one availability API.
+  ///
+  /// Note on telemetry: this static method does **not** emit
+  /// `modelAvailabilityChecked` (no async context). The instrumented entry
+  /// point is ``VinetasClient/isModelAvailable(_:)``, which wraps this call
+  /// and captures the event. Callers that want their availability check to
+  /// appear in the telemetry stream should prefer the `VinetasClient`
+  /// instance method.
+  ///
+  /// - Parameter modelId: The model identifier string in HuggingFace
+  ///   `"org/repo"` form (e.g. `"black-forest-labs/FLUX.2-klein-4B"`).
+  /// - Returns: `true` if the model directory contains `config.json` in the
+  ///   shared models directory; `false` if the model is missing, the
+  ///   directory cannot be resolved, or the identifier is malformed.
+  public static func isModelAvailable(_ modelId: String) -> Bool {
+    Acervo.isModelAvailable(modelId)
+  }
+
   /// Checks whether a model's weights are available on disk.
   ///
   /// Routes through the engine registered for the model's `engineID`.
   ///
   /// - Parameter model: The model descriptor to check.
   /// - Returns: `true` if the model is cached and ready to use.
+  @available(*, deprecated, renamed: "isModelAvailable(_:)", message: "Pass the model's modelId string instead — e.g. isModelAvailable(model.id). The descriptor form will be removed in a future release.")
   public static func isAvailable(_ model: any ModelDescriptor) async throws -> Bool {
-    try await VinetasClient.shared.isAvailable(model)
+    Self.isModelAvailable(model.id)
   }
 
   /// Deletes a model's weights from local storage.
@@ -167,15 +197,9 @@ public enum VinetasModelManager: Sendable {
   ///
   /// - Parameter model: The legacy model variant to check.
   /// - Returns: `true` if the model is cached and ready to use.
-  @available(*, deprecated, message: "Use isAvailable(_ model: any ModelDescriptor) instead")
+  @available(*, deprecated, renamed: "isModelAvailable(_:)", message: "Use isModelAvailable(_ modelId: String) with the HuggingFace repo id (e.g. model.repoId).")
   public static func isAvailable(_ model: VinetasModel) -> Bool {
-    modelComponents(for: model).allSatisfy { component in
-      // Flux2 components are not registered in Acervo's ComponentRegistry, so
-      // isComponentReady returns false. Fall back to isModelAvailable(repoId),
-      // mirroring Flux2Engine.isAvailable.
-      if Acervo.isComponentReady(component.localDirectoryName) { return true }
-      return Acervo.isModelAvailable(acervoRepoId(for: component))
-    }
+    Self.isModelAvailable(model.repoId)
   }
 
   /// Deletes the downloaded FLUX.2 model components from local storage.
@@ -218,14 +242,5 @@ public enum VinetasModelManager: Sendable {
 
   private static func modelComponents(for model: VinetasModel) -> [ModelRegistry.ModelComponent] {
     [.transformer(transformerVariant(for: model)), .vae(.standard)]
-  }
-
-  /// Extract the HuggingFace repo ID from a Flux2Core `ModelComponent` for Acervo lookups.
-  private static func acervoRepoId(for component: ModelRegistry.ModelComponent) -> String {
-    switch component {
-    case .transformer(let variant): return variant.repoId
-    case .textEncoder(let variant): return variant.repoId
-    case .vae(let variant): return variant.repoId
-    }
   }
 }

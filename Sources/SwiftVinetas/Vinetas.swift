@@ -578,14 +578,47 @@ extension VinetasClient {
     }
   }
 
+  /// Check whether a model is available locally by its identifier string.
+  ///
+  /// This is the **canonical, instrumented** availability check. Mirrors the
+  /// VoxAlta `VoxAltaModelManager.isModelInAcervo(_:)` pattern and routes
+  /// through ``VinetasModelManager/isModelAvailable(_:)`` (which calls
+  /// `Acervo.isModelAvailable`). Emits a single `modelAvailabilityChecked`
+  /// telemetry event with `modelId` and the resolved availability.
+  ///
+  /// - Parameter modelId: The model identifier string in HuggingFace
+  ///   `"org/repo"` form (e.g. `"black-forest-labs/FLUX.2-klein-4B"`).
+  /// - Returns: `true` if the model directory is populated in the shared
+  ///   models directory.
+  public func isModelAvailable(_ modelId: String) async -> Bool {
+    let available = VinetasModelManager.isModelAvailable(modelId)
+    await recordModelAvailability(modelID: modelId, available: available)
+    return available
+  }
+
+  /// Canonical telemetry emission site for `modelAvailabilityChecked`.
+  ///
+  /// Centralizes the capture so deprecated descriptor-form wrappers can share
+  /// a single emission location with the new ``isModelAvailable(_:)`` canonical.
+  /// Per REQUIREMENTS §6 there is exactly one emission of this event, and this
+  /// helper is it.
+  internal func recordModelAvailability(modelID: String, available: Bool) async {
+    await currentTelemetry()?.capture(.modelAvailabilityChecked(modelID: modelID, available: available))
+  }
+
   /// Check whether a model is available on disk, via the engine router.
   ///
   /// - Parameter model: The model descriptor to check.
   /// - Returns: `true` if the model's weights are downloaded and ready.
+  @available(*, deprecated, renamed: "isModelAvailable(_:)", message: "Pass the model's modelId string instead — e.g. isModelAvailable(model.id). The descriptor form will be removed in a future release.")
   public func isAvailable(_ model: any ModelDescriptor) async throws -> Bool {
+    // Preserve engine-routed behavior on the deprecated path so callers that
+    // pass a typed descriptor (whose `id` is a slug, not an HF repo string)
+    // get the engine's correct answer. Telemetry still funnels through the
+    // single canonical emission site (`recordModelAvailability`).
     let engine = try await router.engine(for: model)
     let available = engine.isAvailable(model)
-    await currentTelemetry()?.capture(.modelAvailabilityChecked(modelID: model.id, available: available))
+    await recordModelAvailability(modelID: model.id, available: available)
     return available
   }
 
