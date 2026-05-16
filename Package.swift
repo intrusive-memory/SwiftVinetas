@@ -68,7 +68,7 @@ let package = Package(
     sibling(
       "flux-2-swift-mlx",
       remote: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
-      from: "3.2.0"),
+      from: "3.2.1"),
 
     // Shared model management (download, cache, discovery)
     sibling(
@@ -80,13 +80,13 @@ let package = Package(
     sibling(
       "SwiftTuberia",
       remote: "https://github.com/intrusive-memory/SwiftTuberia.git",
-      from: "0.7.0"),
+      from: "0.7.1"),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
     sibling(
       "pixart-swift-mlx",
       remote: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
-      from: "0.7.0"),
+      from: "0.7.1"),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
@@ -128,6 +128,10 @@ let package = Package(
       name: "VinetasCLICore",
       dependencies: [
         "SwiftVinetas",
+        .product(name: "Flux2Core", package: "flux-2-swift-mlx"),
+        .product(name: "PixArtBackbone", package: "pixart-swift-mlx"),
+        .product(name: "Tuberia", package: "SwiftTuberia"),
+        .product(name: "SwiftAcervo", package: "SwiftAcervo"),
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]
     ),

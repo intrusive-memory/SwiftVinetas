@@ -108,9 +108,21 @@ public actor PixArtEngine: ImageGenerationEngine {
   /// safe for concurrent graph execution — concurrent calls corrupt tensor shapes.
   private var isGenerating = false
 
+  /// Vinetas-scope telemetry reporter, propagated from
+  /// ``VinetasClient/setTelemetry(_:)`` via ``EngineRouter``. Stored only —
+  /// per REQUIREMENTS §5.3 this override does NOT bridge `PixArtTelemetryEvent`
+  /// onto the Vinetas surface.
+  private var telemetry: (any VinetasTelemetryReporter)?
+
   // MARK: - Init
 
   public init() {}
+
+  // MARK: - Telemetry
+
+  public func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async {
+    self.telemetry = reporter
+  }
 
   // MARK: - Capabilities
 
@@ -132,6 +144,10 @@ public actor PixArtEngine: ImageGenerationEngine {
     progress: @escaping @Sendable (LoadProgress) -> Void
   ) async throws {
     guard model.engineID == engineID || model.id == PixArtModelDescriptor.sigmaXL.id else {
+      await telemetry?.capture(.errorThrown(
+          phase: .modelNotSupported,
+          errorDescription:
+            "modelNotSupported(modelID: \(model.id), engineID: \(engineID))"))
       throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
     }
 
@@ -173,10 +189,18 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     progress(LoadProgress(phase: "Assembling pipeline", fraction: 0.0))
 
+    await telemetry?.capture(.modelLoadStart(modelID: model.id, engineID: engineID))
+    let loadClock = ContinuousClock()
+    let loadStart = loadClock.now
+
     let newPipeline: PixArtPipeline
     do {
       newPipeline = try PixArtPipeline(recipe: PixArtRecipe())
     } catch {
+      await telemetry?.capture(.errorThrown(
+          phase: .modelLoad,
+          errorDescription:
+            "generationFailed: Failed to assemble PixArt pipeline: \(error.localizedDescription)"))
       throw VinetasError.generationFailed(
         "Failed to assemble PixArt pipeline: \(error.localizedDescription)"
       )
@@ -190,6 +214,10 @@ public actor PixArtEngine: ImageGenerationEngine {
         progress(LoadProgress(phase: component, fraction: mapped))
       }
     } catch {
+      await telemetry?.capture(.errorThrown(
+          phase: .modelLoad,
+          errorDescription:
+            "generationFailed: Failed to load PixArt model weights: \(String(describing: error))"))
       throw VinetasError.generationFailed(
         "Failed to load PixArt model weights: \(String(describing: error))"
       )
@@ -197,16 +225,25 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     self.pipeline = newPipeline
     self.loadedModelID = model.id
+    let loadDuration =
+      Double((loadClock.now - loadStart).components.seconds)
+      + Double((loadClock.now - loadStart).components.attoseconds) / 1e18
+    await telemetry?.capture(.modelLoadComplete(
+        modelID: model.id, engineID: engineID, durationSeconds: loadDuration))
     progress(LoadProgress(phase: "Ready", fraction: 1.0))
   }
 
   public func unloadModel() async {
+    let unloadingID = loadedModelID
     if let pipeline = pipeline {
       await pipeline.unloadModels()
     }
     pipeline = nil
     loadedModelID = nil
     activeLoRAConfig = nil
+    if let unloadingID {
+      await telemetry?.capture(.modelUnload(modelID: unloadingID, engineID: engineID))
+    }
   }
 
   // MARK: - Generation
@@ -216,11 +253,23 @@ public actor PixArtEngine: ImageGenerationEngine {
     stepProgress: (@Sendable (Int, Int, TimeInterval) -> Void)?
   ) async throws -> GenerationResult {
     guard !isGenerating else {
+      await telemetry?.capture(.concurrencyGateRejected(
+          engineID: engineID,
+          modelID: loadedModelID ?? "",
+          reason: "Generation already in progress."))
+      await telemetry?.capture(.errorThrown(
+          phase: .generationConcurrency,
+          errorDescription:
+            "generationFailed: Generation already in progress (PixArt)."))
       throw VinetasError.generationFailed(
         "Generation already in progress. MLX does not support concurrent pipeline execution — await the current call before starting another."
       )
     }
     guard let pipeline = self.pipeline, let modelID = self.loadedModelID else {
+      await telemetry?.capture(.errorThrown(
+          phase: .modelLoad,
+          errorDescription:
+            "generationFailed: No model loaded (PixArt)."))
       throw VinetasError.generationFailed(
         "No model loaded. Call loadModel(_:progress:) before generating."
       )
@@ -228,6 +277,10 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     // PixArt only supports text-to-image
     if case .imageToImage = request.mode {
+      await telemetry?.capture(.errorThrown(
+          phase: .generationFailed,
+          errorDescription:
+            "engineFeatureUnsupported: imageToImage on engineID \(engineID)"))
       throw VinetasError.engineFeatureUnsupported(
         feature: .imageToImage(maxReferenceImages: 0),
         engineID: engineID
@@ -253,6 +306,10 @@ public actor PixArtEngine: ImageGenerationEngine {
         }
       }
     } catch {
+      await telemetry?.capture(.errorThrown(
+          phase: .generationFailed,
+          errorDescription:
+            "PixArt generation failed: \(String(describing: error))"))
       throw VinetasError.generationFailed(
         "PixArt generation failed: \(String(describing: error))"
       )
@@ -260,6 +317,10 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     // Extract CGImage from RenderedOutput
     guard case .image(let cgImage) = result.output else {
+      await telemetry?.capture(.errorThrown(
+          phase: .generationFailed,
+          errorDescription:
+            "PixArt pipeline returned unexpected output type."))
       throw VinetasError.generationFailed(
         "PixArt pipeline returned unexpected output type."
       )
@@ -283,20 +344,41 @@ public actor PixArtEngine: ImageGenerationEngine {
 
   public func loadLoRA(at path: URL, scale: Float) async throws {
     guard pipeline != nil else {
+      await telemetry?.capture(.errorThrown(
+          phase: .loraAttach,
+          errorDescription:
+            "generationFailed: No model loaded for LoRA load (PixArt)."))
       throw VinetasError.generationFailed(
         "No model loaded. Call loadModel(_:progress:) before loading LoRA."
       )
     }
     guard FileManager.default.fileExists(atPath: path.path) else {
+      await telemetry?.capture(.errorThrown(
+          phase: .loraAttach,
+          errorDescription:
+            "modelNotFound: LoRA file not found at path: \(path.path)"))
       throw VinetasError.modelNotFound(
         "LoRA file not found at path: \(path.path)"
       )
     }
     let effectiveScale = min(max(scale, 0.0), 1.0)
+    let loraClock = ContinuousClock()
+    let loraStart = loraClock.now
+    await telemetry?.capture(.loraAttachStart(
+        engineID: engineID,
+        sourceURL: path.absoluteString,
+        scale: Double(effectiveScale)))
     activeLoRAConfig = LoRAConfig(
       localPath: path.path,
       scale: effectiveScale
     )
+    let loraDuration =
+      Double((loraClock.now - loraStart).components.seconds)
+      + Double((loraClock.now - loraStart).components.attoseconds) / 1e18
+    await telemetry?.capture(.loraAttachComplete(
+        engineID: engineID,
+        sourceURL: path.absoluteString,
+        durationSeconds: loraDuration))
   }
 
   public func unloadLoRA() async {
@@ -310,6 +392,10 @@ public actor PixArtEngine: ImageGenerationEngine {
     progress: @Sendable (DownloadProgress) -> Void
   ) async throws {
     guard model.engineID == engineID || model.id == PixArtModelDescriptor.sigmaXL.id else {
+      await telemetry?.capture(.errorThrown(
+          phase: .modelNotSupported,
+          errorDescription:
+            "modelNotSupported(modelID: \(model.id), engineID: \(engineID))"))
       throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
     }
 
@@ -318,6 +404,10 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     let ids = model.componentIds
     guard !ids.isEmpty else {
+      await telemetry?.capture(.errorThrown(
+          phase: .modelDownload,
+          errorDescription:
+            "downloadFailed: No component IDs defined for model \(model.id)."))
       throw VinetasError.downloadFailed(
         "No component IDs defined for model \(model.id)."
       )
@@ -325,10 +415,15 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     let total = Double(ids.count)
     let registry = CatalogRegistration.shared
+    let reporter = self.telemetry
 
     try await withoutActuallyEscaping(progress) { escapableProgress in
       for (index, componentId) in ids.enumerated() {
         guard registry.descriptor(for: componentId) != nil else {
+          await reporter?.capture(.errorThrown(
+              phase: .modelDownload,
+              errorDescription:
+                "downloadFailed: Component '\(componentId)' is not registered in CatalogRegistration."))
           throw VinetasError.downloadFailed(
             "Component '\(componentId)' is not registered in CatalogRegistration."
           )
@@ -345,6 +440,10 @@ public actor PixArtEngine: ImageGenerationEngine {
           }
         } catch {
           print("[PixArtEngine] Failed component '\(componentId)': \(error)")
+          await reporter?.capture(.errorThrown(
+              phase: .modelDownload,
+              errorDescription:
+                "downloadFailed: Failed to download component '\(componentId)': \(error.localizedDescription)"))
           throw VinetasError.downloadFailed(
             "Failed to download component '\(componentId)': \(error.localizedDescription)"
           )
@@ -380,6 +479,10 @@ public actor PixArtEngine: ImageGenerationEngine {
 
   public func delete(_ model: any ModelDescriptor) async throws {
     guard model.engineID == engineID || model.id == PixArtModelDescriptor.sigmaXL.id else {
+      await telemetry?.capture(.errorThrown(
+          phase: .modelNotSupported,
+          errorDescription:
+            "modelNotSupported(modelID: \(model.id), engineID: \(engineID))"))
       throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
     }
 
@@ -396,6 +499,10 @@ public actor PixArtEngine: ImageGenerationEngine {
         // throws `componentNotRegistered` in that case; if registered
         // but absent on disk, it is a no-op and does not throw).
         if case .componentNotRegistered = acervoError { continue }
+        await telemetry?.capture(.errorThrown(
+            phase: .other,
+            errorDescription:
+              "generationFailed: Failed to delete component '\(componentId)': \(acervoError.localizedDescription)"))
         throw VinetasError.generationFailed(
           "Failed to delete component '\(componentId)': \(acervoError.localizedDescription)"
         )

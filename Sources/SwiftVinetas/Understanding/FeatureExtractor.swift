@@ -4,6 +4,7 @@ import ImageIO
 import MLX
 import MLXNN
 import SwiftAcervo
+import Tuberia
 
 // MARK: - FeatureExtractor
 
@@ -31,9 +32,25 @@ public actor FeatureExtractor {
   private var model: VisionTransformer?
   private let preprocessor = ImagePreprocessor(config: .dinov2B14)
 
+  // Reporter is propagated via VinetasClient.setTelemetry → FeatureExtractor.shared.setTelemetry
+  // — see OQ-3 MARK in Vinetas.swift (REQUIREMENTS §5.5, long-lived singleton pattern).
+  /// Vinetas telemetry reporter, propagated from
+  /// ``VinetasClient/setTelemetry(_:)`` per OQ-3 (REQUIREMENTS §5.5).
+  /// The one documented `TuberiaTensorStat` invocation is gated on this being non-nil.
+  private var telemetry: (any VinetasTelemetryReporter)?
+
   // MARK: - Init
 
   private init() {}
+
+  // MARK: - Telemetry
+
+  /// Install (or clear) the telemetry reporter on this singleton.
+  /// Called from ``VinetasClient/setTelemetry(_:)`` because
+  /// ``FeatureExtractor`` is not reachable through ``EngineRouter``.
+  public func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async {
+    self.telemetry = reporter
+  }
 
   // MARK: - Public API
 
@@ -53,11 +70,29 @@ public actor FeatureExtractor {
     // Preprocess: CGImage -> [1, 518, 518, 3] MLXArray
     let tensor = preprocessor.preprocess(image: image)
 
+    // --- Telemetry: featureExtractionStart ---
+    let imageDims = [image.width, image.height]
+    await telemetry?.capture(.featureExtractionStart(imageDims: imageDims))
+    let extractionStart = Date()
+
     // Forward pass -> CLS token embedding [1, 768]
     let output = vitModel(tensor)
 
     // Extract the CLS token (first row): [768]
     let clsToken = output[0]
+
+    // --- Telemetry: featureExtractionComplete ---
+    // Compute exactly one TuberiaTensorStat per extract — documented exception to hot-path
+    // discipline per REQUIREMENTS §6. Guard ensures zero cost when telemetry is off.
+    if let reporter = telemetry {
+      let featureStat = TuberiaTensorStat.sample(clsToken)
+      let extractionDuration = Date().timeIntervalSince(extractionStart)
+      await reporter.capture(.featureExtractionComplete(
+        featureDim: clsToken.shape.last ?? 0,
+        featureStat: featureStat,
+        durationSeconds: extractionDuration
+      ))
+    }
 
     // Convert to Swift Float array
     return clsToken.asArray(Float.self)
@@ -71,6 +106,10 @@ public actor FeatureExtractor {
   ///           plus any errors from `extractFeatures(from:)`.
   public func extractFeatures(from url: URL) async throws -> [Float] {
     guard let cgImage = loadCGImage(from: url) else {
+      await telemetry?.capture(.errorThrown(
+        phase: .featureExtraction,
+        errorDescription: "Could not load image from \(url.path)"
+      ))
       throw VinetasError.generationFailed("Could not load image from \(url.path)")
     }
     return try await extractFeatures(from: cgImage)
@@ -99,9 +138,9 @@ public actor FeatureExtractor {
     do {
       try await Acervo.ensureComponentReady(Self.componentId, progress: { _ in })
     } catch {
-      throw VinetasError.downloadFailed(
-        "Failed to download DINOv2-B/14 weights for component \(Self.componentId): \(error.localizedDescription)"
-      )
+      let description = "Failed to download DINOv2-B/14 weights for component \(Self.componentId): \(error.localizedDescription)"
+      await telemetry?.capture(.errorThrown(phase: .featureExtraction, errorDescription: description))
+      throw VinetasError.downloadFailed(description)
     }
 
     // Build DINOv2-B/14 model (no classification head)
@@ -122,18 +161,18 @@ public actor FeatureExtractor {
         try handle.url(matching: ".safetensors")
       }
     } catch {
-      throw VinetasError.modelNotFound(
-        "Could not locate .safetensors for component \(Self.componentId): \(error.localizedDescription)"
-      )
+      let description = "Could not locate .safetensors for component \(Self.componentId): \(error.localizedDescription)"
+      await telemetry?.capture(.errorThrown(phase: .featureExtraction, errorDescription: description))
+      throw VinetasError.modelNotFound(description)
     }
 
     let weights: [String: MLXArray]
     do {
       weights = try loadArrays(url: weightsURL)
     } catch {
-      throw VinetasError.generationFailed(
-        "Failed to load weights for component \(Self.componentId): \(error.localizedDescription)"
-      )
+      let description = "Failed to load weights for component \(Self.componentId): \(error.localizedDescription)"
+      await telemetry?.capture(.errorThrown(phase: .featureExtraction, errorDescription: description))
+      throw VinetasError.generationFailed(description)
     }
 
     // Apply weights to the model

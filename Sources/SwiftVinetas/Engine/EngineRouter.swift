@@ -24,6 +24,11 @@ public actor EngineRouter {
   /// All registered engines.
   private let engines: [any ImageGenerationEngine]
 
+  /// The currently installed telemetry reporter, propagated from
+  /// ``VinetasClient/setTelemetry(_:)``. Engines receive their own copy via
+  /// ``ImageGenerationEngine/setTelemetry(_:)`` on each set.
+  private var telemetry: (any VinetasTelemetryReporter)?
+
   /// Initialize the router with one or more engine instances.
   ///
   /// Each engine's `engineID` must be unique. If duplicate IDs are provided,
@@ -58,10 +63,21 @@ public actor EngineRouter {
   /// - Returns: The engine that supports this model.
   /// - Throws: `VinetasError.engineNotFound` if no engine is registered
   ///           with the model's `engineID`.
-  public func engine(for model: any ModelDescriptor) throws -> any ImageGenerationEngine {
+  public func engine(for model: any ModelDescriptor) async throws -> any ImageGenerationEngine {
     guard let engine = enginesByID[model.engineID] else {
+      await telemetry?.capture(.engineNotFound(modelID: model.id, requestedEngineID: model.engineID))
+      await telemetry?.capture(.errorThrown(
+          phase: .engineNotFound,
+          errorDescription:
+            "engineNotFound(engineID: \(model.engineID)) for modelID: \(model.id)"))
       throw VinetasError.engineNotFound(engineID: model.engineID)
     }
+    // engineSelected is emitted by the caller (VinetasClient.generate / generateSequence /
+    // generate(prompt:character:) / preview) AFTER router.engine(for:) returns, so that
+    // the emission order at the API boundary is:
+    //   1. generationStart  (entry point)
+    //   2. engineSelected   (entry point, after successful route)
+    // See REQUIREMENTS §6 single-emission rule and §8.2 ordering invariant.
     return engine
   }
 
@@ -71,10 +87,35 @@ public actor EngineRouter {
   /// - Returns: The engine registered with this ID.
   /// - Throws: `VinetasError.engineNotFound` if no engine is registered
   ///           with the given ID.
-  public func engine(forEngineID engineID: String) throws -> any ImageGenerationEngine {
+  public func engine(forEngineID engineID: String) async throws -> any ImageGenerationEngine {
     guard let engine = enginesByID[engineID] else {
+      await telemetry?.capture(.engineNotFound(modelID: "", requestedEngineID: engineID))
+      await telemetry?.capture(.errorThrown(
+          phase: .engineNotFound,
+          errorDescription: "engineNotFound(engineID: \(engineID))"))
       throw VinetasError.engineNotFound(engineID: engineID)
     }
     return engine
+  }
+
+  // MARK: - Telemetry
+
+  /// Install (or clear) the telemetry reporter on this router and every
+  /// registered engine. Called from ``VinetasClient/setTelemetry(_:)``.
+  ///
+  /// Each engine receives the reporter via its ``ImageGenerationEngine/setTelemetry(_:)``
+  /// override; the default no-op implementation handles engines that don't
+  /// emit Vinetas-scope events.
+  public func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async {
+    self.telemetry = reporter
+    for engine in engines {
+      await engine.setTelemetry(reporter)
+    }
+  }
+
+  /// The currently installed telemetry reporter, if any. Internal accessor
+  /// for emission sites inside the router.
+  internal func currentTelemetry() -> (any VinetasTelemetryReporter)? {
+    telemetry
   }
 }

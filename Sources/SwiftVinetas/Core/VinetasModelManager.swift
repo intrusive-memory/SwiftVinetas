@@ -1,6 +1,7 @@
 import Flux2Core
 import Foundation
 import SwiftAcervo
+import os.lock
 
 /// Progress information for model downloads.
 public struct VinetasDownloadProgress: Sendable {
@@ -36,14 +37,44 @@ public enum VinetasModelManager: Sendable {
     try await VinetasClient.shared.download(model: model, progress: progress)
   }
 
+  // MARK: - Canonical Availability API
+
+  /// Checks whether a model is available locally in SwiftAcervo's shared
+  /// models directory.
+  ///
+  /// This is the **canonical** answer to "is this model on disk". It mirrors
+  /// `Acervo.isModelAvailable(_:)` (file-presence check for `config.json` in
+  /// the model's slugified directory) and returns synchronously without
+  /// throwing.
+  ///
+  /// Mirrors the VoxAlta `VoxAltaModelManager.isModelInAcervo(_:)` pattern so
+  /// consumers across intrusive-memory libraries share one availability API.
+  ///
+  /// Note on telemetry: this static method does **not** emit
+  /// `modelAvailabilityChecked` (no async context). The instrumented entry
+  /// point is ``VinetasClient/isModelAvailable(_:)``, which wraps this call
+  /// and captures the event. Callers that want their availability check to
+  /// appear in the telemetry stream should prefer the `VinetasClient`
+  /// instance method.
+  ///
+  /// - Parameter modelId: The model identifier string in HuggingFace
+  ///   `"org/repo"` form (e.g. `"black-forest-labs/FLUX.2-klein-4B"`).
+  /// - Returns: `true` if the model directory contains `config.json` in the
+  ///   shared models directory; `false` if the model is missing, the
+  ///   directory cannot be resolved, or the identifier is malformed.
+  public static func isModelAvailable(_ modelId: String) -> Bool {
+    Acervo.isModelAvailable(modelId)
+  }
+
   /// Checks whether a model's weights are available on disk.
   ///
   /// Routes through the engine registered for the model's `engineID`.
   ///
   /// - Parameter model: The model descriptor to check.
   /// - Returns: `true` if the model is cached and ready to use.
+  @available(*, deprecated, renamed: "isModelAvailable(_:)", message: "Pass the model's modelId string instead — e.g. isModelAvailable(model.id). The descriptor form will be removed in a future release.")
   public static func isAvailable(_ model: any ModelDescriptor) async throws -> Bool {
-    try await VinetasClient.shared.isAvailable(model)
+    Self.isModelAvailable(model.id)
   }
 
   /// Deletes a model's weights from local storage.
@@ -79,18 +110,58 @@ public enum VinetasModelManager: Sendable {
 
   // MARK: - Storage Configuration
 
-  /// No-op — storage is configured via the `ACERVO_APP_GROUP_ID` environment
-  /// variable (or the process entitlement).
+  /// One-time migration guard. Protected by an unfair lock so concurrent
+  /// `VinetasClient.init()` calls don't double-migrate.
+  private static let _migrationLock = OSAllocatedUnfairLock<Bool>(initialState: false)
+
+  /// The canonical SharedModels directory where SwiftAcervo stores model components.
   ///
-  /// SwiftAcervo resolves the storage location automatically:
+  /// Resolves via the `ACERVO_APP_GROUP_ID` environment variable or the
+  /// app-group entitlement. Use this for consistent path references instead
+  /// of constructing paths manually.
+  public static var sharedModelsDirectory: URL {
+    Acervo.sharedModelsDirectory
+  }
+
+  /// Runs SwiftAcervo's one-time migration from legacy cache layouts into the
+  /// unified SharedModels directory, then returns.
+  ///
+  /// Storage is configured via the `ACERVO_APP_GROUP_ID` environment variable
+  /// (or the process entitlement). SwiftAcervo resolves the storage location
+  /// automatically:
   /// - **macOS**: `~/Library/Group Containers/<ACERVO_APP_GROUP_ID>/SharedModels/`
   /// - **iOS with entitlement**: App group shared container
   ///
   /// Set `ACERVO_APP_GROUP_ID` in `~/.zprofile` for CLI/test use, or declare
   /// `com.apple.security.application-groups` in the app's `.entitlements` file.
   ///
-  /// Called automatically by ``VinetasClient/init()``.
+  /// Called automatically by ``VinetasClient/init()``. Safe to call multiple times —
+  /// the migration runs only once per process.
   public static func configureStorage() {
+    // One-time guard: skip if migration was already attempted this process lifetime.
+    let alreadyRan = _migrationLock.withLock { state -> Bool in
+      if state { return true }
+      state = true
+      return false
+    }
+    guard !alreadyRan else { return }
+
+    // Run SwiftAcervo's one-time migration from legacy cache layouts
+    // (LLM/TTS/Audio/VLM subdirs) into the unified SharedModels directory.
+    // No-op when nothing needs migrating; gracefully returns an empty array.
+    do {
+      let migrated = try Acervo.migrateFromLegacyPaths()
+      if !migrated.isEmpty {
+        let destination = Acervo.sharedModelsDirectory.path
+        FileHandle.standardError.write(
+          Data("Migrated \(migrated.count) model(s) to \(destination)\n".utf8)
+        )
+      }
+    } catch {
+      FileHandle.standardError.write(
+        Data("Warning: model migration failed: \(error.localizedDescription)\n".utf8)
+      )
+    }
   }
 
   /// No-op stub retained for source compatibility.
@@ -126,9 +197,9 @@ public enum VinetasModelManager: Sendable {
   ///
   /// - Parameter model: The legacy model variant to check.
   /// - Returns: `true` if the model is cached and ready to use.
-  @available(*, deprecated, message: "Use isAvailable(_ model: any ModelDescriptor) instead")
+  @available(*, deprecated, renamed: "isModelAvailable(_:)", message: "Use isModelAvailable(_ modelId: String) with the HuggingFace repo id (e.g. model.repoId).")
   public static func isAvailable(_ model: VinetasModel) -> Bool {
-    modelComponents(for: model).allSatisfy { ModelRegistry.isDownloaded($0) }
+    Self.isModelAvailable(model.repoId)
   }
 
   /// Deletes the downloaded FLUX.2 model components from local storage.
