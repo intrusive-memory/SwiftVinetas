@@ -1,6 +1,7 @@
 import CoreGraphics
 import Flux2Core
 import Foundation
+import SwiftAcervo
 
 // MARK: - Flux2ModelDescriptor
 
@@ -393,7 +394,15 @@ public actor Flux2Engine: ImageGenerationEngine {
 
   public nonisolated func isAvailable(_ model: any ModelDescriptor) -> Bool {
     guard let descriptor = resolveDescriptor(model) else { return false }
-    return Self.modelComponents(for: descriptor).allSatisfy { ModelRegistry.isDownloaded($0) }
+    return Self.modelComponents(for: descriptor).allSatisfy { component in
+      // Flux2 components are not registered with Acervo's ComponentRegistry, so
+      // isComponentReady will return false (descriptors not hydrated). Fall back
+      // to a local file-presence check via isModelAvailable(repoId), which checks
+      // for config.json in the component's slugified directory in sharedModelsDirectory.
+      // This mirrors PixArtEngine's fallback path (PixArtEngine.swift:475-476).
+      if Acervo.isComponentReady(component.localDirectoryName) { return true }
+      return Acervo.isModelAvailable(Self.acervoRepoId(for: component))
+    }
   }
 
   public nonisolated func delete(_ model: any ModelDescriptor) async throws {
@@ -478,6 +487,22 @@ public actor Flux2Engine: ImageGenerationEngine {
       return .klein9B
     default:
       return nil
+    }
+  }
+
+  /// Extract the HuggingFace repo ID from a Flux2Core `ModelComponent`.
+  ///
+  /// Used by `isAvailable` as the `repoId` argument to `Acervo.isModelAvailable` when
+  /// a component is not registered in Acervo's ComponentRegistry.
+  ///
+  /// **Note**: The VAE shares its `repoId` (`"black-forest-labs/FLUX.2-klein-4B"`) with
+  /// the Klein 4B transformer; both Acervo checks resolve to the same directory.
+  /// This is intentional — the VAE lives in a subfolder of the same Acervo model directory.
+  private nonisolated static func acervoRepoId(for component: ModelRegistry.ModelComponent) -> String {
+    switch component {
+    case .transformer(let variant): return variant.repoId
+    case .textEncoder(let variant): return variant.repoId
+    case .vae(let variant): return variant.repoId
     }
   }
 

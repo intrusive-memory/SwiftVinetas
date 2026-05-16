@@ -1,6 +1,7 @@
 import Flux2Core
 import Foundation
 import SwiftAcervo
+import os.lock
 
 /// Progress information for model downloads.
 public struct VinetasDownloadProgress: Sendable {
@@ -79,18 +80,58 @@ public enum VinetasModelManager: Sendable {
 
   // MARK: - Storage Configuration
 
-  /// No-op — storage is configured via the `ACERVO_APP_GROUP_ID` environment
-  /// variable (or the process entitlement).
+  /// One-time migration guard. Protected by an unfair lock so concurrent
+  /// `VinetasClient.init()` calls don't double-migrate.
+  private static let _migrationLock = OSAllocatedUnfairLock<Bool>(initialState: false)
+
+  /// The canonical SharedModels directory where SwiftAcervo stores model components.
   ///
-  /// SwiftAcervo resolves the storage location automatically:
+  /// Resolves via the `ACERVO_APP_GROUP_ID` environment variable or the
+  /// app-group entitlement. Use this for consistent path references instead
+  /// of constructing paths manually.
+  public static var sharedModelsDirectory: URL {
+    Acervo.sharedModelsDirectory
+  }
+
+  /// Runs SwiftAcervo's one-time migration from legacy cache layouts into the
+  /// unified SharedModels directory, then returns.
+  ///
+  /// Storage is configured via the `ACERVO_APP_GROUP_ID` environment variable
+  /// (or the process entitlement). SwiftAcervo resolves the storage location
+  /// automatically:
   /// - **macOS**: `~/Library/Group Containers/<ACERVO_APP_GROUP_ID>/SharedModels/`
   /// - **iOS with entitlement**: App group shared container
   ///
   /// Set `ACERVO_APP_GROUP_ID` in `~/.zprofile` for CLI/test use, or declare
   /// `com.apple.security.application-groups` in the app's `.entitlements` file.
   ///
-  /// Called automatically by ``VinetasClient/init()``.
+  /// Called automatically by ``VinetasClient/init()``. Safe to call multiple times —
+  /// the migration runs only once per process.
   public static func configureStorage() {
+    // One-time guard: skip if migration was already attempted this process lifetime.
+    let alreadyRan = _migrationLock.withLock { state -> Bool in
+      if state { return true }
+      state = true
+      return false
+    }
+    guard !alreadyRan else { return }
+
+    // Run SwiftAcervo's one-time migration from legacy cache layouts
+    // (LLM/TTS/Audio/VLM subdirs) into the unified SharedModels directory.
+    // No-op when nothing needs migrating; gracefully returns an empty array.
+    do {
+      let migrated = try Acervo.migrateFromLegacyPaths()
+      if !migrated.isEmpty {
+        let destination = Acervo.sharedModelsDirectory.path
+        FileHandle.standardError.write(
+          Data("Migrated \(migrated.count) model(s) to \(destination)\n".utf8)
+        )
+      }
+    } catch {
+      FileHandle.standardError.write(
+        Data("Warning: model migration failed: \(error.localizedDescription)\n".utf8)
+      )
+    }
   }
 
   /// No-op stub retained for source compatibility.
@@ -128,7 +169,13 @@ public enum VinetasModelManager: Sendable {
   /// - Returns: `true` if the model is cached and ready to use.
   @available(*, deprecated, message: "Use isAvailable(_ model: any ModelDescriptor) instead")
   public static func isAvailable(_ model: VinetasModel) -> Bool {
-    modelComponents(for: model).allSatisfy { ModelRegistry.isDownloaded($0) }
+    modelComponents(for: model).allSatisfy { component in
+      // Flux2 components are not registered in Acervo's ComponentRegistry, so
+      // isComponentReady returns false. Fall back to isModelAvailable(repoId),
+      // mirroring Flux2Engine.isAvailable.
+      if Acervo.isComponentReady(component.localDirectoryName) { return true }
+      return Acervo.isModelAvailable(acervoRepoId(for: component))
+    }
   }
 
   /// Deletes the downloaded FLUX.2 model components from local storage.
@@ -171,5 +218,14 @@ public enum VinetasModelManager: Sendable {
 
   private static func modelComponents(for model: VinetasModel) -> [ModelRegistry.ModelComponent] {
     [.transformer(transformerVariant(for: model)), .vae(.standard)]
+  }
+
+  /// Extract the HuggingFace repo ID from a Flux2Core `ModelComponent` for Acervo lookups.
+  private static func acervoRepoId(for component: ModelRegistry.ModelComponent) -> String {
+    switch component {
+    case .transformer(let variant): return variant.repoId
+    case .textEncoder(let variant): return variant.repoId
+    case .vae(let variant): return variant.repoId
+    }
   }
 }
