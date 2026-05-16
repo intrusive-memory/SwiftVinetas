@@ -72,11 +72,12 @@ public actor EngineRouter {
             "engineNotFound(engineID: \(model.engineID)) for modelID: \(model.id)"))
       throw VinetasError.engineNotFound(engineID: model.engineID)
     }
-    await telemetry?.capture(.engineSelected(
-        engineID: engine.engineID,
-        modelID: model.id,
-        requestedFeature: nil,
-        fallbackUsed: false))
+    // engineSelected is emitted by the caller (VinetasClient.generate / generateSequence /
+    // generate(prompt:character:) / preview) AFTER router.engine(for:) returns, so that
+    // the emission order at the API boundary is:
+    //   1. generationStart  (entry point)
+    //   2. engineSelected   (entry point, after successful route)
+    // See REQUIREMENTS §6 single-emission rule and §8.2 ordering invariant.
     return engine
   }
 

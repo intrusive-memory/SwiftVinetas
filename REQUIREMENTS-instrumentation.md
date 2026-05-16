@@ -717,6 +717,32 @@ test-telemetry-debug: link-test-models
 - It does **not** assert exact event counts. Different cached model states (cold load vs warm) produce different counts of `modelLoadStart`/`Complete` and `Acervo` cache events. The test asserts presence and ordering, not cardinality.
 - It does **not** run on CI. The cost of cached weights + GPU runtime is prohibitive. CI runs the library unit tests; humans run the integration tests pre-merge.
 
+### 8.5 Architectural notes (as-built, v0.12.0)
+
+These notes document deviations discovered during implementation (Sortie 9d) between the original spec assumptions and the actual architecture of the dependency libraries. They are the canonical record so future contributors do not repeat the same assumption.
+
+#### 8.5.1 Tuberia is PixArt-only
+
+`TuberiaTelemetryEvent` events fire from `SwiftTuberia`'s `DiffusionPipeline`, which is instantiated exclusively by `PixArtEngine`. Flux2 has its own independent pipeline and emits `Flux2TelemetryEvent` events directly through `Flux2Core`. It never instantiates `DiffusionPipeline` and therefore never produces `tuberia` events.
+
+The original spec (§8.2 Test A) assumed Tuberia would be shared across both engines. This assumption is not correct as of v0.12.0.
+
+**Consequence for integration tests:** Test A (`testEndToEndGenerationProducesCompleteTrace`, Klein 4B / Flux2) asserts only `{vinetas, flux2}` in the trace kind-set. Test C (`testPixArtEngineRoutingEmitsCorrectEvents`) is where `{vinetas, pixart, tuberia}` coverage lives.
+
+#### 8.5.2 Flux2's model-download path bypasses `AcervoManager`
+
+`Flux2ModelDownloader.download()` calls the **static** `Acervo.ensureAvailable(...)` directly. `CLITelemetryBootstrap` installs the `AcervoTelemetryCLIAdapter` on `AcervoManager.shared`, which is not the code path Flux2's downloader exercises. Only PixArt's download flow routes through `AcervoManager.shared`, so `acervo` events appear in PixArt traces but not in Flux2 traces.
+
+**Consequence for integration tests:** Test A cannot assert `acervo` events for a Klein 4B generation. Test A's kind-set assertion is limited to `{vinetas, flux2}`.
+
+#### 8.5.3 xcodebuild sandbox restriction on Group Containers
+
+`xcodebuild test` (running via the `make test-integration` / `make test-telemetry-debug` Makefile targets) cannot access `~/Library/Group Containers/group.intrusive-memory.models/SharedModels` even when `TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models` is set. The process sandbox (MACF) blocks `fopen()` on files inside App Group containers for test runners that lack the `com.apple.security.application-groups` entitlement.
+
+The workaround already in place (as of `make link-test-models`): model weights are **hardlinked** from the App Group container into `/tmp/vinetas-test-models` (an entitled shell process performs the hardlink; the test runner then opens from `/tmp`). This is the `PIXART_TEST_MODELS` / `TEST_RUNNER_VINETAS_TEST_MODELS_DIR` path the Makefile provides to the test runner.
+
+If `xcrun xctest` is used directly (outside the xcodebuild sandbox), it can open files from the App Group path without this workaround. For CI the restriction is moot since models are not cached there.
+
 ---
 
 ## 9. Test suite

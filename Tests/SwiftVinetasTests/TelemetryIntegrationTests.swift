@@ -4,6 +4,36 @@ import SwiftVinetas
 import VinetasCLICore
 import XCTest
 
+// MARK: - xcodebuild sandbox investigation (Sortie 9d)
+//
+// Problem: `xcodebuild test` cannot read files inside
+//   ~/Library/Group Containers/group.intrusive-memory.models/
+// even when TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models is set.
+// The macOS MACF sandbox blocks fopen() on App Group container paths for test
+// runners that lack the com.apple.security.application-groups entitlement.
+// Direct `xcrun xctest` works (no sandbox), but xcodebuild always sandboxes.
+//
+// Resolution: Already implemented via `make link-test-models`.
+// The Makefile target (running in an entitled shell) hardlinks model weights from
+// the App Group container into /tmp/vinetas-test-models, which the sandbox permits.
+// Tests consume this path via TEST_RUNNER_VINETAS_TEST_MODELS_DIR.
+//
+// Options investigated and ruled out:
+//   a) TEST_RUNNER_HOME_RELATIVE_PATH_READ_WRITE — this entitlement key is
+//      not documented for Swift Package Manager test targets and would require
+//      an .xcconfig or entitlements file, making it an Xcode project change
+//      outside this sortie's scope.
+//   b) Passing VINETAS_TEST_MODELS_DIR_RESOLVED via env var — viable but
+//      redundant since link-test-models already provides PIXART_TEST_MODELS=/tmp/…
+//      and the Makefile already passes TEST_RUNNER_VINETAS_TEST_MODELS_DIR.
+//   c) Acervo customSharedModelsDirectory override — SwiftAcervo does not expose
+//      a testable override for the App Group resolution path in its public API.
+//
+// VERDICT: No code change required. The hardlink workaround is sufficient and
+// is already in production via `make link-test-models`. If a future release of
+// SwiftAcervo exposes a `setSharedModelsDirectory` test hook, the hardlink
+// approach can be retired.
+//
 // MARK: - TelemetryIntegrationTests
 //
 // Canonical fidelity assertions for OPERATION WIRETAP DARKROOM (Sortie 9).
@@ -122,12 +152,21 @@ final class TelemetryIntegrationTests: XCTestCase {
     XCTAssertGreaterThan(envelopes.count, 0, "Trace must be non-empty")
 
     // 6. Assert presence of all expected library kinds.
+    //
+    // Test A asserts the kinds reachable via a Flux2 (Klein 4B) generation today:
+    //   - vinetas: always — VinetasTelemetry seam (S3) is process-wide.
+    //   - flux2: always once Flux2Telemetry.setReporter is installed (S8b).
+    //   - tuberia: NOT asserted — Tuberia's DiffusionPipeline is PixArt-only.
+    //     Flux2 has its own pipeline. See REQUIREMENTS §8.2 for the architectural note.
+    //   - acervo: NOT asserted — Flux2's download goes through the static
+    //     `Acervo.ensureAvailable(...)` path which has no reporter, not through
+    //     AcervoManager. See REQUIREMENTS §8.2.
+    // Test C (PixArt) is where {vinetas, pixart, tuberia} get asserted together.
     let kinds = Set(envelopes.compactMap { $0["kind"] as? String })
     XCTAssertTrue(kinds.contains("vinetas"), "Expected 'vinetas' kind in trace; got: \(kinds)")
     XCTAssertTrue(kinds.contains("flux2"),   "Expected 'flux2' kind in trace; got: \(kinds)")
-    XCTAssertTrue(kinds.contains("tuberia"), "Expected 'tuberia' kind in trace; got: \(kinds)")
-    XCTAssertTrue(kinds.contains("acervo"),  "Expected 'acervo' kind in trace; got: \(kinds)")
     // PixArt events are not expected for a Flux2 generation.
+    // tuberia and acervo are not asserted for Klein 4B — see doc-comment above.
 
     // 7. Filter to Vinetas-only envelopes and extract the "case" discriminants.
     let vinetasEnvelopes = envelopes.filter { ($0["kind"] as? String) == "vinetas" }

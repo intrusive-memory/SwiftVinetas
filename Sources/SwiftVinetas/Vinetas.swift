@@ -215,18 +215,19 @@ extension VinetasClient {
       throw VinetasError.generationFailed("Prompt must not be empty")
     }
     let effectiveStyle = style ?? StyleConfig()
-    let engine = try await router.engine(for: model)
-    endEngineID = engine.engineID
     let composedPrompt = composePrompt(panelPrompt: prompt, style: effectiveStyle)
     let request = buildRequest(
       prompt: composedPrompt,
       style: effectiveStyle,
       mode: .textToImage
     )
+    // Emit generationStart BEFORE routing so the ordering invariant holds:
+    //   generationStart → engineSelected → … → generationEnd
+    // model.engineID is known from the descriptor; the router confirms it next.
     await reporter?.capture(.generationStart(
         prompt: composedPrompt,
         promptLength: composedPrompt.count,
-        engineID: engine.engineID,
+        engineID: model.engineID,
         modelID: model.id,
         steps: request.steps,
         guidanceScale: Double(request.guidanceScale),
@@ -239,6 +240,15 @@ extension VinetasClient {
         loraScale: nil,
         upsamplePromptRequested: false,
         interpretImageCount: 0))
+    let engine = try await router.engine(for: model)
+    endEngineID = engine.engineID
+    // Emit engineSelected after the router confirms the route (success path only).
+    // engineNotFound remains in EngineRouter for the failure path.
+    await reporter?.capture(.engineSelected(
+        engineID: engine.engineID,
+        modelID: model.id,
+        requestedFeature: nil,
+        fallbackUsed: false))
     try await engine.loadModel(model, progress: { _ in })
     let result = try await engine.generate(request: request, stepProgress: nil)
     success = true
@@ -305,18 +315,13 @@ extension VinetasClient {
     }
 
     let effectiveStyle = style ?? StyleConfig()
-    let engine = try await router.engine(for: model)
-    endEngineID = engine.engineID
-    try await engine.loadModel(model, progress: { _ in })
-
     let useImageToImage = referenceImages.map { !$0.isEmpty } ?? false
     let totalPanels = prompts.count
     var images: [CGImage] = []
 
-    // Emit a single generationStart for the whole sequence (canonical site is
-    // the entry, not per-panel). Use the first prompt's composition for
-    // representative metadata; `referenceImageCount` reflects the sequence's
-    // shared reference set.
+    // Emit a single generationStart for the whole sequence BEFORE routing so
+    // the ordering invariant holds: generationStart → engineSelected → … → generationEnd.
+    // model.engineID is known from the descriptor; the router confirms it next.
     let firstComposed =
       prompts.first.map { composePrompt(panelPrompt: $0, style: effectiveStyle) } ?? ""
     let firstRequest = buildRequest(
@@ -329,7 +334,7 @@ extension VinetasClient {
     await reporter?.capture(.generationStart(
         prompt: firstComposed,
         promptLength: firstComposed.count,
-        engineID: engine.engineID,
+        engineID: model.engineID,
         modelID: model.id,
         steps: firstRequest.steps,
         guidanceScale: Double(firstRequest.guidanceScale),
@@ -342,6 +347,15 @@ extension VinetasClient {
         loraScale: nil,
         upsamplePromptRequested: false,
         interpretImageCount: 0))
+    let engine = try await router.engine(for: model)
+    endEngineID = engine.engineID
+    // Emit engineSelected after the router confirms the route (success path only).
+    await reporter?.capture(.engineSelected(
+        engineID: engine.engineID,
+        modelID: model.id,
+        requestedFeature: nil,
+        fallbackUsed: false))
+    try await engine.loadModel(model, progress: { _ in })
 
     for (index, prompt) in prompts.enumerated() {
       progress?(index + 1, totalPanels)
@@ -416,33 +430,8 @@ extension VinetasClient {
     }
 
     let effectiveStyle = style ?? StyleConfig()
-    let engine = try await router.engine(for: model)
-    endEngineID = engine.engineID
-    try await engine.loadModel(model, progress: { _ in })
 
-    // Determine whether LoRA is compatible with this engine
-    var loraLoaded = false
-    var loraScaleForEvent: Double? = nil
-    if let lora = character.lora {
-      let compatible = isLoRACompatible(lora: lora, engineID: engine.engineID)
-      if compatible && engine.supports(.loraInference) {
-        let manager = CharacterManager()
-        let charDir = manager.characterDirectory(slug: character.slug)
-        let loraURL = charDir.appendingPathComponent(lora.path)
-        try await engine.loadLoRA(at: loraURL, scale: lora.scale)
-        loraLoaded = true
-        loraScaleForEvent = Double(lora.scale)
-      } else {
-        let warning =
-          "[SwiftVinetas] LoRA for '\(character.name)' is incompatible with engine '\(engine.engineID)'. "
-          + "Proceeding with prompt-only consistency.\n"
-        if let data = warning.data(using: .utf8) {
-          FileHandle.standardError.write(data)
-        }
-      }
-    }
-
-    // Compose prompt: trigger word + style + panel prompt
+    // Compose prompt: trigger word + style + panel prompt (known before routing).
     let composedPrompt = composeCharacterPrompt(
       panelPrompt: prompt,
       character: character,
@@ -453,10 +442,15 @@ extension VinetasClient {
       style: effectiveStyle,
       mode: .textToImage
     )
+    // Emit generationStart BEFORE routing so the ordering invariant holds:
+    //   generationStart → engineSelected → … → generationEnd
+    // LoRA presence is reported from the character metadata (intent), not post-load.
+    let loraIntended = character.lora != nil
+    let loraScaleIntended = character.lora.map { Double($0.scale) }
     await reporter?.capture(.generationStart(
         prompt: composedPrompt,
         promptLength: composedPrompt.count,
-        engineID: engine.engineID,
+        engineID: model.engineID,
         modelID: model.id,
         steps: request.steps,
         guidanceScale: Double(request.guidanceScale),
@@ -465,10 +459,40 @@ extension VinetasClient {
         height: request.height,
         mode: .textToImage,
         referenceImageCount: 0,
-        loraAttached: loraLoaded,
-        loraScale: loraScaleForEvent,
+        loraAttached: loraIntended,
+        loraScale: loraScaleIntended,
         upsamplePromptRequested: false,
         interpretImageCount: 0))
+    let engine = try await router.engine(for: model)
+    endEngineID = engine.engineID
+    // Emit engineSelected after the router confirms the route (success path only).
+    await reporter?.capture(.engineSelected(
+        engineID: engine.engineID,
+        modelID: model.id,
+        requestedFeature: nil,
+        fallbackUsed: false))
+    try await engine.loadModel(model, progress: { _ in })
+
+    // Determine whether LoRA is compatible with this engine
+    var loraLoaded = false
+    if let lora = character.lora {
+      let compatible = isLoRACompatible(lora: lora, engineID: engine.engineID)
+      if compatible && engine.supports(.loraInference) {
+        let manager = CharacterManager()
+        let charDir = manager.characterDirectory(slug: character.slug)
+        let loraURL = charDir.appendingPathComponent(lora.path)
+        try await engine.loadLoRA(at: loraURL, scale: lora.scale)
+        loraLoaded = true
+      } else {
+        let warning =
+          "[SwiftVinetas] LoRA for '\(character.name)' is incompatible with engine '\(engine.engineID)'. "
+          + "Proceeding with prompt-only consistency.\n"
+        if let data = warning.data(using: .utf8) {
+          FileHandle.standardError.write(data)
+        }
+      }
+    }
+
     let result = try await engine.generate(request: request, stepProgress: nil)
 
     // Unload LoRA to prevent bleeding into subsequent generations
@@ -521,9 +545,6 @@ extension VinetasClient {
       }
     }
 
-    let engine = try await router.engine(forEngineID: "flux2")
-    endEngineID = engine.engineID
-    try await engine.loadModel(previewModel, progress: { _ in })
     let request = GenerationRequest(
       prompt: prompt,
       steps: 4,
@@ -532,10 +553,13 @@ extension VinetasClient {
       height: 512,
       mode: .textToImage
     )
+    // Emit generationStart BEFORE routing so the ordering invariant holds:
+    //   generationStart → engineSelected → … → generationEnd
+    // preview always targets the flux2 engine; previewModel.engineID confirms this.
     await reporter?.capture(.generationStart(
         prompt: prompt,
         promptLength: prompt.count,
-        engineID: engine.engineID,
+        engineID: previewModel.engineID,
         modelID: previewModel.id,
         steps: request.steps,
         guidanceScale: Double(request.guidanceScale),
@@ -548,6 +572,17 @@ extension VinetasClient {
         loraScale: nil,
         upsamplePromptRequested: false,
         interpretImageCount: 0))
+    let engine = try await router.engine(forEngineID: "flux2")
+    endEngineID = engine.engineID
+    // Emit engineSelected after the router confirms the route (success path only).
+    // preview() routes by engineID directly, not by model descriptor, so we use
+    // previewModel.id for the modelID field.
+    await reporter?.capture(.engineSelected(
+        engineID: engine.engineID,
+        modelID: previewModel.id,
+        requestedFeature: nil,
+        fallbackUsed: false))
+    try await engine.loadModel(previewModel, progress: { _ in })
     let result = try await engine.generate(request: request, stepProgress: nil)
     success = true
     actualSeed = result.seed

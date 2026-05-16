@@ -120,10 +120,17 @@ struct VinetasTelemetryPropagationTests {
     await client.setTelemetry(first)
     let unreachableModel = MockModelDescriptor(id: "swap-model", engineID: "gone")
     _ = try? await client.generate(prompt: "probe", model: unreachableModel)
+    // Yield multiple times to drain the fire-and-forget defer Task (generationEnd)
+    // before capturing firstCount. The defer { Task { await reporter?.capture(.generationEnd) } }
+    // is scheduled cooperatively and may not have run yet at the first await point.
+    await Task.yield()
+    await Task.yield()
     let firstCount = first.count
 
     await client.setTelemetry(second)
     _ = try? await client.generate(prompt: "probe2", model: unreachableModel)
+    await Task.yield()
+    await Task.yield()
 
     #expect(firstCount >= 1, "First reporter received events before swap")
     #expect(second.count >= 1, "Second reporter receives events after swap")

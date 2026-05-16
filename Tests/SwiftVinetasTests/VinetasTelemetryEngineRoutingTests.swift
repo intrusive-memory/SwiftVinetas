@@ -5,14 +5,20 @@ import Testing
 
 // MARK: - VinetasTelemetryEngineRoutingTests
 //
-// Asserts that the EngineRouter's telemetry emission sites fire correctly:
+// Asserts that the engine-routing telemetry emission sites fire correctly:
 //
-//  - engineSelected fires after engine(for:) returns successfully (via generate())
-//  - engineNotFound fires before throw when no engine handles the model
-//  - errorThrown(phase: .engineNotFound) fires immediately after engineNotFound
+//  - engineSelected fires in VinetasClient.generate() AFTER router.engine(for:) returns
+//    successfully. It is NOT emitted inside EngineRouter.engine(for:) — the emission
+//    was moved to the entry points so the ordering invariant holds:
+//      generationStart (entry point) → engineSelected (entry point) → … → generationEnd
+//    See REQUIREMENTS §6 single-emission rule and §8.2 ordering assertion.
+//  - engineNotFound fires inside EngineRouter.engine(for:) before throw when no
+//    engine handles the model (stays in the router — tied to the throw site).
+//  - errorThrown(phase: .engineNotFound) fires immediately after engineNotFound.
 //
 // Tests use MockEngine and MockModelDescriptor to avoid GPU/model loading.
 // The router's telemetry is installed via VinetasClient.setTelemetry(_:).
+// All tests exercise routing indirectly through VinetasClient.generate().
 
 @Suite("VinetasClient Telemetry — Engine Routing")
 struct VinetasTelemetryEngineRoutingTests {
