@@ -87,11 +87,12 @@ public actor FeatureExtractor {
     if let reporter = telemetry {
       let featureStat = TuberiaTensorStat.sample(clsToken)
       let extractionDuration = Date().timeIntervalSince(extractionStart)
-      await reporter.capture(.featureExtractionComplete(
-        featureDim: clsToken.shape.last ?? 0,
-        featureStat: featureStat,
-        durationSeconds: extractionDuration
-      ))
+      await reporter.capture(
+        .featureExtractionComplete(
+          featureDim: clsToken.shape.last ?? 0,
+          featureStat: featureStat,
+          durationSeconds: extractionDuration
+        ))
     }
 
     // Convert to Swift Float array
@@ -106,10 +107,11 @@ public actor FeatureExtractor {
   ///           plus any errors from `extractFeatures(from:)`.
   public func extractFeatures(from url: URL) async throws -> [Float] {
     guard let cgImage = loadCGImage(from: url) else {
-      await telemetry?.capture(.errorThrown(
-        phase: .featureExtraction,
-        errorDescription: "Could not load image from \(url.path)"
-      ))
+      await telemetry?.capture(
+        .errorThrown(
+          phase: .featureExtraction,
+          errorDescription: "Could not load image from \(url.path)"
+        ))
       throw VinetasError.generationFailed("Could not load image from \(url.path)")
     }
     return try await extractFeatures(from: cgImage)
@@ -138,8 +140,10 @@ public actor FeatureExtractor {
     do {
       try await Acervo.ensureComponentReady(Self.componentId, progress: { _ in })
     } catch {
-      let description = "Failed to download DINOv2-B/14 weights for component \(Self.componentId): \(error.localizedDescription)"
-      await telemetry?.capture(.errorThrown(phase: .featureExtraction, errorDescription: description))
+      let description =
+        "Failed to download DINOv2-B/14 weights for component \(Self.componentId): \(error.localizedDescription)"
+      await telemetry?.capture(
+        .errorThrown(phase: .featureExtraction, errorDescription: description))
       throw VinetasError.downloadFailed(description)
     }
 
@@ -161,8 +165,10 @@ public actor FeatureExtractor {
         try handle.url(matching: ".safetensors")
       }
     } catch {
-      let description = "Could not locate .safetensors for component \(Self.componentId): \(error.localizedDescription)"
-      await telemetry?.capture(.errorThrown(phase: .featureExtraction, errorDescription: description))
+      let description =
+        "Could not locate .safetensors for component \(Self.componentId): \(error.localizedDescription)"
+      await telemetry?.capture(
+        .errorThrown(phase: .featureExtraction, errorDescription: description))
       throw VinetasError.modelNotFound(description)
     }
 
@@ -170,8 +176,10 @@ public actor FeatureExtractor {
     do {
       weights = try loadArrays(url: weightsURL)
     } catch {
-      let description = "Failed to load weights for component \(Self.componentId): \(error.localizedDescription)"
-      await telemetry?.capture(.errorThrown(phase: .featureExtraction, errorDescription: description))
+      let description =
+        "Failed to load weights for component \(Self.componentId): \(error.localizedDescription)"
+      await telemetry?.capture(
+        .errorThrown(phase: .featureExtraction, errorDescription: description))
       throw VinetasError.generationFailed(description)
     }
 

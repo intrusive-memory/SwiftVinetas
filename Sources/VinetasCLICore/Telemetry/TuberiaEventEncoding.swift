@@ -28,10 +28,14 @@ public struct TuberiaEventCodable: Encodable {
 
     // MARK: - Lifecycle
 
-    case let .pipelineConfigured(
-      recipeName, encoderType, schedulerType, backboneType, decoderType, rendererType,
-      encoderQuantization, backboneQuantization, decoderQuantization,
-      peakMemoryBytes, phasedMemoryBytes
+    case .pipelineConfigured(
+      let
+        recipeName, let encoderType, let schedulerType, let backboneType, let decoderType,
+      let rendererType,
+      let
+        encoderQuantization, let backboneQuantization, let decoderQuantization,
+      let
+        peakMemoryBytes, let phasedMemoryBytes
     ):
       try container.encode("pipelineConfigured", forKey: .case)
       try container.encode(recipeName, forKey: .recipeName)
@@ -46,7 +50,8 @@ public struct TuberiaEventCodable: Encodable {
       try container.encode(peakMemoryBytes, forKey: .peakMemoryBytes)
       try container.encode(phasedMemoryBytes, forKey: .phasedMemoryBytes)
 
-    case let .pipelineStart(runID, prompt, steps, guidanceScale, seed, width, height):
+    case .pipelineStart(
+      let runID, let prompt, let steps, let guidanceScale, let seed, let width, let height):
       try container.encode("pipelineStart", forKey: .case)
       try container.encode(runID, forKey: .runID)
       try container.encode(prompt, forKey: .prompt)
@@ -56,7 +61,7 @@ public struct TuberiaEventCodable: Encodable {
       try container.encode(width, forKey: .width)
       try container.encode(height, forKey: .height)
 
-    case let .pipelineEnd(runID, totalSteps, durationSeconds, success):
+    case .pipelineEnd(let runID, let totalSteps, let durationSeconds, let success):
       try container.encode("pipelineEnd", forKey: .case)
       try container.encode(runID, forKey: .runID)
       try container.encode(totalSteps, forKey: .totalSteps)
@@ -65,13 +70,13 @@ public struct TuberiaEventCodable: Encodable {
 
     // MARK: - Assembly validation
 
-    case let .assemblyCheckPassed(check, inlet, outlet):
+    case .assemblyCheckPassed(let check, let inlet, let outlet):
       try container.encode("assemblyCheckPassed", forKey: .case)
       try container.encode(check.rawValue, forKey: .check)
       try container.encode(inlet, forKey: .inlet)
       try container.encode(outlet, forKey: .outlet)
 
-    case let .assemblyCheckFailed(check, inlet, outlet, reason):
+    case .assemblyCheckFailed(let check, let inlet, let outlet, let reason):
       try container.encode("assemblyCheckFailed", forKey: .case)
       try container.encode(check.rawValue, forKey: .check)
       try container.encode(inlet, forKey: .inlet)
@@ -80,19 +85,20 @@ public struct TuberiaEventCodable: Encodable {
 
     // MARK: - Memory gate
 
-    case let .memoryGateChecked(requiredBytes, passed):
+    case .memoryGateChecked(let requiredBytes, let passed):
       try container.encode("memoryGateChecked", forKey: .case)
       try container.encode(requiredBytes, forKey: .requiredBytes)
       try container.encode(passed, forKey: .passed)
 
     // MARK: - Weight loading
 
-    case let .weightLoadStart(role, componentID):
+    case .weightLoadStart(let role, let componentID):
       try container.encode("weightLoadStart", forKey: .case)
       try container.encode(role, forKey: .role)
       try container.encode(componentID, forKey: .componentID)
 
-    case let .weightLoadComplete(role, componentID, paramCount, totalBytes, durationSeconds):
+    case .weightLoadComplete(
+      let role, let componentID, let paramCount, let totalBytes, let durationSeconds):
       try container.encode("weightLoadComplete", forKey: .case)
       try container.encode(role, forKey: .role)
       try container.encode(componentID, forKey: .componentID)
@@ -102,42 +108,42 @@ public struct TuberiaEventCodable: Encodable {
 
     // MARK: - LoRA
 
-    case let .loraLoadStart(componentID, localPath, scale, activationKeyword):
+    case .loraLoadStart(let componentID, let localPath, let scale, let activationKeyword):
       try container.encode("loraLoadStart", forKey: .case)
       try container.encodeIfPresent(componentID, forKey: .componentID)
       try container.encodeIfPresent(localPath, forKey: .localPath)
       try container.encode(scale, forKey: .scale)
       try container.encodeIfPresent(activationKeyword, forKey: .activationKeyword)
 
-    case let .loraLoadComplete(adapterParamCount, durationSeconds):
+    case .loraLoadComplete(let adapterParamCount, let durationSeconds):
       try container.encode("loraLoadComplete", forKey: .case)
       try container.encode(adapterParamCount, forKey: .adapterParamCount)
       try container.encode(durationSeconds, forKey: .durationSeconds)
 
-    case let .loraApplied(targetLayerCount):
+    case .loraApplied(let targetLayerCount):
       try container.encode("loraApplied", forKey: .case)
       try container.encode(targetLayerCount, forKey: .targetLayerCount)
 
-    case let .loraUnapplied(restoredLayerCount):
+    case .loraUnapplied(let restoredLayerCount):
       try container.encode("loraUnapplied", forKey: .case)
       try container.encode(restoredLayerCount, forKey: .restoredLayerCount)
 
     // MARK: - Component readiness
 
-    case let .componentReadinessChecked(componentID, ready):
+    case .componentReadinessChecked(let componentID, let ready):
       try container.encode("componentReadinessChecked", forKey: .case)
       try container.encode(componentID, forKey: .componentID)
       try container.encode(ready, forKey: .ready)
 
     // MARK: - Text encoder handoff
 
-    case let .textEncoderForwardStart(role, promptLength, maxLength):
+    case .textEncoderForwardStart(let role, let promptLength, let maxLength):
       try container.encode("textEncoderForwardStart", forKey: .case)
       try container.encode(role.rawValue, forKey: .role)
       try container.encode(promptLength, forKey: .promptLength)
       try container.encode(maxLength, forKey: .maxLength)
 
-    case let .textEncoderForwardComplete(role, embeddingStat, maskStat, durationSeconds):
+    case .textEncoderForwardComplete(let role, let embeddingStat, let maskStat, let durationSeconds):
       try container.encode("textEncoderForwardComplete", forKey: .case)
       try container.encode(role.rawValue, forKey: .role)
       // TuberiaTensorStat is Codable — encode verbatim.
@@ -147,9 +153,11 @@ public struct TuberiaEventCodable: Encodable {
 
     // MARK: - Scheduler
 
-    case let .schedulerConfigured(
-      steps, startTimestep, predictionType, timestepsHead, timestepsTail,
-      sigmasHead, sigmasTail
+    case .schedulerConfigured(
+      let
+        steps, let startTimestep, let predictionType, let timestepsHead, let timestepsTail,
+      let
+        sigmasHead, let sigmasTail
     ):
       try container.encode("schedulerConfigured", forKey: .case)
       try container.encode(steps, forKey: .steps)
@@ -162,8 +170,9 @@ public struct TuberiaEventCodable: Encodable {
 
     // MARK: - Per-step denoise
 
-    case let .denoiseStepStart(
-      stepIndex, totalSteps, timestep, sigma, useCFG, latentBeforeStat
+    case .denoiseStepStart(
+      let
+        stepIndex, let totalSteps, let timestep, let sigma, let useCFG, let latentBeforeStat
     ):
       try container.encode("denoiseStepStart", forKey: .case)
       try container.encode(stepIndex, forKey: .stepIndex)
@@ -174,8 +183,10 @@ public struct TuberiaEventCodable: Encodable {
       // TuberiaTensorStat is Codable — encode verbatim.
       try container.encode(latentBeforeStat, forKey: .latentBeforeStat)
 
-    case let .denoiseStepComplete(
-      stepIndex, totalSteps, timestep, sigma, latentAfterStat, predictionStat, durationSeconds
+    case .denoiseStepComplete(
+      let
+        stepIndex, let totalSteps, let timestep, let sigma, let latentAfterStat, let predictionStat,
+      let durationSeconds
     ):
       try container.encode("denoiseStepComplete", forKey: .case)
       try container.encode(stepIndex, forKey: .stepIndex)
@@ -189,7 +200,7 @@ public struct TuberiaEventCodable: Encodable {
 
     // MARK: - CFG dtype cast
 
-    case let .cfgDtypeCast(stepIndex, fromDtype, toDtype, guidedPredictionStat):
+    case .cfgDtypeCast(let stepIndex, let fromDtype, let toDtype, let guidedPredictionStat):
       try container.encode("cfgDtypeCast", forKey: .case)
       try container.encode(stepIndex, forKey: .stepIndex)
       try container.encode(fromDtype, forKey: .fromDtype)
@@ -199,7 +210,7 @@ public struct TuberiaEventCodable: Encodable {
 
     // MARK: - Backbone boundary
 
-    case let .backboneForwardStart(branch, conditioningStat, latentStat, timestep):
+    case .backboneForwardStart(let branch, let conditioningStat, let latentStat, let timestep):
       try container.encode("backboneForwardStart", forKey: .case)
       try container.encode(branch.rawValue, forKey: .branch)
       // TuberiaTensorStat is Codable — encode verbatim.
@@ -207,7 +218,7 @@ public struct TuberiaEventCodable: Encodable {
       try container.encode(latentStat, forKey: .latentStat)
       try container.encode(timestep, forKey: .timestep)
 
-    case let .backboneForwardComplete(branch, predictionStat, durationSeconds):
+    case .backboneForwardComplete(let branch, let predictionStat, let durationSeconds):
       try container.encode("backboneForwardComplete", forKey: .case)
       try container.encode(branch.rawValue, forKey: .branch)
       // TuberiaTensorStat is Codable — encode verbatim.
@@ -216,13 +227,13 @@ public struct TuberiaEventCodable: Encodable {
 
     // MARK: - Decoder handoff
 
-    case let .decoderDecodeStart(latentStat, scalingFactor):
+    case .decoderDecodeStart(let latentStat, let scalingFactor):
       try container.encode("decoderDecodeStart", forKey: .case)
       // TuberiaTensorStat is Codable — encode verbatim.
       try container.encode(latentStat, forKey: .latentStat)
       try container.encode(scalingFactor, forKey: .scalingFactor)
 
-    case let .decoderDecodeComplete(outputStat, durationSeconds):
+    case .decoderDecodeComplete(let outputStat, let durationSeconds):
       try container.encode("decoderDecodeComplete", forKey: .case)
       // TuberiaTensorStat is Codable — encode verbatim.
       try container.encode(outputStat, forKey: .outputStat)
@@ -230,20 +241,20 @@ public struct TuberiaEventCodable: Encodable {
 
     // MARK: - Renderer handoff
 
-    case let .rendererRenderStart(modality, inputStat):
+    case .rendererRenderStart(let modality, let inputStat):
       try container.encode("rendererRenderStart", forKey: .case)
       try container.encode(modality, forKey: .modality)
       // TuberiaTensorStat is Codable — encode verbatim.
       try container.encode(inputStat, forKey: .inputStat)
 
-    case let .rendererRenderComplete(outputBytes, durationSeconds):
+    case .rendererRenderComplete(let outputBytes, let durationSeconds):
       try container.encode("rendererRenderComplete", forKey: .case)
       try container.encode(outputBytes, forKey: .outputBytes)
       try container.encode(durationSeconds, forKey: .durationSeconds)
 
     // MARK: - Anomaly side-channel
 
-    case let .numericalAnomaly(phase, kind, stepIndex, stat):
+    case .numericalAnomaly(let phase, let kind, let stepIndex, let stat):
       try container.encode("numericalAnomaly", forKey: .case)
       try container.encode(phase, forKey: .phase)
       try container.encode(kind.rawValue, forKey: .kind)
@@ -253,7 +264,7 @@ public struct TuberiaEventCodable: Encodable {
 
     // MARK: - Error side-channel
 
-    case let .errorThrown(phase, errorDescription, stepIndex):
+    case .errorThrown(let phase, let errorDescription, let stepIndex):
       try container.encode("errorThrown", forKey: .case)
       try container.encode(phase.rawValue, forKey: .phase)
       try container.encode(errorDescription, forKey: .errorDescription)

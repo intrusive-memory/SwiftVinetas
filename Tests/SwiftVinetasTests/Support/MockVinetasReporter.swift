@@ -42,17 +42,21 @@ final class MockVinetasReporter: VinetasTelemetryReporter, @unchecked Sendable {
   }
 
   /// Returns the first captured event matching the predicate, or `nil`.
-  func first(matching predicate: @Sendable (VinetasTelemetryEvent) -> Bool) -> VinetasTelemetryEvent? {
+  func first(matching predicate: @Sendable (VinetasTelemetryEvent) -> Bool)
+    -> VinetasTelemetryEvent?
+  {
     _lock.withLock { $0.first(where: predicate) }
   }
 
   /// Returns the last captured event matching the predicate, or `nil`.
-  func last(matching predicate: @Sendable (VinetasTelemetryEvent) -> Bool) -> VinetasTelemetryEvent? {
+  func last(matching predicate: @Sendable (VinetasTelemetryEvent) -> Bool) -> VinetasTelemetryEvent?
+  {
     _lock.withLock { $0.last(where: predicate) }
   }
 
   /// Returns all events matching the predicate.
-  func all(matching predicate: @Sendable (VinetasTelemetryEvent) -> Bool) -> [VinetasTelemetryEvent] {
+  func all(matching predicate: @Sendable (VinetasTelemetryEvent) -> Bool) -> [VinetasTelemetryEvent]
+  {
     _lock.withLock { $0.filter(predicate) }
   }
 }

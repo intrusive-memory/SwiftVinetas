@@ -1,5 +1,5 @@
-import Foundation
 import Flux2Core
+import Foundation
 import Tuberia
 
 // MARK: - Flux2EventCodable
@@ -28,7 +28,7 @@ public struct Flux2EventCodable: Encodable {
 
     // MARK: - Pipeline lifecycle
 
-    case let .pipelineInit(model, quantization, vaeConfig):
+    case .pipelineInit(let model, let quantization, let vaeConfig):
       try container.encode("pipelineInit", forKey: .case)
       try container.encode(model, forKey: .model)
       try container.encode(quantization, forKey: .quantization)
@@ -39,7 +39,7 @@ public struct Flux2EventCodable: Encodable {
 
     // MARK: - Weight loading
 
-    case let .weightLoadComplete(component, paramCount, durationSeconds):
+    case .weightLoadComplete(let component, let paramCount, let durationSeconds):
       try container.encode("weightLoadComplete", forKey: .case)
       try container.encode(component.rawValue, forKey: .component)
       try container.encode(paramCount, forKey: .paramCount)
@@ -47,7 +47,7 @@ public struct Flux2EventCodable: Encodable {
 
     // MARK: - Quantization
 
-    case let .quantizationComplete(component, bits, groupSize, durationSeconds):
+    case .quantizationComplete(let component, let bits, let groupSize, let durationSeconds):
       try container.encode("quantizationComplete", forKey: .case)
       try container.encode(component.rawValue, forKey: .component)
       try container.encode(bits, forKey: .bits)
@@ -56,7 +56,8 @@ public struct Flux2EventCodable: Encodable {
 
     // MARK: - Text encoding
 
-    case let .textEncodeComplete(encoderName, finalPromptLength, embeddingStat, durationSeconds):
+    case .textEncodeComplete(
+      let encoderName, let finalPromptLength, let embeddingStat, let durationSeconds):
       try container.encode("textEncodeComplete", forKey: .case)
       try container.encode(encoderName, forKey: .encoderName)
       try container.encode(finalPromptLength, forKey: .finalPromptLength)
@@ -66,7 +67,7 @@ public struct Flux2EventCodable: Encodable {
 
     // MARK: - Scheduler
 
-    case let .schedulerConfigured(numInferenceSteps, shift, imageSeqLen, mu):
+    case .schedulerConfigured(let numInferenceSteps, let shift, let imageSeqLen, let mu):
       try container.encode("schedulerConfigured", forKey: .case)
       try container.encode(numInferenceSteps, forKey: .numInferenceSteps)
       try container.encode(shift, forKey: .shift)
@@ -75,14 +76,15 @@ public struct Flux2EventCodable: Encodable {
 
     // MARK: - Denoise loop
 
-    case let .denoiseLoopStart(variant, totalSteps, latentShape, latentDtype):
+    case .denoiseLoopStart(let variant, let totalSteps, let latentShape, let latentDtype):
       try container.encode("denoiseLoopStart", forKey: .case)
       try container.encode(variant.rawValue, forKey: .variant)
       try container.encode(totalSteps, forKey: .totalSteps)
       try container.encode(latentShape, forKey: .latentShape)
       try container.encode(latentDtype, forKey: .latentDtype)
 
-    case let .denoiseLoopEnd(variant, totalSteps, completedSteps, finalLatentStat, durationSeconds):
+    case .denoiseLoopEnd(
+      let variant, let totalSteps, let completedSteps, let finalLatentStat, let durationSeconds):
       try container.encode("denoiseLoopEnd", forKey: .case)
       try container.encode(variant.rawValue, forKey: .variant)
       try container.encode(totalSteps, forKey: .totalSteps)
@@ -91,7 +93,8 @@ public struct Flux2EventCodable: Encodable {
       try container.encode(finalLatentStat, forKey: .finalLatentStat)
       try container.encode(durationSeconds, forKey: .durationSeconds)
 
-    case let .denoiseStepStart(variant, stepIndex, totalSteps, t, latentShape, latentDtype):
+    case .denoiseStepStart(
+      let variant, let stepIndex, let totalSteps, let t, let latentShape, let latentDtype):
       try container.encode("denoiseStepStart", forKey: .case)
       try container.encode(variant.rawValue, forKey: .variant)
       try container.encode(stepIndex, forKey: .stepIndex)
@@ -100,8 +103,9 @@ public struct Flux2EventCodable: Encodable {
       try container.encode(latentShape, forKey: .latentShape)
       try container.encode(latentDtype, forKey: .latentDtype)
 
-    case let .denoiseStepComplete(
-      variant, stepIndex, totalSteps, t, latentStat, durationSeconds
+    case .denoiseStepComplete(
+      let
+        variant, let stepIndex, let totalSteps, let t, let latentStat, let durationSeconds
     ):
       try container.encode("denoiseStepComplete", forKey: .case)
       try container.encode(variant.rawValue, forKey: .variant)
@@ -114,7 +118,7 @@ public struct Flux2EventCodable: Encodable {
 
     // MARK: - VAE decode
 
-    case let .vaeDecodeComplete(pixelStat, outputDims, durationSeconds):
+    case .vaeDecodeComplete(let pixelStat, let outputDims, let durationSeconds):
       try container.encode("vaeDecodeComplete", forKey: .case)
       // TuberiaTensorStat is Codable — encode verbatim.
       try container.encode(pixelStat, forKey: .pixelStat)
@@ -123,7 +127,7 @@ public struct Flux2EventCodable: Encodable {
 
     // MARK: - Anomaly side-channel
 
-    case let .numericalAnomaly(phase, kind, stat):
+    case .numericalAnomaly(let phase, let kind, let stat):
       try container.encode("numericalAnomaly", forKey: .case)
       try container.encode(phase.rawValue, forKey: .phase)
       try container.encode(kind.rawValue, forKey: .kind)
@@ -132,13 +136,13 @@ public struct Flux2EventCodable: Encodable {
 
     // MARK: - Cancellation
 
-    case let .generationCancelled(stepIndex):
+    case .generationCancelled(let stepIndex):
       try container.encode("generationCancelled", forKey: .case)
       try container.encodeIfPresent(stepIndex, forKey: .stepIndex)
 
     // MARK: - Error side-channel
 
-    case let .errorThrown(phase, errorDescription):
+    case .errorThrown(let phase, let errorDescription):
       try container.encode("errorThrown", forKey: .case)
       try container.encode(phase.rawValue, forKey: .phase)
       try container.encode(errorDescription, forKey: .errorDescription)

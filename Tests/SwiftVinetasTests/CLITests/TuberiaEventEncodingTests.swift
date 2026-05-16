@@ -531,7 +531,9 @@ struct TuberiaEventEncodingTests {
 
   // MARK: - Case 26: numericalAnomaly
 
-  @Test("numericalAnomaly encodes discriminant, phase string, kind rawValue, optional stepIndex, and stat")
+  @Test(
+    "numericalAnomaly encodes discriminant, phase string, kind rawValue, optional stepIndex, and stat"
+  )
   func testNumericalAnomaly() throws {
     let dict = try roundTrip(
       .numericalAnomaly(
@@ -578,10 +580,12 @@ struct TuberiaEventEncodingTests {
 
   // MARK: - Case 27: errorThrown
 
-  @Test("errorThrown encodes discriminant, phase rawValue, errorDescription, and optional stepIndex")
+  @Test(
+    "errorThrown encodes discriminant, phase rawValue, errorDescription, and optional stepIndex")
   func testErrorThrown() throws {
     let dict = try roundTrip(
-      .errorThrown(phase: .backboneForward, errorDescription: "NaN in backbone output", stepIndex: 14)
+      .errorThrown(
+        phase: .backboneForward, errorDescription: "NaN in backbone output", stepIndex: 14)
     )
     #expect((dict["case"] as? String) == "errorThrown")
     #expect((dict["phase"] as? String) == "backboneForward")

@@ -47,7 +47,8 @@ struct AcervoEventEncodingTests {
     )
     #expect((dict["case"] as? String) == "downloadOperationStart")
     #expect((dict["modelID"] as? String) == "flux2-klein-4b")
-    #expect((dict["requestedFiles"] as? [String]) == ["transformer.safetensors", "vae.safetensors"])
+    #expect(
+      (dict["requestedFiles"] as? [String]) == ["transformer.safetensors", "vae.safetensors"])
     #expect((dict["offlineMode"] as? Bool) == false)
   }
 

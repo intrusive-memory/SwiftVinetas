@@ -26,13 +26,13 @@ public struct AcervoEventCodable: Encodable {
 
     // MARK: - Lifecycle
 
-    case let .downloadOperationStart(modelID, requestedFiles, offlineMode):
+    case .downloadOperationStart(let modelID, let requestedFiles, let offlineMode):
       try container.encode("downloadOperationStart", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(requestedFiles, forKey: .requestedFiles)
       try container.encode(offlineMode, forKey: .offlineMode)
 
-    case let .downloadOperationComplete(modelID, totalBytes, durationSeconds):
+    case .downloadOperationComplete(let modelID, let totalBytes, let durationSeconds):
       try container.encode("downloadOperationComplete", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(totalBytes, forKey: .totalBytes)
@@ -40,15 +40,16 @@ public struct AcervoEventCodable: Encodable {
 
     // MARK: - Per-component download
 
-    case let .componentDownloadStart(modelID, fileName, expectedBytes, sourceURL):
+    case .componentDownloadStart(let modelID, let fileName, let expectedBytes, let sourceURL):
       try container.encode("componentDownloadStart", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(fileName, forKey: .fileName)
       try container.encodeIfPresent(expectedBytes, forKey: .expectedBytes)
       try container.encode(sourceURL, forKey: .sourceURL)
 
-    case let .componentDownloadComplete(
-      modelID, fileName, actualBytes, durationSeconds, throughputMBps
+    case .componentDownloadComplete(
+      let
+        modelID, let fileName, let actualBytes, let durationSeconds, let throughputMBps
     ):
       try container.encode("componentDownloadComplete", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
@@ -59,12 +60,13 @@ public struct AcervoEventCodable: Encodable {
 
     // MARK: - Manifest fetch
 
-    case let .manifestFetchStart(modelID, manifestURL):
+    case .manifestFetchStart(let modelID, let manifestURL):
       try container.encode("manifestFetchStart", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(manifestURL, forKey: .manifestURL)
 
-    case let .manifestFetchComplete(modelID, manifestVersion, fileCount, totalDeclaredBytes):
+    case .manifestFetchComplete(
+      let modelID, let manifestVersion, let fileCount, let totalDeclaredBytes):
       try container.encode("manifestFetchComplete", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(manifestVersion, forKey: .manifestVersion)
@@ -73,15 +75,16 @@ public struct AcervoEventCodable: Encodable {
 
     // MARK: - Integrity
 
-    case let .integrityVerifyStart(modelID, fileName, expectedSHA, declaredBytes):
+    case .integrityVerifyStart(let modelID, let fileName, let expectedSHA, let declaredBytes):
       try container.encode("integrityVerifyStart", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(fileName, forKey: .fileName)
       try container.encode(expectedSHA, forKey: .expectedSHA)
       try container.encode(declaredBytes, forKey: .declaredBytes)
 
-    case let .integrityVerifyComplete(
-      modelID, fileName, actualSHA, actualBytes, passed, durationSeconds
+    case .integrityVerifyComplete(
+      let
+        modelID, let fileName, let actualSHA, let actualBytes, let passed, let durationSeconds
     ):
       try container.encode("integrityVerifyComplete", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
@@ -93,14 +96,14 @@ public struct AcervoEventCodable: Encodable {
 
     // MARK: - Cache
 
-    case let .cacheHit(modelID, fileName, onDiskBytes, ageSeconds):
+    case .cacheHit(let modelID, let fileName, let onDiskBytes, let ageSeconds):
       try container.encode("cacheHit", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(fileName, forKey: .fileName)
       try container.encode(onDiskBytes, forKey: .onDiskBytes)
       try container.encode(ageSeconds, forKey: .ageSeconds)
 
-    case let .cacheMiss(modelID, fileName, reason):
+    case .cacheMiss(let modelID, let fileName, let reason):
       try container.encode("cacheMiss", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(fileName, forKey: .fileName)
@@ -108,13 +111,14 @@ public struct AcervoEventCodable: Encodable {
 
     // MARK: - Component lifecycle (manifest-destiny, 0.13.1+)
 
-    case let .componentResolveStart(componentID, repoID):
+    case .componentResolveStart(let componentID, let repoID):
       try container.encode("componentResolveStart", forKey: .case)
       try container.encode(componentID, forKey: .componentID)
       try container.encode(repoID, forKey: .repoID)
 
-    case let .componentResolveComplete(
-      componentID, repoID, fileCount, totalBytes, cacheState, durationSeconds
+    case .componentResolveComplete(
+      let
+        componentID, let repoID, let fileCount, let totalBytes, let cacheState, let durationSeconds
     ):
       try container.encode("componentResolveComplete", forKey: .case)
       try container.encode(componentID, forKey: .componentID)
@@ -126,7 +130,7 @@ public struct AcervoEventCodable: Encodable {
 
     // MARK: - File access
 
-    case let .componentFileAccessOpened(componentID, repoID, baseDirectory, fileCount):
+    case .componentFileAccessOpened(let componentID, let repoID, let baseDirectory, let fileCount):
       try container.encode("componentFileAccessOpened", forKey: .case)
       try container.encode(componentID, forKey: .componentID)
       try container.encode(repoID, forKey: .repoID)
@@ -135,7 +139,7 @@ public struct AcervoEventCodable: Encodable {
 
     // MARK: - CDN HTTP
 
-    case let .cdnRequest(method, url, statusCode, latencyMS, byteCount):
+    case .cdnRequest(let method, let url, let statusCode, let latencyMS, let byteCount):
       try container.encode("cdnRequest", forKey: .case)
       try container.encode(method, forKey: .method)
       try container.encode(url, forKey: .url)
@@ -145,7 +149,7 @@ public struct AcervoEventCodable: Encodable {
 
     // MARK: - Boundary memory events
 
-    case let .modelLoadComplete(modelID, totalSizeMB, componentCount):
+    case .modelLoadComplete(let modelID, let totalSizeMB, let componentCount):
       try container.encode("modelLoadComplete", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(totalSizeMB, forKey: .totalSizeMB)
@@ -153,7 +157,7 @@ public struct AcervoEventCodable: Encodable {
 
     // MARK: - Error side-channel
 
-    case let .errorThrown(phase, errorDescription, modelID, fileName):
+    case .errorThrown(let phase, let errorDescription, let modelID, let fileName):
       try container.encode("errorThrown", forKey: .case)
       try container.encode(phase.rawValue, forKey: .phase)
       try container.encode(errorDescription, forKey: .errorDescription)

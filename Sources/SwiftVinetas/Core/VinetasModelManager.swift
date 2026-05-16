@@ -72,7 +72,11 @@ public enum VinetasModelManager: Sendable {
   ///
   /// - Parameter model: The model descriptor to check.
   /// - Returns: `true` if the model is cached and ready to use.
-  @available(*, deprecated, renamed: "isModelAvailable(_:)", message: "Pass the model's modelId string instead — e.g. isModelAvailable(model.id). The descriptor form will be removed in a future release.")
+  @available(
+    *, deprecated, renamed: "isModelAvailable(_:)",
+    message:
+      "Pass the model's modelId string instead — e.g. isModelAvailable(model.id). The descriptor form will be removed in a future release."
+  )
   public static func isAvailable(_ model: any ModelDescriptor) async throws -> Bool {
     Self.isModelAvailable(model.id)
   }
@@ -197,7 +201,11 @@ public enum VinetasModelManager: Sendable {
   ///
   /// - Parameter model: The legacy model variant to check.
   /// - Returns: `true` if the model is cached and ready to use.
-  @available(*, deprecated, renamed: "isModelAvailable(_:)", message: "Use isModelAvailable(_ modelId: String) with the HuggingFace repo id (e.g. model.repoId).")
+  @available(
+    *, deprecated, renamed: "isModelAvailable(_:)",
+    message:
+      "Use isModelAvailable(_ modelId: String) with the HuggingFace repo id (e.g. model.repoId)."
+  )
   public static func isAvailable(_ model: VinetasModel) -> Bool {
     Self.isModelAvailable(model.repoId)
   }

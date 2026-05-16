@@ -54,7 +54,9 @@ struct VinetasTelemetryPropagationTests {
       if case .engineNotFound = $0 { return true }
       return false
     }
-    #expect(engineNotFoundEvent != nil, "EngineRouter should emit engineNotFound when model is unroutable")
+    #expect(
+      engineNotFoundEvent != nil, "EngineRouter should emit engineNotFound when model is unroutable"
+    )
   }
 
   /// setTelemetry propagates to all registered engines: an engine-level event

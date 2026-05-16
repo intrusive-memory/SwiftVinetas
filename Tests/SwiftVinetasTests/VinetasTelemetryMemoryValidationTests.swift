@@ -42,8 +42,14 @@ struct VinetasTelemetryMemoryValidationTests {
 
     _ = try await client.validateMemory(for: model)
 
-    let startEvent = mock.first { if case .memoryValidationStart = $0 { return true }; return false }
-    let resultEvent = mock.first { if case .memoryValidationResult = $0 { return true }; return false }
+    let startEvent = mock.first {
+      if case .memoryValidationStart = $0 { return true }
+      return false
+    }
+    let resultEvent = mock.first {
+      if case .memoryValidationResult = $0 { return true }
+      return false
+    }
     #expect(startEvent != nil, "memoryValidationStart must be emitted")
     #expect(resultEvent != nil, "memoryValidationResult must be emitted")
   }
@@ -57,8 +63,14 @@ struct VinetasTelemetryMemoryValidationTests {
     _ = try await client.validateMemory(for: model)
 
     let events = mock.events
-    let startIdx = events.firstIndex { if case .memoryValidationStart = $0 { return true }; return false }
-    let resultIdx = events.firstIndex { if case .memoryValidationResult = $0 { return true }; return false }
+    let startIdx = events.firstIndex {
+      if case .memoryValidationStart = $0 { return true }
+      return false
+    }
+    let resultIdx = events.firstIndex {
+      if case .memoryValidationResult = $0 { return true }
+      return false
+    }
 
     guard let si = startIdx, let ri = resultIdx else {
       Issue.record("Missing memoryValidationStart or memoryValidationResult")
@@ -77,7 +89,12 @@ struct VinetasTelemetryMemoryValidationTests {
 
     _ = try await client.validateMemory(for: model)
 
-    guard let resultEvent = mock.first(matching: { if case .memoryValidationResult = $0 { return true }; return false }) else {
+    guard
+      let resultEvent = mock.first(matching: {
+        if case .memoryValidationResult = $0 { return true }
+        return false
+      })
+    else {
       Issue.record("No memoryValidationResult event")
       return
     }
@@ -94,29 +111,43 @@ struct VinetasTelemetryMemoryValidationTests {
 
     _ = try await client.validateMemory(for: model)
 
-    guard let resultEvent = mock.first(matching: { if case .memoryValidationResult = $0 { return true }; return false }) else {
+    guard
+      let resultEvent = mock.first(matching: {
+        if case .memoryValidationResult = $0 { return true }
+        return false
+      })
+    else {
       Issue.record("No memoryValidationResult event")
       return
     }
     if case .memoryValidationResult(_, _, let verdict, _, _) = resultEvent {
-      #expect(verdict == .warningMarginal, "MemoryValidation.warning must map to .warningMarginal verdict")
+      #expect(
+        verdict == .warningMarginal, "MemoryValidation.warning must map to .warningMarginal verdict"
+      )
     }
   }
 
   /// MemoryValidation.insufficient → MemoryVerdict.insufficient
   @Test func verdictInsufficientMapsInsufficient() async throws {
-    let (client, _, model) = makeClient(validateMemoryResult: .insufficient(required: 16_000_000_000, available: 8_000_000_000))
+    let (client, _, model) = makeClient(
+      validateMemoryResult: .insufficient(required: 16_000_000_000, available: 8_000_000_000))
     let mock = MockVinetasReporter()
     await client.setTelemetry(mock)
 
     _ = try await client.validateMemory(for: model)
 
-    guard let resultEvent = mock.first(matching: { if case .memoryValidationResult = $0 { return true }; return false }) else {
+    guard
+      let resultEvent = mock.first(matching: {
+        if case .memoryValidationResult = $0 { return true }
+        return false
+      })
+    else {
       Issue.record("No memoryValidationResult event")
       return
     }
     if case .memoryValidationResult(_, _, let verdict, _, _) = resultEvent {
-      #expect(verdict == .insufficient, "MemoryValidation.insufficient must map to .insufficient verdict")
+      #expect(
+        verdict == .insufficient, "MemoryValidation.insufficient must map to .insufficient verdict")
     }
   }
 
@@ -130,11 +161,18 @@ struct VinetasTelemetryMemoryValidationTests {
 
     _ = try await client.validateMemory(for: model)
 
-    guard let startEvent = mock.first(matching: { if case .memoryValidationStart = $0 { return true }; return false }) else {
+    guard
+      let startEvent = mock.first(matching: {
+        if case .memoryValidationStart = $0 { return true }
+        return false
+      })
+    else {
       Issue.record("No memoryValidationStart event")
       return
     }
-    if case .memoryValidationStart(let modelID, let engineID, let required, let available) = startEvent {
+    if case .memoryValidationStart(let modelID, let engineID, let required, let available) =
+      startEvent
+    {
       #expect(modelID == "mem-model")
       #expect(engineID == "mem-engine")
       #expect(required > 0, "estimatedRequiredMB must be positive (derived from minimumMemoryGB)")
@@ -150,11 +188,18 @@ struct VinetasTelemetryMemoryValidationTests {
 
     _ = try await client.validateMemory(for: model)
 
-    guard let resultEvent = mock.first(matching: { if case .memoryValidationResult = $0 { return true }; return false }) else {
+    guard
+      let resultEvent = mock.first(matching: {
+        if case .memoryValidationResult = $0 { return true }
+        return false
+      })
+    else {
       Issue.record("No memoryValidationResult event")
       return
     }
-    if case .memoryValidationResult(let modelID, let engineID, _, let required, let available) = resultEvent {
+    if case .memoryValidationResult(let modelID, let engineID, _, let required, let available) =
+      resultEvent
+    {
       #expect(modelID == "mem-model")
       #expect(engineID == "mem-engine")
       #expect(required > 0)
@@ -171,8 +216,14 @@ struct VinetasTelemetryMemoryValidationTests {
     _ = try await client.validateMemory(for: model)
     _ = try await client.validateMemory(for: model)
 
-    let starts = mock.all { if case .memoryValidationStart = $0 { return true }; return false }
-    let results = mock.all { if case .memoryValidationResult = $0 { return true }; return false }
+    let starts = mock.all {
+      if case .memoryValidationStart = $0 { return true }
+      return false
+    }
+    let results = mock.all {
+      if case .memoryValidationResult = $0 { return true }
+      return false
+    }
     #expect(starts.count == 2, "Two validateMemory calls → two memoryValidationStart events")
     #expect(results.count == 2, "Two validateMemory calls → two memoryValidationResult events")
   }

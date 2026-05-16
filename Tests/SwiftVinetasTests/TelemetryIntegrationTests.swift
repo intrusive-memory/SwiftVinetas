@@ -164,7 +164,7 @@ final class TelemetryIntegrationTests: XCTestCase {
     // Test C (PixArt) is where {vinetas, pixart, tuberia} get asserted together.
     let kinds = Set(envelopes.compactMap { $0["kind"] as? String })
     XCTAssertTrue(kinds.contains("vinetas"), "Expected 'vinetas' kind in trace; got: \(kinds)")
-    XCTAssertTrue(kinds.contains("flux2"),   "Expected 'flux2' kind in trace; got: \(kinds)")
+    XCTAssertTrue(kinds.contains("flux2"), "Expected 'flux2' kind in trace; got: \(kinds)")
     // PixArt events are not expected for a Flux2 generation.
     // tuberia and acervo are not asserted for Klein 4B — see doc-comment above.
 
@@ -190,15 +190,19 @@ final class TelemetryIntegrationTests: XCTestCase {
       return (idx, c)
     }
     let startIdx = allCasePairs.first(where: { $0.1 == "generationStart" })?.0
-    let endIdx   = allCasePairs.first(where: { $0.1 == "generationEnd" })?.0
-    let selIdx   = allCasePairs.first(where: { $0.1 == "engineSelected" })?.0
+    let endIdx = allCasePairs.first(where: { $0.1 == "generationEnd" })?.0
+    let selIdx = allCasePairs.first(where: { $0.1 == "engineSelected" })?.0
 
     XCTAssertNotNil(startIdx, "generationStart not found in trace")
-    XCTAssertNotNil(endIdx,   "generationEnd not found in trace")
-    XCTAssertNotNil(selIdx,   "engineSelected not found in trace")
+    XCTAssertNotNil(endIdx, "generationEnd not found in trace")
+    XCTAssertNotNil(selIdx, "engineSelected not found in trace")
 
-    if let s = startIdx, let e = endIdx   { XCTAssertLessThan(s, e, "generationStart must precede generationEnd") }
-    if let s = startIdx, let sel = selIdx { XCTAssertLessThan(s, sel, "generationStart must precede engineSelected") }
+    if let s = startIdx, let e = endIdx {
+      XCTAssertLessThan(s, e, "generationStart must precede generationEnd")
+    }
+    if let s = startIdx, let sel = selIdx {
+      XCTAssertLessThan(s, sel, "generationStart must precede engineSelected")
+    }
 
     // 9. Assert generationStart payload carries the request verbatim.
     if let startEnvIdx = startIdx {
@@ -213,16 +217,17 @@ final class TelemetryIntegrationTests: XCTestCase {
       } else {
         XCTFail("generationStart payload missing 'seed'")
       }
-      XCTAssertEqual(startPayload["width"]  as? Int, 512)
+      XCTAssertEqual(startPayload["width"] as? Int, 512)
       XCTAssertEqual(startPayload["height"] as? Int, 512)
-      XCTAssertEqual(startPayload["mode"]   as? String, "textToImage")
+      XCTAssertEqual(startPayload["mode"] as? String, "textToImage")
       XCTAssertEqual(startPayload["engineID"] as? String, "flux2")
     }
 
     // 10. Assert generationEnd success.
     if let endEnvIdx = endIdx {
       let endPayload = payload(envelopes[endEnvIdx])
-      XCTAssertEqual(endPayload["success"] as? Bool, true,
+      XCTAssertEqual(
+        endPayload["success"] as? Bool, true,
         "generationEnd.success must be true on the happy path")
       let duration = endPayload["durationSeconds"] as? Double ?? 0
       XCTAssertGreaterThan(duration, 0, "generationEnd.durationSeconds must be > 0")
@@ -360,7 +365,8 @@ final class TelemetryIntegrationTests: XCTestCase {
     // PixArt routing must produce "pixart" events.
     XCTAssertTrue(kinds.contains("pixart"), "Expected 'pixart' kind in trace; got: \(kinds)")
     // Must NOT contain flux2 events on a PixArt-only generation.
-    XCTAssertFalse(kinds.contains("flux2"), "Did not expect 'flux2' kind for a PixArt generation; got: \(kinds)")
+    XCTAssertFalse(
+      kinds.contains("flux2"), "Did not expect 'flux2' kind for a PixArt generation; got: \(kinds)")
 
     // Acervo routing assertion (TODO 2026-05-16 item 3).
     //
@@ -374,8 +380,8 @@ final class TelemetryIntegrationTests: XCTestCase {
     XCTAssertTrue(
       kinds.contains("acervo"),
       "Expected 'acervo' kind in trace — PixArt path uses Acervo.ensureComponentReady "
-      + "+ withComponentAccess and the bootstrap installs AcervoManager.shared.setTelemetry. "
-      + "Got kinds: \(kinds)"
+        + "+ withComponentAccess and the bootstrap installs AcervoManager.shared.setTelemetry. "
+        + "Got kinds: \(kinds)"
     )
 
     // At least one of the cache-state-bearing events must appear so the assertion

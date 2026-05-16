@@ -35,7 +35,8 @@ struct TelemetryJSONLSinkSmokeTests {
     let data = try Data(contentsOf: traceURL)
 
     // 3. Split on newline — expect exactly one non-empty line.
-    let lines = data
+    let lines =
+      data
       .split(separator: 0x0A)
       .filter { !$0.isEmpty }
     #expect(lines.count == 1, "Expected exactly one JSONL line, got \(lines.count)")

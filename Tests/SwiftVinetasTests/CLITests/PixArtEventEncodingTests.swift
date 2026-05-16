@@ -62,7 +62,8 @@ struct PixArtEventEncodingTests {
   func testWeightUnloadComplete() throws {
     let dict = try roundTrip(.weightUnloadComplete)
     #expect((dict["case"] as? String) == "weightUnloadComplete")
-    #expect(dict.count == 1, "weightUnloadComplete should have exactly 1 key, got \(dict.keys.sorted())")
+    #expect(
+      dict.count == 1, "weightUnloadComplete should have exactly 1 key, got \(dict.keys.sorted())")
   }
 
   // MARK: - Case 3: recipeValidated

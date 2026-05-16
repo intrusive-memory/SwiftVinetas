@@ -77,7 +77,10 @@ struct TelemetryJSONLSinkTests {
     // Every line must be valid JSON.
     for (idx, lineData) in allLines.enumerated() {
       let obj = try? JSONSerialization.jsonObject(with: Data(lineData))
-      #expect(obj != nil, "Line \(idx) is not valid JSON: \(String(data: Data(lineData), encoding: .utf8) ?? "<binary>")")
+      #expect(
+        obj != nil,
+        "Line \(idx) is not valid JSON: \(String(data: Data(lineData), encoding: .utf8) ?? "<binary>")"
+      )
     }
   }
 
@@ -113,7 +116,7 @@ struct TelemetryJSONLSinkTests {
     #expect(allLines.count == 1, "Expected one line for timestamp check")
 
     guard let dict = try JSONSerialization.jsonObject(with: Data(allLines[0])) as? [String: Any],
-          let tsString = dict["timestamp"] as? String
+      let tsString = dict["timestamp"] as? String
     else {
       Issue.record("Line is not a JSON object with a 'timestamp' string key")
       return
@@ -168,7 +171,8 @@ struct TelemetryJSONLSinkTests {
     }
 
     let sink = try TelemetryJSONLSink(traceURL: url)
-    await sink.write(kind: "slash", payload: URLPayload(path: "/Library/Caches/vinetas/telemetry/trace.jsonl"))
+    await sink.write(
+      kind: "slash", payload: URLPayload(path: "/Library/Caches/vinetas/telemetry/trace.jsonl"))
     await sink.close()
 
     let allLines = try lines(at: url)

@@ -28,29 +28,32 @@ public struct VinetasEventCodable: Encodable {
 
     // MARK: - Client lifecycle
 
-    case let .clientInitialized(version, registeredEngines, deviceMemoryGB, deviceArch):
+    case .clientInitialized(let version, let registeredEngines, let deviceMemoryGB, let deviceArch):
       try container.encode("clientInitialized", forKey: .case)
       try container.encode(version, forKey: .version)
       try container.encode(registeredEngines, forKey: .registeredEngines)
       try container.encode(deviceMemoryGB, forKey: .deviceMemoryGB)
       try container.encode(deviceArch, forKey: .deviceArch)
 
-    case let .engineRegistered(engineID, reason):
+    case .engineRegistered(let engineID, let reason):
       try container.encode("engineRegistered", forKey: .case)
       try container.encode(engineID, forKey: .engineID)
       try container.encode(reason, forKey: .reason)
 
-    case let .engineSkipped(engineID, reason):
+    case .engineSkipped(let engineID, let reason):
       try container.encode("engineSkipped", forKey: .case)
       try container.encode(engineID, forKey: .engineID)
       try container.encode(reason, forKey: .reason)
 
     // MARK: - Generation request handoff
 
-    case let .generationStart(
-      prompt, promptLength, engineID, modelID, steps, guidanceScale, seed,
-      width, height, mode, referenceImageCount, loraAttached, loraScale,
-      upsamplePromptRequested, interpretImageCount
+    case .generationStart(
+      let
+        prompt, let promptLength, let engineID, let modelID, let steps, let guidanceScale, let seed,
+      let
+        width, let height, let mode, let referenceImageCount, let loraAttached, let loraScale,
+      let
+        upsamplePromptRequested, let interpretImageCount
     ):
       try container.encode("generationStart", forKey: .case)
       try container.encode(prompt, forKey: .prompt)
@@ -69,7 +72,8 @@ public struct VinetasEventCodable: Encodable {
       try container.encode(upsamplePromptRequested, forKey: .upsamplePromptRequested)
       try container.encode(interpretImageCount, forKey: .interpretImageCount)
 
-    case let .generationEnd(engineID, modelID, success, durationSeconds, outputDims, actualSeed):
+    case .generationEnd(
+      let engineID, let modelID, let success, let durationSeconds, let outputDims, let actualSeed):
       try container.encode("generationEnd", forKey: .case)
       try container.encode(engineID, forKey: .engineID)
       try container.encode(modelID, forKey: .modelID)
@@ -80,20 +84,21 @@ public struct VinetasEventCodable: Encodable {
 
     // MARK: - Engine routing
 
-    case let .engineSelected(engineID, modelID, requestedFeature, fallbackUsed):
+    case .engineSelected(let engineID, let modelID, let requestedFeature, let fallbackUsed):
       try container.encode("engineSelected", forKey: .case)
       try container.encode(engineID, forKey: .engineID)
       try container.encode(modelID, forKey: .modelID)
       try container.encodeIfPresent(requestedFeature, forKey: .requestedFeature)
       try container.encode(fallbackUsed, forKey: .fallbackUsed)
 
-    case let .engineNotFound(modelID, requestedEngineID):
+    case .engineNotFound(let modelID, let requestedEngineID):
       try container.encode("engineNotFound", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(requestedEngineID, forKey: .requestedEngineID)
 
-    case let .engineFeatureNegotiated(
-      engineID, requestedFeatures, supportedFeatures, unsupportedFeatures
+    case .engineFeatureNegotiated(
+      let
+        engineID, let requestedFeatures, let supportedFeatures, let unsupportedFeatures
     ):
       try container.encode("engineFeatureNegotiated", forKey: .case)
       try container.encode(engineID, forKey: .engineID)
@@ -103,14 +108,15 @@ public struct VinetasEventCodable: Encodable {
 
     // MARK: - Memory pre-validation
 
-    case let .memoryValidationStart(modelID, engineID, estimatedRequiredMB, availableMB):
+    case .memoryValidationStart(let modelID, let engineID, let estimatedRequiredMB, let availableMB):
       try container.encode("memoryValidationStart", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(engineID, forKey: .engineID)
       try container.encode(estimatedRequiredMB, forKey: .estimatedRequiredMB)
       try container.encode(availableMB, forKey: .availableMB)
 
-    case let .memoryValidationResult(modelID, engineID, verdict, requiredMB, availableMB):
+    case .memoryValidationResult(
+      let modelID, let engineID, let verdict, let requiredMB, let availableMB):
       try container.encode("memoryValidationResult", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(engineID, forKey: .engineID)
@@ -120,34 +126,34 @@ public struct VinetasEventCodable: Encodable {
 
     // MARK: - Model lifecycle
 
-    case let .modelLoadStart(modelID, engineID):
+    case .modelLoadStart(let modelID, let engineID):
       try container.encode("modelLoadStart", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(engineID, forKey: .engineID)
 
-    case let .modelLoadComplete(modelID, engineID, durationSeconds):
+    case .modelLoadComplete(let modelID, let engineID, let durationSeconds):
       try container.encode("modelLoadComplete", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(engineID, forKey: .engineID)
       try container.encode(durationSeconds, forKey: .durationSeconds)
 
-    case let .modelUnload(modelID, engineID):
+    case .modelUnload(let modelID, let engineID):
       try container.encode("modelUnload", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(engineID, forKey: .engineID)
 
-    case let .modelAvailabilityChecked(modelID, available):
+    case .modelAvailabilityChecked(let modelID, let available):
       try container.encode("modelAvailabilityChecked", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
       try container.encode(available, forKey: .available)
 
-    case let .modelDeleted(modelID):
+    case .modelDeleted(let modelID):
       try container.encode("modelDeleted", forKey: .case)
       try container.encode(modelID, forKey: .modelID)
 
     // MARK: - Concurrency gate
 
-    case let .concurrencyGateRejected(engineID, modelID, reason):
+    case .concurrencyGateRejected(let engineID, let modelID, let reason):
       try container.encode("concurrencyGateRejected", forKey: .case)
       try container.encode(engineID, forKey: .engineID)
       try container.encode(modelID, forKey: .modelID)
@@ -155,13 +161,13 @@ public struct VinetasEventCodable: Encodable {
 
     // MARK: - LoRA
 
-    case let .loraAttachStart(engineID, sourceURL, scale):
+    case .loraAttachStart(let engineID, let sourceURL, let scale):
       try container.encode("loraAttachStart", forKey: .case)
       try container.encode(engineID, forKey: .engineID)
       try container.encode(sourceURL, forKey: .sourceURL)
       try container.encode(scale, forKey: .scale)
 
-    case let .loraAttachComplete(engineID, sourceURL, durationSeconds):
+    case .loraAttachComplete(let engineID, let sourceURL, let durationSeconds):
       try container.encode("loraAttachComplete", forKey: .case)
       try container.encode(engineID, forKey: .engineID)
       try container.encode(sourceURL, forKey: .sourceURL)
@@ -169,12 +175,13 @@ public struct VinetasEventCodable: Encodable {
 
     // MARK: - Image understanding side-channels
 
-    case let .classifierForwardStart(imageDims):
+    case .classifierForwardStart(let imageDims):
       try container.encode("classifierForwardStart", forKey: .case)
       try container.encode(imageDims, forKey: .imageDims)
 
-    case let .classifierForwardComplete(
-      topLabel, topScore, top5Labels, top5Scores, durationSeconds
+    case .classifierForwardComplete(
+      let
+        topLabel, let topScore, let top5Labels, let top5Scores, let durationSeconds
     ):
       try container.encode("classifierForwardComplete", forKey: .case)
       try container.encode(topLabel, forKey: .topLabel)
@@ -183,11 +190,11 @@ public struct VinetasEventCodable: Encodable {
       try container.encode(top5Scores, forKey: .top5Scores)
       try container.encode(durationSeconds, forKey: .durationSeconds)
 
-    case let .featureExtractionStart(imageDims):
+    case .featureExtractionStart(let imageDims):
       try container.encode("featureExtractionStart", forKey: .case)
       try container.encode(imageDims, forKey: .imageDims)
 
-    case let .featureExtractionComplete(featureDim, featureStat, durationSeconds):
+    case .featureExtractionComplete(let featureDim, let featureStat, let durationSeconds):
       try container.encode("featureExtractionComplete", forKey: .case)
       try container.encode(featureDim, forKey: .featureDim)
       // TuberiaTensorStat is Codable — encode verbatim, no new fields added.
@@ -196,7 +203,7 @@ public struct VinetasEventCodable: Encodable {
 
     // MARK: - Error side-channel
 
-    case let .errorThrown(phase, errorDescription):
+    case .errorThrown(let phase, let errorDescription):
       try container.encode("errorThrown", forKey: .case)
       try container.encode(phase.rawValue, forKey: .phase)
       try container.encode(errorDescription, forKey: .errorDescription)

@@ -82,7 +82,9 @@ final class CLITelemetryBootstrapSmokeTest: XCTestCase {
     for (i, line) in lines.enumerated() {
       let obj = try JSONSerialization.jsonObject(with: Data(line))
       guard let dict = obj as? [String: Any] else {
-        XCTFail("Line \(i) is not a JSON object: \(String(data: Data(line), encoding: .utf8) ?? "<binary>")")
+        XCTFail(
+          "Line \(i) is not a JSON object: \(String(data: Data(line), encoding: .utf8) ?? "<binary>")"
+        )
         continue
       }
       XCTAssertNotNil(dict["timestamp"], "Line \(i) missing 'timestamp'")

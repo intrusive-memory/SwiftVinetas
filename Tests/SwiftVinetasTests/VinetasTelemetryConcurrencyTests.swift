@@ -67,13 +67,15 @@ private actor ConcurrencyGateMockEngine: ImageGenerationEngine {
     stepProgress: (@Sendable (Int, Int, TimeInterval) -> Void)?
   ) async throws -> GenerationResult {
     guard !isGenerating else {
-      await telemetry?.capture(.concurrencyGateRejected(
-        engineID: engineID,
-        modelID: loadedModelID,
-        reason: "Generation already in progress."))
-      await telemetry?.capture(.errorThrown(
-        phase: .generationConcurrency,
-        errorDescription: "generationFailed: Generation already in progress (\(engineID))."))
+      await telemetry?.capture(
+        .concurrencyGateRejected(
+          engineID: engineID,
+          modelID: loadedModelID,
+          reason: "Generation already in progress."))
+      await telemetry?.capture(
+        .errorThrown(
+          phase: .generationConcurrency,
+          errorDescription: "generationFailed: Generation already in progress (\(engineID))."))
       throw VinetasError.generationFailed(
         "Generation already in progress. MLX does not support concurrent pipeline execution."
       )
@@ -151,7 +153,9 @@ struct VinetasTelemetryConcurrencyTests {
       if case .concurrencyGateRejected = $0 { return true }
       return false
     }
-    #expect(rejections.count >= 1, "concurrencyGateRejected must fire when concurrent generate() is rejected")
+    #expect(
+      rejections.count >= 1,
+      "concurrencyGateRejected must fire when concurrent generate() is rejected")
   }
 
   /// The rejected path emits errorThrown(phase: .generationConcurrency).
@@ -172,7 +176,9 @@ struct VinetasTelemetryConcurrencyTests {
       if case .errorThrown(let phase, _) = $0, phase == .generationConcurrency { return true }
       return false
     }
-    #expect(concurrencyErrors.count >= 1, "errorThrown(phase: .generationConcurrency) must fire on gate rejection")
+    #expect(
+      concurrencyErrors.count >= 1,
+      "errorThrown(phase: .generationConcurrency) must fire on gate rejection")
   }
 
   /// concurrencyGateRejected precedes errorThrown(phase: .generationConcurrency) in capture order.
@@ -249,10 +255,11 @@ struct VinetasTelemetryConcurrencyTests {
     // If concurrency actually raced, at least one failure end fires.
     // If Tasks ran sequentially (no race), both succeed — that's acceptable for a unit test.
     // We only assert the failure end WHEN a rejection was observed.
-    let hadRejection = mock.first {
-      if case .concurrencyGateRejected = $0 { return true }
-      return false
-    } != nil
+    let hadRejection =
+      mock.first {
+        if case .concurrencyGateRejected = $0 { return true }
+        return false
+      } != nil
 
     if hadRejection {
       #expect(failureEnds.count >= 1, "A rejection must produce generationEnd(success: false)")

@@ -28,7 +28,7 @@ public struct PixArtEventCodable: Encodable {
 
     // MARK: - Resource lifecycle
 
-    case let .weightLoadComplete(component, paramCount, durationSeconds):
+    case .weightLoadComplete(let component, let paramCount, let durationSeconds):
       try container.encode("weightLoadComplete", forKey: .case)
       try container.encode(component.rawValue, forKey: .component)
       try container.encode(paramCount, forKey: .paramCount)
@@ -39,12 +39,12 @@ public struct PixArtEventCodable: Encodable {
 
     // MARK: - Recipe configuration
 
-    case let .recipeValidated(name, checksPassed):
+    case .recipeValidated(let name, let checksPassed):
       try container.encode("recipeValidated", forKey: .case)
       try container.encode(name, forKey: .name)
       try container.encode(checksPassed, forKey: .checksPassed)
 
-    case let .recipeValidationFailed(name, check, reason):
+    case .recipeValidationFailed(let name, let check, let reason):
       try container.encode("recipeValidationFailed", forKey: .case)
       try container.encode(name, forKey: .name)
       try container.encode(check, forKey: .check)
@@ -52,21 +52,21 @@ public struct PixArtEventCodable: Encodable {
 
     // MARK: - Forward-pass output statistics
 
-    case let .backboneForwardComplete(stat):
+    case .backboneForwardComplete(let stat):
       try container.encode("backboneForwardComplete", forKey: .case)
       // TuberiaTensorStat is Codable — encode verbatim.
       try container.encode(stat, forKey: .stat)
 
     // MARK: - Side channels
 
-    case let .numericalAnomaly(phase, kind, stat):
+    case .numericalAnomaly(let phase, let kind, let stat):
       try container.encode("numericalAnomaly", forKey: .case)
       try container.encode(phase.rawValue, forKey: .phase)
       try container.encode(kind.rawValue, forKey: .kind)
       // TuberiaTensorStat is Codable — encode verbatim.
       try container.encode(stat, forKey: .stat)
 
-    case let .errorThrown(phase, errorDescription):
+    case .errorThrown(let phase, let errorDescription):
       try container.encode("errorThrown", forKey: .case)
       try container.encode(phase.rawValue, forKey: .phase)
       try container.encode(errorDescription, forKey: .errorDescription)

@@ -108,16 +108,23 @@ struct VinetasTelemetryEngineRoutingTests {
   /// engineNotFound carries the correct modelID and requestedEngineID.
   @Test func engineNotFoundEventFields() async throws {
     let model = MockModelDescriptor(id: "target-model", engineID: "missing-engine")
-    let engine = MockEngine(engineID: "present", supportedModels: [
-      MockModelDescriptor(id: "other-model", engineID: "present")
-    ])
+    let engine = MockEngine(
+      engineID: "present",
+      supportedModels: [
+        MockModelDescriptor(id: "other-model", engineID: "present")
+      ])
     let (client, _) = makeRouter(engines: [engine])
     let mock = MockVinetasReporter()
     await client.setTelemetry(mock)
 
     _ = try? await client.generate(prompt: "any", model: model)
 
-    guard let event = mock.first(matching: { if case .engineNotFound = $0 { return true }; return false }) else {
+    guard
+      let event = mock.first(matching: {
+        if case .engineNotFound = $0 { return true }
+        return false
+      })
+    else {
       Issue.record("No engineNotFound event captured")
       return
     }

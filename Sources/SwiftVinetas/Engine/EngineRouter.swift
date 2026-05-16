@@ -65,8 +65,10 @@ public actor EngineRouter {
   ///           with the model's `engineID`.
   public func engine(for model: any ModelDescriptor) async throws -> any ImageGenerationEngine {
     guard let engine = enginesByID[model.engineID] else {
-      await telemetry?.capture(.engineNotFound(modelID: model.id, requestedEngineID: model.engineID))
-      await telemetry?.capture(.errorThrown(
+      await telemetry?.capture(
+        .engineNotFound(modelID: model.id, requestedEngineID: model.engineID))
+      await telemetry?.capture(
+        .errorThrown(
           phase: .engineNotFound,
           errorDescription:
             "engineNotFound(engineID: \(model.engineID)) for modelID: \(model.id)"))
@@ -90,7 +92,8 @@ public actor EngineRouter {
   public func engine(forEngineID engineID: String) async throws -> any ImageGenerationEngine {
     guard let engine = enginesByID[engineID] else {
       await telemetry?.capture(.engineNotFound(modelID: "", requestedEngineID: engineID))
-      await telemetry?.capture(.errorThrown(
+      await telemetry?.capture(
+        .errorThrown(
           phase: .engineNotFound,
           errorDescription: "engineNotFound(engineID: \(engineID))"))
       throw VinetasError.engineNotFound(engineID: engineID)

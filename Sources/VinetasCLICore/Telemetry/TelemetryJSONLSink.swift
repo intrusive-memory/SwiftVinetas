@@ -31,20 +31,20 @@ public func defaultTraceURL() -> URL {
 /// Returns the per-platform user cache directory base.
 private func cacheDirectory() -> URL {
   #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-  // Apple platforms: ~/Library/Caches
-  return FileManager.default.urls(
-    for: .cachesDirectory,
-    in: .userDomainMask
-  ).first ?? URL(fileURLWithPath: NSTemporaryDirectory())
+    // Apple platforms: ~/Library/Caches
+    return FileManager.default.urls(
+      for: .cachesDirectory,
+      in: .userDomainMask
+    ).first ?? URL(fileURLWithPath: NSTemporaryDirectory())
   #else
-  // Linux / CI: honour $XDG_CACHE_HOME, then default to ~/.cache
-  if let xdgCache = ProcessInfo.processInfo.environment["XDG_CACHE_HOME"],
-    !xdgCache.isEmpty
-  {
-    return URL(fileURLWithPath: xdgCache)
-  }
-  let home = ProcessInfo.processInfo.environment["HOME"] ?? "/tmp"
-  return URL(fileURLWithPath: home).appendingPathComponent(".cache", isDirectory: true)
+    // Linux / CI: honour $XDG_CACHE_HOME, then default to ~/.cache
+    if let xdgCache = ProcessInfo.processInfo.environment["XDG_CACHE_HOME"],
+      !xdgCache.isEmpty
+    {
+      return URL(fileURLWithPath: xdgCache)
+    }
+    let home = ProcessInfo.processInfo.environment["HOME"] ?? "/tmp"
+    return URL(fileURLWithPath: home).appendingPathComponent(".cache", isDirectory: true)
   #endif
 }
 

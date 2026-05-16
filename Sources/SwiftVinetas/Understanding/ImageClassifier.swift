@@ -100,13 +100,14 @@ public actor ImageClassifier {
     // --- Telemetry: classifierForwardComplete ---
     let forwardDuration = Date().timeIntervalSince(forwardStart)
     let top5 = Array(results.prefix(5))
-    await telemetry?.capture(.classifierForwardComplete(
-      topLabel: topResults.first?.label ?? "",
-      topScore: Double(topResults.first?.confidence ?? 0),
-      top5Labels: top5.map(\.label),
-      top5Scores: top5.map { Double($0.confidence) },
-      durationSeconds: forwardDuration
-    ))
+    await telemetry?.capture(
+      .classifierForwardComplete(
+        topLabel: topResults.first?.label ?? "",
+        topScore: Double(topResults.first?.confidence ?? 0),
+        top5Labels: top5.map(\.label),
+        top5Scores: top5.map { Double($0.confidence) },
+        durationSeconds: forwardDuration
+      ))
 
     return topResults
   }
@@ -121,10 +122,11 @@ public actor ImageClassifier {
   ///           plus any errors from `classify(image:topK:)`.
   public func classify(file url: URL, topK: Int = 5) async throws -> [Classification] {
     guard let cgImage = loadCGImage(from: url) else {
-      await telemetry?.capture(.errorThrown(
-        phase: .classifierForward,
-        errorDescription: "Could not load image from \(url.path)"
-      ))
+      await telemetry?.capture(
+        .errorThrown(
+          phase: .classifierForward,
+          errorDescription: "Could not load image from \(url.path)"
+        ))
       throw VinetasError.generationFailed("Could not load image from \(url.path)")
     }
     return try await classify(image: cgImage, topK: topK)
@@ -153,8 +155,10 @@ public actor ImageClassifier {
     do {
       try await Acervo.ensureComponentReady(Self.componentId, progress: { _ in })
     } catch {
-      let description = "Failed to download ViT-B/16 weights for component \(Self.componentId): \(error.localizedDescription)"
-      await telemetry?.capture(.errorThrown(phase: .classifierForward, errorDescription: description))
+      let description =
+        "Failed to download ViT-B/16 weights for component \(Self.componentId): \(error.localizedDescription)"
+      await telemetry?.capture(
+        .errorThrown(phase: .classifierForward, errorDescription: description))
       throw VinetasError.downloadFailed(description)
     }
 
@@ -176,8 +180,10 @@ public actor ImageClassifier {
         try handle.url(matching: ".safetensors")
       }
     } catch {
-      let description = "Could not locate .safetensors for component \(Self.componentId): \(error.localizedDescription)"
-      await telemetry?.capture(.errorThrown(phase: .classifierForward, errorDescription: description))
+      let description =
+        "Could not locate .safetensors for component \(Self.componentId): \(error.localizedDescription)"
+      await telemetry?.capture(
+        .errorThrown(phase: .classifierForward, errorDescription: description))
       throw VinetasError.modelNotFound(description)
     }
 
@@ -185,8 +191,10 @@ public actor ImageClassifier {
     do {
       weights = try loadArrays(url: weightsURL)
     } catch {
-      let description = "Failed to load weights for component \(Self.componentId): \(error.localizedDescription)"
-      await telemetry?.capture(.errorThrown(phase: .classifierForward, errorDescription: description))
+      let description =
+        "Failed to load weights for component \(Self.componentId): \(error.localizedDescription)"
+      await telemetry?.capture(
+        .errorThrown(phase: .classifierForward, errorDescription: description))
       throw VinetasError.generationFailed(description)
     }
 

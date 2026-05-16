@@ -55,7 +55,9 @@ struct VinetasTelemetryClientInitTests {
     _ = await client.isModelAvailable("black-forest-labs/FLUX.2-klein-4B")
 
     let events = mock.all {
-      if case .modelAvailabilityChecked(let modelID, _) = $0, modelID == "black-forest-labs/FLUX.2-klein-4B" {
+      if case .modelAvailabilityChecked(let modelID, _) = $0,
+        modelID == "black-forest-labs/FLUX.2-klein-4B"
+      {
         return true
       }
       return false
