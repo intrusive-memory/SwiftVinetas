@@ -65,28 +65,32 @@ let package = Package(
   ],
   dependencies: [
     // FLUX.2 image generation pipeline (MIT license, includes mlx-swift transitively)
+    // 3.2.2 floor: per-step denoiseStep{Start,Complete} + quantizationComplete events
     sibling(
       "flux-2-swift-mlx",
       remote: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
-      from: "3.2.1"),
+      from: "3.2.2"),
 
     // Shared model management (download, cache, discovery)
+    // 0.13.1 floor: component-keyed telemetry (componentResolve*, componentFileAccessOpened)
     sibling(
       "SwiftAcervo",
       remote: "https://github.com/intrusive-memory/SwiftAcervo.git",
-      from: "0.13.0"),
+      from: "0.13.1"),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
+    // 0.7.2 floor: SDXL VAE color-cast fix for PixArt-Sigma
     sibling(
       "SwiftTuberia",
       remote: "https://github.com/intrusive-memory/SwiftTuberia.git",
-      from: "0.7.1"),
+      from: "0.7.2"),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
+    // 0.7.3 floor: VAE pixel-range fix + dependency bumps
     sibling(
       "pixart-swift-mlx",
       remote: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
-      from: "0.7.1"),
+      from: "0.7.3"),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
