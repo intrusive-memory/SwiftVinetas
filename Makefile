@@ -205,14 +205,16 @@ test-integration: link-test-models ## Run integration tests only (model download
 		-derivedDataPath $(DERIVED_DATA) \
 		$(INTEGRATION_SUITES)
 
-test-telemetry-debug: link-test-models ## Run only testEndToEndGenerationProducesCompleteTrace; pipes log to /tmp/test-telemetry.log and prints the trace path
+test-telemetry-debug: link-test-models ## Run the Flux2 + PixArt telemetry integration tests; pipes log to /tmp/test-telemetry.log and prints the trace paths
 	@TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasTests/TelemetryIntegrationTests/testEndToEndGenerationProducesCompleteTrace \
+		-only-testing:SwiftVinetasTests/TelemetryIntegrationTests/testPixArtEngineRoutingEmitsCorrectEvents \
 		2>&1 | tee /tmp/test-telemetry.log
-	@echo "Telemetry integration trace:" $$(grep -oE '/tmp/[^ ]+\.jsonl|/var/folders/[^ ]+\.jsonl' /tmp/test-telemetry.log | head -1)
+	@echo "Telemetry integration traces:"
+	@grep -oE '/tmp/[^ ]+\.jsonl|/var/folders/[^ ]+\.jsonl' /tmp/test-telemetry.log | sort -u
 
 test-fixtures: build ## Generate one image per engine via the CLI, save to tmp/fixtures/, and open in Preview (override prompt: PROMPT="...")
 	$(eval _PROMPT := $(if $(PROMPT),$(PROMPT),A red car parked on a cobblestone street))

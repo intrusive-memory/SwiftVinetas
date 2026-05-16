@@ -6,7 +6,8 @@ import VinetasCLICore
 
 // MARK: - PixArtEventEncodingTests (Sortie 11f)
 //
-// Round-trip tests for all 6 cases of PixArtTelemetryEvent via PixArtEventCodable.
+// Round-trip tests for all 7 cases of PixArtTelemetryEvent via PixArtEventCodable
+// (PixArtBackbone 0.7.2+: backboneForwardComplete(stat:)).
 // For each case:
 //  - Encodes via the same JSONEncoder config the sink uses
 //  - Re-decodes via JSONSerialization
@@ -157,5 +158,14 @@ struct PixArtEventEncodingTests {
         "ErrorPhase.\(phase) should encode as '\(rawValue)'"
       )
     }
+  }
+
+  // MARK: - Case 7: backboneForwardComplete (0.7.2+)
+
+  @Test("backboneForwardComplete encodes discriminant and stat verbatim")
+  func testBackboneForwardComplete() throws {
+    let dict = try roundTrip(.backboneForwardComplete(stat: makeStat()))
+    #expect((dict["case"] as? String) == "backboneForwardComplete")
+    #expect(dict["stat"] != nil, "stat should be encoded verbatim")
   }
 }

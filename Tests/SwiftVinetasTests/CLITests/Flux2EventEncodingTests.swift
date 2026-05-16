@@ -6,7 +6,8 @@ import VinetasCLICore
 
 // MARK: - Flux2EventEncodingTests (Sortie 11e)
 //
-// Round-trip tests for all 11 cases of Flux2TelemetryEvent via Flux2EventCodable.
+// Round-trip tests for all 14 cases of Flux2TelemetryEvent via Flux2EventCodable
+// (Flux2Core 3.2.2+: quantizationComplete, denoiseStepStart, denoiseStepComplete).
 // For each case:
 //  - Encodes via the same JSONEncoder config the sink uses
 //  - Re-decodes via JSONSerialization
@@ -230,5 +231,67 @@ struct Flux2EventEncodingTests {
       .errorThrown(phase: .weightLoadFailed, errorDescription: "weights not found")
     )
     #expect((dict["phase"] as? String) == "weightLoadFailed")
+  }
+
+  // MARK: - Case 12: quantizationComplete (3.2.2+)
+
+  @Test("quantizationComplete encodes discriminant, component rawValue, and quantization params")
+  func testQuantizationComplete() throws {
+    let dict = try roundTrip(
+      .quantizationComplete(
+        component: .transformer, bits: 4, groupSize: 64, durationSeconds: 2.1
+      )
+    )
+    #expect((dict["case"] as? String) == "quantizationComplete")
+    #expect((dict["component"] as? String) == "transformer")
+    #expect((dict["bits"] as? Int) == 4)
+    #expect((dict["groupSize"] as? Int) == 64)
+    #expect((dict["durationSeconds"] as? Double) == 2.1)
+  }
+
+  // MARK: - Case 13: denoiseStepStart (3.2.2+)
+
+  @Test("denoiseStepStart encodes discriminant, variant, step index, and t")
+  func testDenoiseStepStart() throws {
+    let dict = try roundTrip(
+      .denoiseStepStart(
+        variant: .textToImage,
+        stepIndex: 3,
+        totalSteps: 28,
+        t: 0.875,
+        latentShape: [1, 64, 64, 16],
+        latentDtype: "float16"
+      )
+    )
+    #expect((dict["case"] as? String) == "denoiseStepStart")
+    #expect((dict["variant"] as? String) == "textToImage")
+    #expect((dict["stepIndex"] as? Int) == 3)
+    #expect((dict["totalSteps"] as? Int) == 28)
+    #expect(dict["t"] != nil)
+    #expect((dict["latentShape"] as? [Int]) == [1, 64, 64, 16])
+    #expect((dict["latentDtype"] as? String) == "float16")
+  }
+
+  // MARK: - Case 14: denoiseStepComplete (3.2.2+)
+
+  @Test("denoiseStepComplete encodes discriminant, latentStat, and step metadata")
+  func testDenoiseStepComplete() throws {
+    let dict = try roundTrip(
+      .denoiseStepComplete(
+        variant: .textToImage,
+        stepIndex: 3,
+        totalSteps: 28,
+        t: 0.875,
+        latentStat: makeStat(),
+        durationSeconds: 0.28
+      )
+    )
+    #expect((dict["case"] as? String) == "denoiseStepComplete")
+    #expect((dict["variant"] as? String) == "textToImage")
+    #expect((dict["stepIndex"] as? Int) == 3)
+    #expect((dict["totalSteps"] as? Int) == 28)
+    #expect(dict["t"] != nil)
+    #expect(dict["latentStat"] != nil, "latentStat should be encoded verbatim")
+    #expect((dict["durationSeconds"] as? Double) == 0.28)
   }
 }

@@ -13,7 +13,7 @@ import Tuberia
 // TuberiaTensorStat is already Codable (it conforms in SwiftTuberia), so
 // stat-bearing cases encode verbatim without redefining TuberiaTensorStat.
 //
-// Covers all 6 top-level cases of PixArtTelemetryEvent.
+// Covers all 7 top-level cases of PixArtTelemetryEvent (PixArtBackbone 0.7.2+).
 
 public struct PixArtEventCodable: Encodable {
   public let event: PixArtTelemetryEvent
@@ -49,6 +49,13 @@ public struct PixArtEventCodable: Encodable {
       try container.encode(name, forKey: .name)
       try container.encode(check, forKey: .check)
       try container.encode(reason, forKey: .reason)
+
+    // MARK: - Forward-pass output statistics
+
+    case let .backboneForwardComplete(stat):
+      try container.encode("backboneForwardComplete", forKey: .case)
+      // TuberiaTensorStat is Codable — encode verbatim.
+      try container.encode(stat, forKey: .stat)
 
     // MARK: - Side channels
 

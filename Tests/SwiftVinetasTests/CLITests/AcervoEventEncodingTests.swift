@@ -5,7 +5,8 @@ import VinetasCLICore
 
 // MARK: - AcervoEventEncodingTests (Sortie 11h)
 //
-// Round-trip tests for all 13 cases of AcervoTelemetryEvent via AcervoEventCodable.
+// Round-trip tests for all 16 cases of AcervoTelemetryEvent via AcervoEventCodable
+// (SwiftAcervo 0.13.1+: componentResolveStart/Complete, componentFileAccessOpened).
 // For each case:
 //  - Encodes via the same JSONEncoder config the sink uses
 //  - Re-decodes via JSONSerialization
@@ -352,5 +353,80 @@ struct AcervoEventEncodingTests {
         "ErrorPhase.\(phase) should encode as '\(rawValue)'"
       )
     }
+  }
+
+  // MARK: - Case 14: componentResolveStart (0.13.1+)
+
+  @Test("componentResolveStart encodes discriminant, componentID, and repoID")
+  func testComponentResolveStart() throws {
+    let dict = try roundTrip(
+      .componentResolveStart(componentID: "transformer", repoID: "flux2-klein-4b")
+    )
+    #expect((dict["case"] as? String) == "componentResolveStart")
+    #expect((dict["componentID"] as? String) == "transformer")
+    #expect((dict["repoID"] as? String) == "flux2-klein-4b")
+  }
+
+  // MARK: - Case 15: componentResolveComplete (0.13.1+)
+
+  @Test("componentResolveComplete encodes discriminant, cacheState rawValue, and bytes")
+  func testComponentResolveComplete() throws {
+    let dict = try roundTrip(
+      .componentResolveComplete(
+        componentID: "transformer",
+        repoID: "flux2-klein-4b",
+        fileCount: 3,
+        totalBytes: 4_294_967_296,
+        cacheState: .alreadyReady,
+        durationSeconds: 0.012
+      )
+    )
+    #expect((dict["case"] as? String) == "componentResolveComplete")
+    #expect((dict["componentID"] as? String) == "transformer")
+    #expect((dict["repoID"] as? String) == "flux2-klein-4b")
+    #expect((dict["fileCount"] as? Int) == 3)
+    #expect(dict["totalBytes"] != nil)
+    #expect((dict["cacheState"] as? String) == "alreadyReady")
+    #expect((dict["durationSeconds"] as? Double) == 0.012)
+  }
+
+  @Test("componentResolveComplete encodes all ComponentCacheState rawValues")
+  func testComponentResolveCompleteAllCacheStates() throws {
+    let statesAndExpected: [(AcervoTelemetryEvent.ComponentCacheState, String)] = [
+      (.alreadyReady, "alreadyReady"),
+      (.downloaded, "downloaded"),
+      (.hydratedOnly, "hydratedOnly"),
+    ]
+    for (state, rawValue) in statesAndExpected {
+      let dict = try roundTrip(
+        .componentResolveComplete(
+          componentID: "c", repoID: "r", fileCount: 1,
+          totalBytes: 1, cacheState: state, durationSeconds: 0.0
+        )
+      )
+      #expect(
+        (dict["cacheState"] as? String) == rawValue,
+        "ComponentCacheState.\(state) should encode as '\(rawValue)'"
+      )
+    }
+  }
+
+  // MARK: - Case 16: componentFileAccessOpened (0.13.1+)
+
+  @Test("componentFileAccessOpened encodes discriminant and access metadata")
+  func testComponentFileAccessOpened() throws {
+    let dict = try roundTrip(
+      .componentFileAccessOpened(
+        componentID: "transformer",
+        repoID: "flux2-klein-4b",
+        baseDirectory: "/tmp/cache/flux2-klein-4b",
+        fileCount: 3
+      )
+    )
+    #expect((dict["case"] as? String) == "componentFileAccessOpened")
+    #expect((dict["componentID"] as? String) == "transformer")
+    #expect((dict["repoID"] as? String) == "flux2-klein-4b")
+    #expect((dict["baseDirectory"] as? String) == "/tmp/cache/flux2-klein-4b")
+    #expect((dict["fileCount"] as? Int) == 3)
   }
 }

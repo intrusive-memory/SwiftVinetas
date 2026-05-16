@@ -13,7 +13,7 @@ import Tuberia
 // TuberiaTensorStat is already Codable (it conforms in SwiftTuberia), so
 // stat-bearing cases encode verbatim without redefining TuberiaTensorStat.
 //
-// Covers all 11 top-level cases of Flux2TelemetryEvent.
+// Covers all 14 top-level cases of Flux2TelemetryEvent (Flux2Core 3.2.2+).
 
 public struct Flux2EventCodable: Encodable {
   public let event: Flux2TelemetryEvent
@@ -43,6 +43,15 @@ public struct Flux2EventCodable: Encodable {
       try container.encode("weightLoadComplete", forKey: .case)
       try container.encode(component.rawValue, forKey: .component)
       try container.encode(paramCount, forKey: .paramCount)
+      try container.encode(durationSeconds, forKey: .durationSeconds)
+
+    // MARK: - Quantization
+
+    case let .quantizationComplete(component, bits, groupSize, durationSeconds):
+      try container.encode("quantizationComplete", forKey: .case)
+      try container.encode(component.rawValue, forKey: .component)
+      try container.encode(bits, forKey: .bits)
+      try container.encode(groupSize, forKey: .groupSize)
       try container.encode(durationSeconds, forKey: .durationSeconds)
 
     // MARK: - Text encoding
@@ -80,6 +89,27 @@ public struct Flux2EventCodable: Encodable {
       try container.encode(completedSteps, forKey: .completedSteps)
       // TuberiaTensorStat is Codable — encode verbatim.
       try container.encode(finalLatentStat, forKey: .finalLatentStat)
+      try container.encode(durationSeconds, forKey: .durationSeconds)
+
+    case let .denoiseStepStart(variant, stepIndex, totalSteps, t, latentShape, latentDtype):
+      try container.encode("denoiseStepStart", forKey: .case)
+      try container.encode(variant.rawValue, forKey: .variant)
+      try container.encode(stepIndex, forKey: .stepIndex)
+      try container.encode(totalSteps, forKey: .totalSteps)
+      try container.encode(t, forKey: .t)
+      try container.encode(latentShape, forKey: .latentShape)
+      try container.encode(latentDtype, forKey: .latentDtype)
+
+    case let .denoiseStepComplete(
+      variant, stepIndex, totalSteps, t, latentStat, durationSeconds
+    ):
+      try container.encode("denoiseStepComplete", forKey: .case)
+      try container.encode(variant.rawValue, forKey: .variant)
+      try container.encode(stepIndex, forKey: .stepIndex)
+      try container.encode(totalSteps, forKey: .totalSteps)
+      try container.encode(t, forKey: .t)
+      // TuberiaTensorStat is Codable — encode verbatim.
+      try container.encode(latentStat, forKey: .latentStat)
       try container.encode(durationSeconds, forKey: .durationSeconds)
 
     // MARK: - VAE decode
@@ -145,5 +175,11 @@ public struct Flux2EventCodable: Encodable {
     case stat
     case stepIndex
     case errorDescription
+    // quantizationComplete
+    case bits
+    case groupSize
+    // denoiseStep{Start,Complete}
+    case t
+    case latentStat
   }
 }

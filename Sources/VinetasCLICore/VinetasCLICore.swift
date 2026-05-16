@@ -78,12 +78,28 @@ public struct Generate: AsyncParsableCommand {
     help: ArgumentHelp(
       "Write a JSONL trace of every library handoff to ~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl",
       discussion: """
-        Captures events from all instrumented libraries used by this generation:
-          - SwiftVinetas    (engine routing, memory verdict, model lifecycle)
-          - flux-2-swift-mlx (tokenization, encoding, transformer steps, VAE decode)
-          - pixart-swift-mlx (DiT steps, scheduler progress, VAE decode)
-          - SwiftTuberia    (pipeline assembly, component load, memory pressure)
-          - SwiftAcervo     (component download, cache hit/miss, file access)
+        Captures events from the instrumented libraries actually reached by this
+        generation. The set of `kind` discriminants you see depends on which
+        engine routes the request:
+
+          SwiftVinetas    — always (engine routing, memory verdict, model lifecycle)
+
+          flux-2-swift-mlx — Flux2 routes only (Klein/Dev). Pipeline lifecycle,
+                             weight load, quantization, text encode, scheduler,
+                             per-step denoise{Start,Complete}, VAE decode.
+
+          pixart-swift-mlx — PixArt routes only. Weight load, recipe validation,
+                             per-forward backboneForwardComplete, numerical
+                             anomalies.
+
+          SwiftTuberia    — PixArt routes only. Pipeline assembly, weight load,
+                             encoder/scheduler/backbone/decoder boundary stats,
+                             per-step latent stats.
+
+          SwiftAcervo     — PixArt routes only (component-keyed cache events).
+                             Flux2 currently reaches Acervo through a static
+                             seam without a reporter, so kind:acervo events do
+                             not appear on Flux2 runs.
 
         The trace path is printed to stderr after the run completes.
 
@@ -234,12 +250,16 @@ public struct Batch: AsyncParsableCommand {
     help: ArgumentHelp(
       "Write a JSONL trace of every library handoff to ~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl",
       discussion: """
-        Captures events from all instrumented libraries used by this generation:
-          - SwiftVinetas    (engine routing, memory verdict, model lifecycle)
-          - flux-2-swift-mlx (tokenization, encoding, transformer steps, VAE decode)
-          - pixart-swift-mlx (DiT steps, scheduler progress, VAE decode)
-          - SwiftTuberia    (pipeline assembly, component load, memory pressure)
-          - SwiftAcervo     (component download, cache hit/miss, file access)
+        Captures events from the instrumented libraries actually reached by each
+        per-prompt iteration. The set of `kind` discriminants you see depends on
+        which engine routes the request:
+
+          SwiftVinetas    — always.
+          flux-2-swift-mlx — Flux2 routes only.
+          pixart-swift-mlx — PixArt routes only.
+          SwiftTuberia    — PixArt routes only.
+          SwiftAcervo     — PixArt routes only (Flux2 reaches Acervo via a
+                             static seam with no reporter).
 
         Per-prompt events from each iteration land in the same trace file.
         The trace path is printed to stderr after the run completes.
@@ -464,11 +484,14 @@ public struct Preview: AsyncParsableCommand {
     help: ArgumentHelp(
       "Write a JSONL trace of every library handoff to ~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl",
       discussion: """
-        Captures events from all instrumented libraries used by this preview:
-          - SwiftVinetas    (engine routing, memory verdict, model lifecycle)
-          - flux-2-swift-mlx (tokenization, encoding, transformer steps, VAE decode)
-          - SwiftTuberia    (pipeline assembly, component load, memory pressure)
-          - SwiftAcervo     (component download, cache hit/miss, file access)
+        Preview always routes through Flux2 Klein 4B, so the trace contains:
+          SwiftVinetas    — engine routing, memory verdict, model lifecycle.
+          flux-2-swift-mlx — pipeline lifecycle, weight load, quantization,
+                             text encode, scheduler, per-step denoise, VAE decode.
+
+        SwiftTuberia and SwiftAcervo do not currently emit on the Flux2 path
+        (Flux2 has its own pipeline + uses a static Acervo seam without a
+         reporter), so kind:tuberia / kind:acervo events do not appear here.
 
         The trace records `mode: "preview"` on the generationStart event.
         The trace path is printed to stderr after the run completes.

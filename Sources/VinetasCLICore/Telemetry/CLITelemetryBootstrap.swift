@@ -5,11 +5,11 @@ import SwiftAcervo
 import SwiftVinetas
 import Tuberia
 
-// MARK: - OQ-1 RESOLUTION — per-dep setTelemetry entry points (verified against v3.2.1/v0.7.1/v0.7.1 sibling releases):
+// MARK: - OQ-1 RESOLUTION — per-dep setTelemetry entry points (verified against floor releases):
 //   Vinetas:  VinetasClient.shared.setTelemetry(_:)   — instance-bound (S3 seam, singleton works)
-//   Acervo:   AcervoManager.shared.setTelemetry(_:)   — instance-bound (singleton works)
-//   Flux2:    Flux2Telemetry.setReporter(_:)          — process-wide (Flux2Core 3.2.1+)
-//   PixArt:   PixArtTelemetry.setReporter(_:)         — process-wide (PixArtBackbone 0.7.1+)
+//   Acervo:   AcervoManager.shared.setTelemetry(_:)   — instance-bound (SwiftAcervo 0.13.1+ adds component-keyed events)
+//   Flux2:    Flux2Telemetry.setReporter(_:)          — process-wide (Flux2Core 3.2.2+: adds per-step denoise + quantization events)
+//   PixArt:   PixArtTelemetry.setReporter(_:)         — process-wide (PixArtBackbone 0.7.2+: adds backboneForwardComplete(stat:))
 //   Tuberia:  TuberiaTelemetry.setReporter(_:)        — process-wide (Tuberia 0.7.1+)
 //
 // Note: `Flux2Telemetry.setReporter(_:)` is the process-wide seam that supersedes the
@@ -105,13 +105,14 @@ public struct CLITelemetryBootstrap: Sendable {
       // Acervo: singleton actor, reachable everywhere.
       await AcervoManager.shared.setTelemetry(bootstrap.acervoAdapter)
 
-      // Flux2: process-wide seam (Flux2Core 3.2.1+). Covers all 11 event cases
-      // including weight-load events — supersedes the previous
-      // Flux2WeightLoader.setTelemetry(_:) static call.
+      // Flux2: process-wide seam (Flux2Core 3.2.2+). Covers all 14 event cases
+      // including weight-load, per-step denoise, and quantization events — supersedes
+      // the previous Flux2WeightLoader.setTelemetry(_:) static call.
       Flux2Telemetry.setReporter(bootstrap.flux2Adapter)
 
-      // PixArt: process-wide seam (PixArtBackbone 0.7.1+). Covers DiT instances
+      // PixArt: process-wide seam (PixArtBackbone 0.7.2+). Covers DiT instances
       // constructed lazily inside PixArtEngine — unreachable directly from CLI bootstrap.
+      // 0.7.2 adds the unconditional backboneForwardComplete(stat:) per-forward event.
       PixArtTelemetry.setReporter(bootstrap.pixartAdapter)
 
       // Tuberia: process-wide seam (Tuberia 0.7.1+). Covers DiffusionPipeline

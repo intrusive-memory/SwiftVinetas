@@ -362,6 +362,37 @@ final class TelemetryIntegrationTests: XCTestCase {
     // Must NOT contain flux2 events on a PixArt-only generation.
     XCTAssertFalse(kinds.contains("flux2"), "Did not expect 'flux2' kind for a PixArt generation; got: \(kinds)")
 
+    // Acervo routing assertion (TODO 2026-05-16 item 3).
+    //
+    // PixArtEngine reaches SwiftAcervo through `Acervo.ensureComponentReady` and
+    // `AcervoManager.shared.withComponentAccess` (see PixArtEngine.swift:433,529),
+    // both of which emit AcervoTelemetryEvents through the reporter installed
+    // by CLITelemetryBootstrap. A regression in this routing — adapter not
+    // installed, AcervoManager.shared.setTelemetry missing, or SwiftAcervo
+    // dropping component-keyed emission — must fail this test, not vanish
+    // silently as it did before the WIRETAP DARKROOM landing.
+    XCTAssertTrue(
+      kinds.contains("acervo"),
+      "Expected 'acervo' kind in trace — PixArt path uses Acervo.ensureComponentReady "
+      + "+ withComponentAccess and the bootstrap installs AcervoManager.shared.setTelemetry. "
+      + "Got kinds: \(kinds)"
+    )
+
+    // At least one of the cache-state-bearing events must appear so the assertion
+    // does not regress to merely-present-but-empty acervo traffic.
+    let acervoEnvelopes = envelopes.filter { ($0["kind"] as? String) == "acervo" }
+    let acervoCases = Set(acervoEnvelopes.compactMap { payloadCase($0) })
+    let routingEvidence: Set<String> = [
+      "cacheHit",
+      "componentResolveStart", "componentResolveComplete",
+      "componentFileAccessOpened",
+      "modelLoadComplete",
+    ]
+    XCTAssertFalse(
+      acervoCases.isDisjoint(with: routingEvidence),
+      "Expected at least one of \(routingEvidence) in acervo events; got: \(acervoCases)"
+    )
+
     // Assert engineSelected.engineID == "pixart-sigma".
     let vinetasEnvelopes = envelopes.filter { ($0["kind"] as? String) == "vinetas" }
     let engineSelectedEnvelopes = vinetasEnvelopes.filter { payloadCase($0) == "engineSelected" }

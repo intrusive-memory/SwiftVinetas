@@ -9,7 +9,9 @@ import SwiftAcervo
 // Example output:
 //   {"case":"cacheHit","modelID":"flux2-klein-4b","fileName":"transformer.safetensors",…}
 //
-// Covers all 13 top-level cases of AcervoTelemetryEvent.
+// Covers all 16 top-level cases of AcervoTelemetryEvent (SwiftAcervo 0.13.1+,
+// including the component-keyed componentResolveStart/Complete and
+// componentFileAccessOpened events).
 
 public struct AcervoEventCodable: Encodable {
   public let event: AcervoTelemetryEvent
@@ -104,6 +106,33 @@ public struct AcervoEventCodable: Encodable {
       try container.encode(fileName, forKey: .fileName)
       try container.encode(reason.rawValue, forKey: .reason)
 
+    // MARK: - Component lifecycle (manifest-destiny, 0.13.1+)
+
+    case let .componentResolveStart(componentID, repoID):
+      try container.encode("componentResolveStart", forKey: .case)
+      try container.encode(componentID, forKey: .componentID)
+      try container.encode(repoID, forKey: .repoID)
+
+    case let .componentResolveComplete(
+      componentID, repoID, fileCount, totalBytes, cacheState, durationSeconds
+    ):
+      try container.encode("componentResolveComplete", forKey: .case)
+      try container.encode(componentID, forKey: .componentID)
+      try container.encode(repoID, forKey: .repoID)
+      try container.encode(fileCount, forKey: .fileCount)
+      try container.encode(totalBytes, forKey: .totalBytes)
+      try container.encode(cacheState.rawValue, forKey: .cacheState)
+      try container.encode(durationSeconds, forKey: .durationSeconds)
+
+    // MARK: - File access
+
+    case let .componentFileAccessOpened(componentID, repoID, baseDirectory, fileCount):
+      try container.encode("componentFileAccessOpened", forKey: .case)
+      try container.encode(componentID, forKey: .componentID)
+      try container.encode(repoID, forKey: .repoID)
+      try container.encode(baseDirectory, forKey: .baseDirectory)
+      try container.encode(fileCount, forKey: .fileCount)
+
     // MARK: - CDN HTTP
 
     case let .cdnRequest(method, url, statusCode, latencyMS, byteCount):
@@ -167,5 +196,10 @@ public struct AcervoEventCodable: Encodable {
     case componentCount
     case phase
     case errorDescription
+    // component-keyed (0.13.1+)
+    case componentID
+    case repoID
+    case cacheState
+    case baseDirectory
   }
 }
