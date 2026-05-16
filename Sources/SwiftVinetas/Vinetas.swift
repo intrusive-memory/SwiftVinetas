@@ -29,7 +29,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.12.0"
+  public static let version = "0.13.0"
 
   /// Telemetry reporter storage, guarded by an unfair lock so the mutable
   /// reporter can live on a `Sendable` class without making the class an actor.
@@ -115,22 +115,26 @@ public final class VinetasClient: Sendable {
     if let reporter = self._telemetryLock.withLock({ $0 }) {
       Task { [reporter] in
         if pixartRegistered {
-          await reporter.capture(.engineRegistered(engineID: "pixart-sigma", reason: "always-registered"))
+          await reporter.capture(
+            .engineRegistered(engineID: "pixart-sigma", reason: "always-registered"))
         }
         if flux2Eligible {
-          await reporter.capture(.engineRegistered(
+          await reporter.capture(
+            .engineRegistered(
               engineID: "flux2",
               reason: "memory>=16GB (have \(totalMemoryGB)GB)"))
         } else {
-          await reporter.capture(.engineSkipped(
+          await reporter.capture(
+            .engineSkipped(
               engineID: "flux2",
               reason: "memory<16GB (have \(totalMemoryGB)GB)"))
         }
-        await reporter.capture(.clientInitialized(
-          version: VinetasClient.version,
-          registeredEngines: registeredIDs,
-          deviceMemoryGB: totalMemoryGB,
-          deviceArch: deviceArch))
+        await reporter.capture(
+          .clientInitialized(
+            version: VinetasClient.version,
+            registeredEngines: registeredIDs,
+            deviceMemoryGB: totalMemoryGB,
+            deviceArch: deviceArch))
       }
     }
   }
@@ -198,7 +202,8 @@ extension VinetasClient {
       let capturedSeed = actualSeed
       let capturedModelID = endModelID
       Task { [reporter] in
-        await reporter?.capture(.generationEnd(
+        await reporter?.capture(
+          .generationEnd(
             engineID: capturedEngineID,
             modelID: capturedModelID,
             success: capturedSuccess,
@@ -209,7 +214,8 @@ extension VinetasClient {
     }
 
     guard !prompt.trimmingCharacters(in: .whitespaces).isEmpty else {
-      await reporter?.capture(.errorThrown(
+      await reporter?.capture(
+        .errorThrown(
           phase: .generationFailed,
           errorDescription: "generationFailed: Prompt must not be empty"))
       throw VinetasError.generationFailed("Prompt must not be empty")
@@ -224,7 +230,8 @@ extension VinetasClient {
     // Emit generationStart BEFORE routing so the ordering invariant holds:
     //   generationStart → engineSelected → … → generationEnd
     // model.engineID is known from the descriptor; the router confirms it next.
-    await reporter?.capture(.generationStart(
+    await reporter?.capture(
+      .generationStart(
         prompt: composedPrompt,
         promptLength: composedPrompt.count,
         engineID: model.engineID,
@@ -244,7 +251,8 @@ extension VinetasClient {
     endEngineID = engine.engineID
     // Emit engineSelected after the router confirms the route (success path only).
     // engineNotFound remains in EngineRouter for the failure path.
-    await reporter?.capture(.engineSelected(
+    await reporter?.capture(
+      .engineSelected(
         engineID: engine.engineID,
         modelID: model.id,
         requestedFeature: nil,
@@ -299,7 +307,8 @@ extension VinetasClient {
       let capturedSeed = actualSeed
       let capturedModelID = endModelID
       Task { [reporter] in
-        await reporter?.capture(.generationEnd(
+        await reporter?.capture(
+          .generationEnd(
             engineID: capturedEngineID,
             modelID: capturedModelID,
             success: capturedSuccess,
@@ -331,7 +340,8 @@ extension VinetasClient {
         ? .imageToImage(references: referenceImages ?? [])
         : .textToImage
     )
-    await reporter?.capture(.generationStart(
+    await reporter?.capture(
+      .generationStart(
         prompt: firstComposed,
         promptLength: firstComposed.count,
         engineID: model.engineID,
@@ -350,7 +360,8 @@ extension VinetasClient {
     let engine = try await router.engine(for: model)
     endEngineID = engine.engineID
     // Emit engineSelected after the router confirms the route (success path only).
-    await reporter?.capture(.engineSelected(
+    await reporter?.capture(
+      .engineSelected(
         engineID: engine.engineID,
         modelID: model.id,
         requestedFeature: nil,
@@ -419,7 +430,8 @@ extension VinetasClient {
       let capturedSeed = actualSeed
       let capturedModelID = endModelID
       Task { [reporter] in
-        await reporter?.capture(.generationEnd(
+        await reporter?.capture(
+          .generationEnd(
             engineID: capturedEngineID,
             modelID: capturedModelID,
             success: capturedSuccess,
@@ -447,7 +459,8 @@ extension VinetasClient {
     // LoRA presence is reported from the character metadata (intent), not post-load.
     let loraIntended = character.lora != nil
     let loraScaleIntended = character.lora.map { Double($0.scale) }
-    await reporter?.capture(.generationStart(
+    await reporter?.capture(
+      .generationStart(
         prompt: composedPrompt,
         promptLength: composedPrompt.count,
         engineID: model.engineID,
@@ -466,7 +479,8 @@ extension VinetasClient {
     let engine = try await router.engine(for: model)
     endEngineID = engine.engineID
     // Emit engineSelected after the router confirms the route (success path only).
-    await reporter?.capture(.engineSelected(
+    await reporter?.capture(
+      .engineSelected(
         engineID: engine.engineID,
         modelID: model.id,
         requestedFeature: nil,
@@ -535,7 +549,8 @@ extension VinetasClient {
       let capturedSeed = actualSeed
       let capturedModelID = endModelID
       Task { [reporter] in
-        await reporter?.capture(.generationEnd(
+        await reporter?.capture(
+          .generationEnd(
             engineID: capturedEngineID,
             modelID: capturedModelID,
             success: capturedSuccess,
@@ -556,7 +571,8 @@ extension VinetasClient {
     // Emit generationStart BEFORE routing so the ordering invariant holds:
     //   generationStart → engineSelected → … → generationEnd
     // preview always targets the flux2 engine; previewModel.engineID confirms this.
-    await reporter?.capture(.generationStart(
+    await reporter?.capture(
+      .generationStart(
         prompt: prompt,
         promptLength: prompt.count,
         engineID: previewModel.engineID,
@@ -577,7 +593,8 @@ extension VinetasClient {
     // Emit engineSelected after the router confirms the route (success path only).
     // preview() routes by engineID directly, not by model descriptor, so we use
     // previewModel.id for the modelID field.
-    await reporter?.capture(.engineSelected(
+    await reporter?.capture(
+      .engineSelected(
         engineID: engine.engineID,
         modelID: previewModel.id,
         requestedFeature: nil,
@@ -638,14 +655,19 @@ extension VinetasClient {
   /// Per REQUIREMENTS §6 there is exactly one emission of this event, and this
   /// helper is it.
   internal func recordModelAvailability(modelID: String, available: Bool) async {
-    await currentTelemetry()?.capture(.modelAvailabilityChecked(modelID: modelID, available: available))
+    await currentTelemetry()?.capture(
+      .modelAvailabilityChecked(modelID: modelID, available: available))
   }
 
   /// Check whether a model is available on disk, via the engine router.
   ///
   /// - Parameter model: The model descriptor to check.
   /// - Returns: `true` if the model's weights are downloaded and ready.
-  @available(*, deprecated, renamed: "isModelAvailable(_:)", message: "Pass the model's modelId string instead — e.g. isModelAvailable(model.id). The descriptor form will be removed in a future release.")
+  @available(
+    *, deprecated, renamed: "isModelAvailable(_:)",
+    message:
+      "Pass the model's modelId string instead — e.g. isModelAvailable(model.id). The descriptor form will be removed in a future release."
+  )
   public func isAvailable(_ model: any ModelDescriptor) async throws -> Bool {
     // Preserve engine-routed behavior on the deprecated path so callers that
     // pass a typed descriptor (whose `id` is a slug, not an HF repo string)
@@ -704,7 +726,8 @@ extension VinetasClient {
     let reporter = currentTelemetry()
     let availableMB = Double(VinetasMemory.systemMemoryBytes) / 1_048_576.0
     let requiredMB = Double(model.minimumMemoryGB) * 1024.0
-    await reporter?.capture(.memoryValidationStart(
+    await reporter?.capture(
+      .memoryValidationStart(
         modelID: model.id,
         engineID: engine.engineID,
         estimatedRequiredMB: requiredMB,
@@ -716,7 +739,8 @@ extension VinetasClient {
     case .warning: verdict = .warningMarginal
     case .insufficient: verdict = .insufficient
     }
-    await reporter?.capture(.memoryValidationResult(
+    await reporter?.capture(
+      .memoryValidationResult(
         modelID: model.id,
         engineID: engine.engineID,
         verdict: verdict,
@@ -820,7 +844,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.12.0"
+  public static let version = "0.13.0"
 
   // MARK: - Generation
 
@@ -1050,7 +1074,8 @@ public enum Vinetas: Sendable {
 
     let fm = FileManager.default
     guard fm.fileExists(atPath: referencesDir.path) else {
-      await VinetasClient.shared.currentTelemetry()?.capture(.errorThrown(
+      await VinetasClient.shared.currentTelemetry()?.capture(
+        .errorThrown(
           phase: .other,
           errorDescription:
             "generationFailed: No references directory for character '\(character.name)'."))
@@ -1072,7 +1097,8 @@ public enum Vinetas: Sendable {
       .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
     guard pngFiles.count >= 2 else {
-      await VinetasClient.shared.currentTelemetry()?.capture(.errorThrown(
+      await VinetasClient.shared.currentTelemetry()?.capture(
+        .errorThrown(
           phase: .other,
           errorDescription:
             "generationFailed: need >=2 reference images, found \(pngFiles.count)"))
@@ -1162,7 +1188,8 @@ public enum Vinetas: Sendable {
     case .warning:
       return true
     case .insufficient(let required, let available):
-      await VinetasClient.shared.currentTelemetry()?.capture(.errorThrown(
+      await VinetasClient.shared.currentTelemetry()?.capture(
+        .errorThrown(
           phase: .memoryValidation,
           errorDescription:
             "insufficientMemory(required: \(required), available: \(available))"))
@@ -1246,7 +1273,8 @@ public enum Vinetas: Sendable {
     progress: ((Int, Int) -> Void)? = nil
   ) async throws -> [CGImage] {
     guard let firstPhoto = character.sourcePhotos.first else {
-      await VinetasClient.shared.currentTelemetry()?.capture(.errorThrown(
+      await VinetasClient.shared.currentTelemetry()?.capture(
+        .errorThrown(
           phase: .other,
           errorDescription:
             "generationFailed: Character '\(character.name)' has no source photos."))
@@ -1268,7 +1296,8 @@ public enum Vinetas: Sendable {
         intent: .defaultIntent
       )
     else {
-      await VinetasClient.shared.currentTelemetry()?.capture(.errorThrown(
+      await VinetasClient.shared.currentTelemetry()?.capture(
+        .errorThrown(
           phase: .other,
           errorDescription:
             "generationFailed: Could not load source photo at \(photoURL.path)"))
