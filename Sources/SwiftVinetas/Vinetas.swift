@@ -29,7 +29,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.13.0"
+  public static let version = "0.13.0-dev"
 
   /// Telemetry reporter storage, guarded by an unfair lock so the mutable
   /// reporter can live on a `Sendable` class without making the class an actor.
@@ -844,7 +844,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.13.0"
+  public static let version = "0.13.0-dev"
 
   // MARK: - Generation
 
