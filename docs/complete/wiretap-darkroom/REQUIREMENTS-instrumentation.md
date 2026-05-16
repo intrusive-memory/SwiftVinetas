@@ -1,3 +1,10 @@
+---
+mission: OPERATION WIRETAP DARKROOM
+branch: mission/wiretap-darkroom/01
+state: complete
+updated: 2026-05-15
+---
+
 # SwiftVinetas — Instrumentation Requirements
 
 **Status:** Ready for implementation. Cross-repo dependency floors raised in `bf5b867` (2026-05-11).
