@@ -28,27 +28,38 @@ let package = Package(
   dependencies: [
     // FLUX.2 image generation pipeline (MIT license, includes mlx-swift transitively)
     .package(
-      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.0.3")
-    ),
+      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
+      .upToNextMajor(from: "3.2.2")),
 
     // Shared model management (download, cache, discovery)
     .package(
-      url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.12.0")),
+      url: "https://github.com/intrusive-memory/SwiftAcervo.git",
+      .upToNextMajor(from: "0.13.1")),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
     .package(
-      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.6.5")),
+      url: "https://github.com/intrusive-memory/SwiftTuberia.git",
+      .upToNextMajor(from: "0.7.2")),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
     .package(
-      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.6.0")
-    ),
+      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
+      .upToNextMajor(from: "0.7.3")),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
 
     // CLI argument parsing
     .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
+
+    // Pin swift-tokenizers to the 0.5.x line. 0.6.x ships a UniFFI Rust
+    // artifactbundle whose module map fails to expose RustBuffer / RustCallStatus /
+    // ForeignBytes to TokenizersFFI when consumed via xcodebuild (works under
+    // `swift build`). Bump only when upstream ships a 0.6.x release that compiles
+    // cleanly under xcodebuild.
+    .package(
+      url: "https://github.com/DePasqualeOrg/swift-tokenizers.git",
+      .upToNextMinor(from: "0.5.0")),
   ],
   targets: [
     // Main library - storyboard/comic panel generation
@@ -70,6 +81,10 @@ let package = Package(
       name: "VinetasCLICore",
       dependencies: [
         "SwiftVinetas",
+        .product(name: "Flux2Core", package: "flux-2-swift-mlx"),
+        .product(name: "PixArtBackbone", package: "pixart-swift-mlx"),
+        .product(name: "Tuberia", package: "SwiftTuberia"),
+        .product(name: "SwiftAcervo", package: "SwiftAcervo"),
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]
     ),

@@ -73,7 +73,49 @@ public struct Generate: AsyncParsableCommand {
   @Flag(name: .long, help: "Fast preview mode (4 steps, 512x512, Klein 4B).")
   public var preview: Bool = false
 
+  @Flag(
+    name: .long,
+    help: ArgumentHelp(
+      "Write a JSONL trace of every library handoff to ~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl",
+      discussion: """
+        Captures events from the instrumented libraries actually reached by this
+        generation. The set of `kind` discriminants you see depends on which
+        engine routes the request:
+
+          SwiftVinetas    — always (engine routing, memory verdict, model lifecycle)
+
+          flux-2-swift-mlx — Flux2 routes only (Klein/Dev). Pipeline lifecycle,
+                             weight load, quantization, text encode, scheduler,
+                             per-step denoise{Start,Complete}, VAE decode.
+
+          pixart-swift-mlx — PixArt routes only. Weight load, recipe validation,
+                             per-forward backboneForwardComplete, numerical
+                             anomalies.
+
+          SwiftTuberia    — PixArt routes only. Pipeline assembly, weight load,
+                             encoder/scheduler/backbone/decoder boundary stats,
+                             per-step latent stats.
+
+          SwiftAcervo     — PixArt routes only (component-keyed cache events).
+                             Flux2 currently reaches Acervo through a static
+                             seam without a reporter, so kind:acervo events do
+                             not appear on Flux2 runs.
+
+        The trace path is printed to stderr after the run completes.
+
+        Example:
+          vinetas generate "a cyberpunk diner at dusk" --telemetry
+          # → trace at ~/Library/Caches/vinetas/telemetry/2026-05-15T143022.jsonl
+        """
+    )
+  )
+  public var telemetry: Bool = false
+
   public func run() async throws {
+    let bootstrap: CLITelemetryBootstrap? =
+      telemetry ? try await CLITelemetryBootstrap.enable(mode: .full) : nil
+    defer { Task { await bootstrap?.finish() } }
+
     guard let vinetasModel = VinetasModel(rawValue: model) else {
       let valid = VinetasModel.allCases.map(\.rawValue).joined(separator: ", ")
       throw ValidationError("Unknown model '\(model)'. Valid models: \(valid)")
@@ -203,7 +245,34 @@ public struct Batch: AsyncParsableCommand {
   @Flag(name: .long, help: "Fast preview mode (reduced quality and resolution).")
   public var preview: Bool = false
 
+  @Flag(
+    name: .long,
+    help: ArgumentHelp(
+      "Write a JSONL trace of every library handoff to ~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl",
+      discussion: """
+        Captures events from the instrumented libraries actually reached by each
+        per-prompt iteration. The set of `kind` discriminants you see depends on
+        which engine routes the request:
+
+          SwiftVinetas    — always.
+          flux-2-swift-mlx — Flux2 routes only.
+          pixart-swift-mlx — PixArt routes only.
+          SwiftTuberia    — PixArt routes only.
+          SwiftAcervo     — PixArt routes only (Flux2 reaches Acervo via a
+                             static seam with no reporter).
+
+        Per-prompt events from each iteration land in the same trace file.
+        The trace path is printed to stderr after the run completes.
+        """
+    )
+  )
+  public var telemetry: Bool = false
+
   public func run() async throws {
+    let bootstrap: CLITelemetryBootstrap? =
+      telemetry ? try await CLITelemetryBootstrap.enable(mode: .full) : nil
+    defer { Task { await bootstrap?.finish() } }
+
     let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
     let promptURL = URL(fileURLWithPath: promptsFile)
     let outputDirURL = URL(fileURLWithPath: outputDir)
@@ -410,7 +479,32 @@ public struct Preview: AsyncParsableCommand {
   @Option(name: .shortAndLong, help: "Output file path.")
   public var output: String = "preview.png"
 
+  @Flag(
+    name: .long,
+    help: ArgumentHelp(
+      "Write a JSONL trace of every library handoff to ~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl",
+      discussion: """
+        Preview always routes through Flux2 Klein 4B, so the trace contains:
+          SwiftVinetas    — engine routing, memory verdict, model lifecycle.
+          flux-2-swift-mlx — pipeline lifecycle, weight load, quantization,
+                             text encode, scheduler, per-step denoise, VAE decode.
+
+        SwiftTuberia and SwiftAcervo do not currently emit on the Flux2 path
+        (Flux2 has its own pipeline + uses a static Acervo seam without a
+         reporter), so kind:tuberia / kind:acervo events do not appear here.
+
+        The trace records `mode: "preview"` on the generationStart event.
+        The trace path is printed to stderr after the run completes.
+        """
+    )
+  )
+  public var telemetry: Bool = false
+
   public func run() async throws {
+    let bootstrap: CLITelemetryBootstrap? =
+      telemetry ? try await CLITelemetryBootstrap.enable(mode: .full) : nil
+    defer { Task { await bootstrap?.finish() } }
+
     let outputURL = URL(fileURLWithPath: output)
 
     stderrPrint("[vinetas] Generating preview (Klein 4B, 4 steps, 512x512)...")
@@ -830,7 +924,30 @@ public struct Classify: AsyncParsableCommand {
   @Option(name: .long, help: "Number of top predictions to display.")
   public var topK: Int = 5
 
+  @Flag(
+    name: .long,
+    help: ArgumentHelp(
+      "Write a JSONL trace of every SwiftVinetas image-understanding handoff to ~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl",
+      discussion: """
+        Image-understanding subcommands wire only the SwiftVinetas adapter; no
+        diffusion happens, so the flux2/pixart/tuberia/acervo adapters would
+        never fire and are intentionally not installed (REQUIREMENTS §7.7).
+
+        Captures:
+          - classifierForwardStart / classifierForwardComplete
+          - errorThrown (phase: .classifierForward) on failure
+
+        The trace path is printed to stderr after the run completes.
+        """
+    )
+  )
+  public var telemetry: Bool = false
+
   public func run() async throws {
+    let bootstrap: CLITelemetryBootstrap? =
+      telemetry ? try await CLITelemetryBootstrap.enable(mode: .partial) : nil
+    defer { Task { await bootstrap?.finish() } }
+
     let fileURL = URL(fileURLWithPath: imagePath)
 
     stderrPrint("[vinetas] Classifying image: \(imagePath)")
@@ -870,7 +987,31 @@ public struct Features: AsyncParsableCommand {
   @Argument(help: "Path to the image file.")
   public var imagePath: String
 
+  @Flag(
+    name: .long,
+    help: ArgumentHelp(
+      "Write a JSONL trace of every SwiftVinetas image-understanding handoff to ~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl",
+      discussion: """
+        Image-understanding subcommands wire only the SwiftVinetas adapter; no
+        diffusion happens, so the flux2/pixart/tuberia/acervo adapters would
+        never fire and are intentionally not installed (REQUIREMENTS §7.7).
+
+        Captures:
+          - featureExtractionStart / featureExtractionComplete (with one
+            TuberiaTensorStat summary of the feature vector)
+          - errorThrown (phase: .featureExtraction) on failure
+
+        The trace path is printed to stderr after the run completes.
+        """
+    )
+  )
+  public var telemetry: Bool = false
+
   public func run() async throws {
+    let bootstrap: CLITelemetryBootstrap? =
+      telemetry ? try await CLITelemetryBootstrap.enable(mode: .partial) : nil
+    defer { Task { await bootstrap?.finish() } }
+
     let fileURL = URL(fileURLWithPath: imagePath)
 
     stderrPrint("[vinetas] Extracting features: \(imagePath)")
@@ -909,7 +1050,29 @@ public struct Similarity: AsyncParsableCommand {
   @Argument(help: "Path to the second image.")
   public var image2Path: String
 
+  @Flag(
+    name: .long,
+    help: ArgumentHelp(
+      "Write a JSONL trace of every SwiftVinetas image-understanding handoff to ~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl",
+      discussion: """
+        Image-understanding subcommands wire only the SwiftVinetas adapter; no
+        diffusion happens, so the flux2/pixart/tuberia/acervo adapters would
+        never fire and are intentionally not installed (REQUIREMENTS §7.7).
+
+        Captures one featureExtractionStart / featureExtractionComplete pair
+        per input image, plus errorThrown on failure.
+
+        The trace path is printed to stderr after the run completes.
+        """
+    )
+  )
+  public var telemetry: Bool = false
+
   public func run() async throws {
+    let bootstrap: CLITelemetryBootstrap? =
+      telemetry ? try await CLITelemetryBootstrap.enable(mode: .partial) : nil
+    defer { Task { await bootstrap?.finish() } }
+
     guard let image1 = loadCGImage(from: image1Path) else {
       throw ValidationError("Could not load image from '\(image1Path)'.")
     }

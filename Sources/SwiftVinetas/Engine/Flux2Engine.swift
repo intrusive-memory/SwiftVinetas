@@ -1,6 +1,7 @@
 import CoreGraphics
 import Flux2Core
 import Foundation
+import SwiftAcervo
 
 // MARK: - Flux2ModelDescriptor
 
@@ -102,9 +103,21 @@ public actor Flux2Engine: ImageGenerationEngine {
   /// safe for concurrent graph execution — concurrent calls corrupt tensor shapes.
   private var isGenerating = false
 
+  /// Vinetas-scope telemetry reporter, propagated from
+  /// ``VinetasClient/setTelemetry(_:)`` via ``EngineRouter``. Stored only —
+  /// per REQUIREMENTS §5.3 this override does NOT bridge `Flux2TelemetryEvent`
+  /// onto the Vinetas surface.
+  private var telemetry: (any VinetasTelemetryReporter)?
+
   // MARK: - Init
 
   public init() {}
+
+  // MARK: - Telemetry
+
+  public func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async {
+    self.telemetry = reporter
+  }
 
   // MARK: - Capabilities
 
@@ -130,6 +143,11 @@ public actor Flux2Engine: ImageGenerationEngine {
     progress: @Sendable (LoadProgress) -> Void
   ) async throws {
     guard let descriptor = resolveDescriptor(model) else {
+      await telemetry?.capture(
+        .errorThrown(
+          phase: .modelNotSupported,
+          errorDescription:
+            "modelNotSupported(modelID: \(model.id), engineID: \(engineID))"))
       throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
     }
 
@@ -156,6 +174,10 @@ public actor Flux2Engine: ImageGenerationEngine {
 
     progress(LoadProgress(phase: "Loading models", fraction: 0.1))
 
+    await telemetry?.capture(.modelLoadStart(modelID: descriptor.id, engineID: engineID))
+    let loadClock = ContinuousClock()
+    let loadStart = loadClock.now
+
     try await withoutActuallyEscaping(progress) { escapableProgress in
       try await newPipeline.loadModels(progressCallback: { downloadProgress, message in
         let fraction = 0.1 + downloadProgress * 0.9
@@ -166,15 +188,24 @@ public actor Flux2Engine: ImageGenerationEngine {
     self.pipeline = newPipeline
     self.loadedModelID = descriptor.id
 
+    let loadDuration = Self.elapsedSeconds(from: loadStart, clock: loadClock)
+    await telemetry?.capture(
+      .modelLoadComplete(
+        modelID: descriptor.id, engineID: engineID, durationSeconds: loadDuration))
+
     progress(LoadProgress(phase: "Ready", fraction: 1.0))
   }
 
   public func unloadModel() async {
+    let unloadingID = loadedModelID
     if let pipeline = pipeline {
       await pipeline.clearAll()
     }
     pipeline = nil
     loadedModelID = nil
+    if let unloadingID {
+      await telemetry?.capture(.modelUnload(modelID: unloadingID, engineID: engineID))
+    }
   }
 
   // MARK: - Generation
@@ -184,11 +215,26 @@ public actor Flux2Engine: ImageGenerationEngine {
     stepProgress: (@Sendable (Int, Int, TimeInterval) -> Void)?
   ) async throws -> GenerationResult {
     guard !isGenerating else {
+      await telemetry?.capture(
+        .concurrencyGateRejected(
+          engineID: engineID,
+          modelID: loadedModelID ?? "",
+          reason: "Generation already in progress."))
+      await telemetry?.capture(
+        .errorThrown(
+          phase: .generationConcurrency,
+          errorDescription:
+            "generationFailed: Generation already in progress (Flux2)."))
       throw VinetasError.generationFailed(
         "Generation already in progress. MLX does not support concurrent pipeline execution — await the current call before starting another."
       )
     }
     guard let pipeline = self.pipeline, let modelID = self.loadedModelID else {
+      await telemetry?.capture(
+        .errorThrown(
+          phase: .modelLoad,
+          errorDescription:
+            "generationFailed: No model loaded (Flux2)."))
       throw VinetasError.generationFailed(
         "No model loaded. Call loadModel(_:progress:) before generating."
       )
@@ -220,6 +266,11 @@ public actor Flux2Engine: ImageGenerationEngine {
           }
         )
       } catch {
+        await telemetry?.capture(
+          .errorThrown(
+            phase: .generationFailed,
+            errorDescription:
+              "Text-to-image generation failed: \(error.localizedDescription)"))
         throw VinetasError.generationFailed(
           "Text-to-image generation failed: \(error.localizedDescription)"
         )
@@ -241,6 +292,11 @@ public actor Flux2Engine: ImageGenerationEngine {
           }
         )
       } catch {
+        await telemetry?.capture(
+          .errorThrown(
+            phase: .generationFailed,
+            errorDescription:
+              "Image-to-image generation failed: \(error.localizedDescription)"))
         throw VinetasError.generationFailed(
           "Image-to-image generation failed: \(error.localizedDescription)"
         )
@@ -262,24 +318,46 @@ public actor Flux2Engine: ImageGenerationEngine {
 
   public func loadLoRA(at path: URL, scale: Float) async throws {
     guard let pipeline = self.pipeline else {
+      await telemetry?.capture(
+        .errorThrown(
+          phase: .loraAttach,
+          errorDescription: "generationFailed: No model loaded for LoRA load (Flux2)."))
       throw VinetasError.generationFailed(
         "No model loaded. Call loadModel(_:progress:) before loading LoRA."
       )
     }
 
     guard FileManager.default.fileExists(atPath: path.path) else {
+      await telemetry?.capture(
+        .errorThrown(
+          phase: .loraAttach,
+          errorDescription:
+            "modelNotFound: LoRA file not found at path: \(path.path)"))
       throw VinetasError.modelNotFound(
         "LoRA file not found at path: \(path.path)"
       )
     }
 
     let effectiveScale = min(max(scale, 0.0), 1.0)
+    let loraClock = ContinuousClock()
+    let loraStart = loraClock.now
+    await telemetry?.capture(
+      .loraAttachStart(
+        engineID: engineID,
+        sourceURL: path.absoluteString,
+        scale: Double(effectiveScale)))
     let config = LoRAConfig(
       filePath: path.path,
       scale: effectiveScale,
       activationKeyword: nil
     )
     try pipeline.loadLoRA(config)
+    let loraDuration = Self.elapsedSeconds(from: loraStart, clock: loraClock)
+    await telemetry?.capture(
+      .loraAttachComplete(
+        engineID: engineID,
+        sourceURL: path.absoluteString,
+        durationSeconds: loraDuration))
   }
 
   public func unloadLoRA() async {
@@ -292,7 +370,13 @@ public actor Flux2Engine: ImageGenerationEngine {
     _ model: any ModelDescriptor,
     progress: @Sendable (DownloadProgress) -> Void
   ) async throws {
+    let reporter = await self.telemetry
     guard let descriptor = resolveDescriptor(model) else {
+      await reporter?.capture(
+        .errorThrown(
+          phase: .modelNotSupported,
+          errorDescription:
+            "modelNotSupported(modelID: \(model.id), engineID: \(engineID))"))
       throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
     }
 
@@ -308,6 +392,12 @@ public actor Flux2Engine: ImageGenerationEngine {
             escapableProgress(DownloadProgress(fraction: overall, message: msg))
           }
         } catch {
+          await reporter?.capture(
+            .errorThrown(
+              phase: .modelDownload,
+              errorDescription:
+                "downloadFailed: Failed to download \(component.displayName): \(error.localizedDescription)"
+            ))
           throw VinetasError.downloadFailed(
             "Failed to download \(component.displayName): \(error.localizedDescription)"
           )
@@ -318,11 +408,25 @@ public actor Flux2Engine: ImageGenerationEngine {
 
   public nonisolated func isAvailable(_ model: any ModelDescriptor) -> Bool {
     guard let descriptor = resolveDescriptor(model) else { return false }
-    return Self.modelComponents(for: descriptor).allSatisfy { ModelRegistry.isDownloaded($0) }
+    return Self.modelComponents(for: descriptor).allSatisfy { component in
+      // Flux2 components are not registered with Acervo's ComponentRegistry, so
+      // isComponentReady will return false (descriptors not hydrated). Fall back
+      // to a local file-presence check via isModelAvailable(repoId), which checks
+      // for config.json in the component's slugified directory in sharedModelsDirectory.
+      // This mirrors PixArtEngine's fallback path (PixArtEngine.swift:475-476).
+      if Acervo.isComponentReady(component.localDirectoryName) { return true }
+      return Acervo.isModelAvailable(Self.acervoRepoId(for: component))
+    }
   }
 
   public nonisolated func delete(_ model: any ModelDescriptor) async throws {
+    let reporter = await self.telemetry
     guard let descriptor = resolveDescriptor(model) else {
+      await reporter?.capture(
+        .errorThrown(
+          phase: .modelNotSupported,
+          errorDescription:
+            "modelNotSupported(modelID: \(model.id), engineID: \(engineID))"))
       throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
     }
     for component in Self.modelComponents(for: descriptor) {
@@ -398,6 +502,24 @@ public actor Flux2Engine: ImageGenerationEngine {
       return .klein9B
     default:
       return nil
+    }
+  }
+
+  /// Extract the HuggingFace repo ID from a Flux2Core `ModelComponent`.
+  ///
+  /// Used by `isAvailable` as the `repoId` argument to `Acervo.isModelAvailable` when
+  /// a component is not registered in Acervo's ComponentRegistry.
+  ///
+  /// **Note**: The VAE shares its `repoId` (`"black-forest-labs/FLUX.2-klein-4B"`) with
+  /// the Klein 4B transformer; both Acervo checks resolve to the same directory.
+  /// This is intentional — the VAE lives in a subfolder of the same Acervo model directory.
+  private nonisolated static func acervoRepoId(for component: ModelRegistry.ModelComponent)
+    -> String
+  {
+    switch component {
+    case .transformer(let variant): return variant.repoId
+    case .textEncoder(let variant): return variant.repoId
+    case .vae(let variant): return variant.repoId
     }
   }
 

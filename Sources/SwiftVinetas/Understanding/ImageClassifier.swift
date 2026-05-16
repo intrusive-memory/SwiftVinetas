@@ -4,6 +4,7 @@ import ImageIO
 import MLX
 import MLXNN
 import SwiftAcervo
+import Tuberia
 
 // MARK: - ImageClassifier
 
@@ -31,9 +32,24 @@ public actor ImageClassifier {
   private var model: VisionTransformer?
   private let preprocessor = ImagePreprocessor(config: .vitB16)
 
+  // Reporter is propagated via VinetasClient.setTelemetry → ImageClassifier.shared.setTelemetry
+  // — see OQ-3 MARK in Vinetas.swift (REQUIREMENTS §5.5, long-lived singleton pattern).
+  /// Vinetas telemetry reporter, propagated from
+  /// ``VinetasClient/setTelemetry(_:)`` per OQ-3 (REQUIREMENTS §5.5).
+  private var telemetry: (any VinetasTelemetryReporter)?
+
   // MARK: - Init
 
   private init() {}
+
+  // MARK: - Telemetry
+
+  /// Install (or clear) the telemetry reporter on this singleton.
+  /// Called from ``VinetasClient/setTelemetry(_:)`` because
+  /// ``ImageClassifier`` is not reachable through ``EngineRouter``.
+  public func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async {
+    self.telemetry = reporter
+  }
 
   // MARK: - Public API
 
@@ -55,6 +71,11 @@ public actor ImageClassifier {
     // Preprocess: CGImage -> [1, 224, 224, 3] MLXArray
     let tensor = preprocessor.preprocess(image: image)
 
+    // --- Telemetry: classifierForwardStart ---
+    let imageDims = [image.width, image.height]
+    await telemetry?.capture(.classifierForwardStart(imageDims: imageDims))
+    let forwardStart = Date()
+
     // Forward pass -> logits [1, 1000]
     let logits = vitModel(tensor)
 
@@ -74,7 +95,21 @@ public actor ImageClassifier {
 
     // Sort by confidence descending and take top-K
     results.sort()
-    return Array(results.prefix(topK))
+    let topResults = Array(results.prefix(topK))
+
+    // --- Telemetry: classifierForwardComplete ---
+    let forwardDuration = Date().timeIntervalSince(forwardStart)
+    let top5 = Array(results.prefix(5))
+    await telemetry?.capture(
+      .classifierForwardComplete(
+        topLabel: topResults.first?.label ?? "",
+        topScore: Double(topResults.first?.confidence ?? 0),
+        top5Labels: top5.map(\.label),
+        top5Scores: top5.map { Double($0.confidence) },
+        durationSeconds: forwardDuration
+      ))
+
+    return topResults
   }
 
   /// Classify an image loaded from a file URL and return the top-K predictions.
@@ -87,6 +122,11 @@ public actor ImageClassifier {
   ///           plus any errors from `classify(image:topK:)`.
   public func classify(file url: URL, topK: Int = 5) async throws -> [Classification] {
     guard let cgImage = loadCGImage(from: url) else {
+      await telemetry?.capture(
+        .errorThrown(
+          phase: .classifierForward,
+          errorDescription: "Could not load image from \(url.path)"
+        ))
       throw VinetasError.generationFailed("Could not load image from \(url.path)")
     }
     return try await classify(image: cgImage, topK: topK)
@@ -115,9 +155,11 @@ public actor ImageClassifier {
     do {
       try await Acervo.ensureComponentReady(Self.componentId, progress: { _ in })
     } catch {
-      throw VinetasError.downloadFailed(
+      let description =
         "Failed to download ViT-B/16 weights for component \(Self.componentId): \(error.localizedDescription)"
-      )
+      await telemetry?.capture(
+        .errorThrown(phase: .classifierForward, errorDescription: description))
+      throw VinetasError.downloadFailed(description)
     }
 
     // Build ViT-B/16 model (1000 ImageNet classes)
@@ -138,18 +180,22 @@ public actor ImageClassifier {
         try handle.url(matching: ".safetensors")
       }
     } catch {
-      throw VinetasError.modelNotFound(
+      let description =
         "Could not locate .safetensors for component \(Self.componentId): \(error.localizedDescription)"
-      )
+      await telemetry?.capture(
+        .errorThrown(phase: .classifierForward, errorDescription: description))
+      throw VinetasError.modelNotFound(description)
     }
 
     let weights: [String: MLXArray]
     do {
       weights = try loadArrays(url: weightsURL)
     } catch {
-      throw VinetasError.generationFailed(
+      let description =
         "Failed to load weights for component \(Self.componentId): \(error.localizedDescription)"
-      )
+      await telemetry?.capture(
+        .errorThrown(phase: .classifierForward, errorDescription: description))
+      throw VinetasError.generationFailed(description)
     }
 
     // Apply weights to the model
