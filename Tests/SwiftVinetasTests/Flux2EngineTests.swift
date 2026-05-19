@@ -197,12 +197,12 @@ struct Flux2EngineTests {
   }
 
   @Test("Flux2Engine isAvailable returns false for unknown model")
-  func isAvailableUnknownModel() {
+  func isAvailableUnknownModel() async {
     let engine = Flux2Engine()
     let unknownModel = MockModelDescriptor(
       id: "unknown", displayName: "Unknown", engineID: "other"
     )
-    #expect(engine.isAvailable(unknownModel) == false)
+    #expect(await engine.isAvailable(unknownModel) == false)
   }
 
   @Test("Flux2Engine diskSize returns nil for unknown model")

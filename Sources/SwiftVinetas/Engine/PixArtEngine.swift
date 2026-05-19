@@ -472,7 +472,7 @@ public actor PixArtEngine: ImageGenerationEngine {
     }
   }
 
-  public nonisolated func isAvailable(_ model: any ModelDescriptor) -> Bool {
+  public func isAvailable(_ model: any ModelDescriptor) async -> Bool {
     // Ensure components are registered before checking — mirrors the guard in
     // `download` and `loadModel`. Without this, CatalogRegistration has no
     // descriptors on a fresh launch and `isAvailable` always returns false.
@@ -482,19 +482,12 @@ public actor PixArtEngine: ImageGenerationEngine {
     guard !ids.isEmpty else { return false }
 
     let registry = CatalogRegistration.shared
-    return ids.allSatisfy { componentId in
+    for componentId in ids {
       guard let descriptor = registry.descriptor(for: componentId) else { return false }
-      // Acervo.isComponentReady is strict but requires a hydrated descriptor
-      // (file list populated from the CDN manifest). PixArt registers
-      // un-hydrated descriptors so the manifest can drive file lists at load
-      // time — which means this sync, offline-friendly check would always
-      // return false until something hits the network. Fall back to a local
-      // file-presence check at the component's repoId directory so a fully
-      // cached install is reported as available without requiring a CDN
-      // round-trip. Matches Flux2Engine's behavior.
-      if Acervo.isComponentReady(componentId) { return true }
-      return Acervo.isModelAvailable(descriptor.repoId)
+      let state = await Acervo.availability(descriptor.repoId)
+      if state != .available { return false }
     }
+    return true
   }
 
   public func delete(_ model: any ModelDescriptor) async throws {

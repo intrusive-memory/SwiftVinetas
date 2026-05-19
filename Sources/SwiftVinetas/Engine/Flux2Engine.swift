@@ -423,17 +423,13 @@ public actor Flux2Engine: ImageGenerationEngine {
     }
   }
 
-  public nonisolated func isAvailable(_ model: any ModelDescriptor) -> Bool {
+  public func isAvailable(_ model: any ModelDescriptor) async -> Bool {
     guard let descriptor = resolveDescriptor(model) else { return false }
-    return Self.modelComponents(for: descriptor).allSatisfy { component in
-      // Flux2 components are not registered with Acervo's ComponentRegistry, so
-      // isComponentReady will return false (descriptors not hydrated). Fall back
-      // to a local file-presence check via isModelAvailable(repoId), which checks
-      // for config.json in the component's slugified directory in sharedModelsDirectory.
-      // This mirrors PixArtEngine's fallback path (PixArtEngine.swift:475-476).
-      if Acervo.isComponentReady(component.localDirectoryName) { return true }
-      return Acervo.isModelAvailable(Self.acervoRepoId(for: component))
+    for component in Self.modelComponents(for: descriptor) {
+      let state = await Acervo.availability(Self.acervoRepoId(for: component))
+      if state != .available { return false }
     }
+    return true
   }
 
   public nonisolated func delete(_ model: any ModelDescriptor) async throws {

@@ -99,7 +99,7 @@ func assertImageNotGarbage(_ image: CGImage) {
 func assertModelDownloaded(_ model: any ModelDescriptor) async throws {
   let router = VinetasClient.shared.router
   let engine = try await router.engine(for: model)
-  let available = engine.isAvailable(model)
+  let available = await engine.isAvailable(model)
   #expect(
     available, "Model '\(model.displayName)' is not available on disk — run the download step first"
   )
