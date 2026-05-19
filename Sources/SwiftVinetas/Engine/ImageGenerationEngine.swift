@@ -88,7 +88,14 @@ public protocol ImageGenerationEngine: Sendable {
   ) async throws
 
   /// Check whether a model's weights are available on disk.
-  func isAvailable(_ model: any ModelDescriptor) -> Bool
+  ///
+  /// `async` because conforming engines defer to
+  /// `Acervo.availability(_:)`, which is async — see
+  /// `ModelAvailability` for the three-state value (`.available`,
+  /// `.downloading(progress:)`, `.notAvailable`). Engines collapse those
+  /// to `Bool` here; UI consumers wanting the full state should use
+  /// `VinetasClient.availability(_:)` instead.
+  func isAvailable(_ model: any ModelDescriptor) async -> Bool
 
   /// Delete a model's weights from local storage.
   func delete(_ model: any ModelDescriptor) async throws

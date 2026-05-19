@@ -138,10 +138,10 @@ struct PixArtEngineTests {
   @Test(
     "PixArtEngine isAvailable returns false when not downloaded",
     .disabled("Fails when model is already downloaded on dev machine"))
-  func isAvailableReturnsFalse() {
+  func isAvailableReturnsFalse() async {
     let engine = PixArtEngine()
     // Components are not downloaded in the test environment, so isAvailable returns false.
-    #expect(engine.isAvailable(PixArtModelDescriptor.sigmaXL) == false)
+    #expect(await engine.isAvailable(PixArtModelDescriptor.sigmaXL) == false)
   }
 
   @Test("PixArtEngine validateMemory returns a meaningful result")
