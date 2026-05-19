@@ -68,8 +68,9 @@ public struct Flux2ModelDescriptor: ModelDescriptor {
 
 /// An ``ImageGenerationEngine`` conformance wrapping the existing FLUX.2 pipeline.
 ///
-/// Delegates to `Flux2Pipeline` from Flux2Core for generation, `Flux2ModelDownloader`
-/// for model management, `VinetasMemory` for memory validation, and
+/// Delegates to `Flux2Pipeline` from Flux2Core for generation, `SwiftAcervo`
+/// (`Acervo.ensureAvailable` + `Flux2ModelPaths`) for model management,
+/// `VinetasMemory` for memory validation, and
 /// `VinetasLoRAManager` for LoRA adapter loading/unloading.
 ///
 /// Quantization selection (`.ultraMinimal` for Klein 4B, `.balanced` for Klein 9B)
@@ -380,15 +381,31 @@ public actor Flux2Engine: ImageGenerationEngine {
       throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
     }
 
-    let downloader = Flux2ModelDownloader()
     let components = Self.modelComponents(for: descriptor)
     let total = Double(components.count)
 
     try await withoutActuallyEscaping(progress) { escapableProgress in
       for (index, component) in components.enumerated() {
+        if case .transformer(let variant) = component, !variant.isProvisionedOnCDN {
+          await reporter?.capture(
+            .errorThrown(
+              phase: .modelDownload,
+              errorDescription:
+                "downloadFailed: Variant \(variant.rawValue) is not provisioned on the Acervo CDN."
+            ))
+          throw VinetasError.downloadFailed(
+            "Variant \(variant.rawValue) is not provisioned on the Acervo CDN."
+          )
+        }
         do {
-          _ = try await downloader.download(component) { p, msg in
-            let overall = (Double(index) + p) / total
+          try await Acervo.ensureAvailable(
+            component.repoId,
+            files: []
+          ) { acervoProgress in
+            let overall = (Double(index) + acervoProgress.overallProgress) / total
+            let msg =
+              "Downloading \(component.displayName): \(acervoProgress.fileName) "
+              + "(\(acervoProgress.fileIndex + 1)/\(acervoProgress.totalFiles))"
             escapableProgress(DownloadProgress(fraction: overall, message: msg))
           }
         } catch {
@@ -430,7 +447,7 @@ public actor Flux2Engine: ImageGenerationEngine {
       throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
     }
     for component in Self.modelComponents(for: descriptor) {
-      try Flux2ModelDownloader.delete(component)
+      try Flux2ModelPaths.delete(component)
     }
   }
 
@@ -440,7 +457,7 @@ public actor Flux2Engine: ImageGenerationEngine {
     let fm = FileManager.default
     var totalSize: Int64 = 0
     for component in components {
-      guard let path = Flux2ModelDownloader.findModelPath(for: component) else { return nil }
+      guard let path = Flux2ModelPaths.findModelPath(for: component) else { return nil }
       // Walk the component directory and sum all file sizes. Uses
       // `nextObject()` rather than for-in because `FileManager.DirectoryEnumerator`
       // iterators are unavailable from async contexts (the protocol demoted

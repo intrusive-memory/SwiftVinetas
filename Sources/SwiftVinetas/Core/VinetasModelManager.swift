@@ -15,7 +15,9 @@ public struct VinetasDownloadProgress: Sendable {
 ///
 /// `VinetasModelManager` routes all operations through `VinetasClient.shared.router`,
 /// delegating to the appropriate engine for each model. This replaces the previous
-/// direct coupling to `Flux2ModelDownloader`.
+/// direct coupling to the (now-removed) `Flux2ModelDownloader`. All downloads
+/// run through `SwiftAcervo` (`Acervo.ensureAvailable`); the engine only
+/// resolves on-disk paths via `Flux2ModelPaths`.
 ///
 /// For new code, prefer calling `VinetasClient.shared.download(model:progress:)`,
 /// `VinetasClient.shared.isAvailable(_:)`, etc. directly.
@@ -216,7 +218,7 @@ public enum VinetasModelManager: Sendable {
   @available(*, deprecated, message: "Use delete(_ model: any ModelDescriptor) instead")
   public static func delete(model: VinetasModel) throws {
     for component in modelComponents(for: model) {
-      try Flux2ModelDownloader.delete(component)
+      try Flux2ModelPaths.delete(component)
     }
   }
 
@@ -228,7 +230,7 @@ public enum VinetasModelManager: Sendable {
   @available(*, deprecated, message: "Access model paths through the engine directly")
   public static func modelDirectory(for model: VinetasModel) throws -> URL {
     let variant = transformerVariant(for: model)
-    guard let path = Flux2ModelDownloader.findModelPath(for: .transformer(variant)) else {
+    guard let path = Flux2ModelPaths.findModelPath(for: .transformer(variant)) else {
       throw VinetasError.modelNotFound(model.rawValue)
     }
     return path
