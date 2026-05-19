@@ -136,7 +136,7 @@ struct AllModelsExampleTests {
 
     // Confirm model weights are on disk
     let engine = try await VinetasClient.shared.router.engine(for: model)
-    guard engine.isAvailable(model) else {
+    guard await engine.isAvailable(model) else {
       Issue.record(
         "\(model.displayName): model not downloaded — run 'vinetas download \(model.id)' first, then re-run this test"
       )

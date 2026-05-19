@@ -1,6 +1,7 @@
 import CoreGraphics
 import Flux2Core
 import Foundation
+import SwiftAcervo
 import Tuberia
 import os.lock
 
@@ -29,7 +30,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.13.0"
+  public static let version = "0.14.0"
 
   /// Telemetry reporter storage, guarded by an unfair lock so the mutable
   /// reporter can live on a `Sendable` class without making the class an actor.
@@ -633,19 +634,38 @@ extension VinetasClient {
   /// Check whether a model is available locally by its identifier string.
   ///
   /// This is the **canonical, instrumented** availability check. Mirrors the
-  /// VoxAlta `VoxAltaModelManager.isModelInAcervo(_:)` pattern and routes
-  /// through ``VinetasModelManager/isModelAvailable(_:)`` (which calls
-  /// `Acervo.isModelAvailable`). Emits a single `modelAvailabilityChecked`
-  /// telemetry event with `modelId` and the resolved availability.
+  /// VoxAlta `VoxAltaModelManager.isModelInAcervo(_:)` pattern. Defers to
+  /// ``SwiftAcervo/Acervo/availability(_:)`` and collapses its three-state
+  /// result to `Bool` (`.available` → `true`, everything else → `false`).
+  /// Emits a single `modelAvailabilityChecked` telemetry event with
+  /// `modelId` and the resolved availability.
+  ///
+  /// Consumers that need to distinguish "downloading…" from "absent" should
+  /// use ``availability(_:)`` instead.
   ///
   /// - Parameter modelId: The model identifier string in HuggingFace
   ///   `"org/repo"` form (e.g. `"black-forest-labs/FLUX.2-klein-4B"`).
-  /// - Returns: `true` if the model directory is populated in the shared
-  ///   models directory.
+  /// - Returns: `true` if all manifest files are on disk at their recorded
+  ///   sizes; `false` if missing or a download is in flight.
   public func isModelAvailable(_ modelId: String) async -> Bool {
-    let available = VinetasModelManager.isModelAvailable(modelId)
+    let available = await Acervo.availability(modelId) == .available
     await recordModelAvailability(modelID: modelId, available: available)
     return available
+  }
+
+  /// Three-state availability passthrough for UI consumers (e.g. Vinetas's
+  /// `ModelManagementService`).
+  ///
+  /// Returns the underlying `ModelAvailability` directly so callers can
+  /// distinguish `.available`, `.downloading(progress:)`, and
+  /// `.notAvailable`. This is the canonical UI-facing surface; the
+  /// `Bool`-returning ``isModelAvailable(_:)`` collapses the same value
+  /// for code paths that only need a binary answer.
+  ///
+  /// - Parameter modelId: The model identifier string in HuggingFace
+  ///   `"org/repo"` form.
+  public func availability(_ modelId: String) async -> ModelAvailability {
+    await Acervo.availability(modelId)
   }
 
   /// Canonical telemetry emission site for `modelAvailabilityChecked`.
@@ -674,7 +694,7 @@ extension VinetasClient {
     // get the engine's correct answer. Telemetry still funnels through the
     // single canonical emission site (`recordModelAvailability`).
     let engine = try await router.engine(for: model)
-    let available = engine.isAvailable(model)
+    let available = await engine.isAvailable(model)
     await recordModelAvailability(modelID: model.id, available: available)
     return available
   }
@@ -698,7 +718,7 @@ extension VinetasClient {
       let downloaded: Bool
       let size: Int64
       if let engine = try? await router.engine(for: model) {
-        downloaded = engine.isAvailable(model)
+        downloaded = await engine.isAvailable(model)
         size = await engine.diskSize(of: model) ?? 0
       } else {
         downloaded = false
@@ -844,7 +864,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.13.0"
+  public static let version = "0.14.0"
 
   // MARK: - Generation
 

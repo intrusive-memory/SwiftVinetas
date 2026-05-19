@@ -62,7 +62,7 @@ struct PixArtGarbageReproTests {
 
     // Model availability check
     let engine = try await VinetasClient.shared.router.engine(for: model)
-    guard engine.isAvailable(model) else {
+    guard await engine.isAvailable(model) else {
       Issue.record("PixArt model '\(model.displayName)' not downloaded — run Checkpoint 2 first")
       return
     }

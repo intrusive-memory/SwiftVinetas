@@ -34,7 +34,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.13.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.14.0")
 ]
 ```
 

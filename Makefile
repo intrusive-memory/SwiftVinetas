@@ -111,14 +111,14 @@ release: ## Release build of the vinetas CLI + copy binary and Metal bundle to .
 	fi
 
 test: ## Run all macOS tests (unit + GPU)
-	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
+	TEST_RUNNER_CI=$${CI:-} TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA)
 
 test-unit: ## Run macOS unit tests only (no GPU or model required); output captured to build/test-output.log
 	@mkdir -p build
-	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
+	TEST_RUNNER_CI=$${CI:-} TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \

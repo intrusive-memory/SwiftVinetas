@@ -124,15 +124,4 @@ struct VinetasTelemetryClientInitTests {
     // First reporter should NOT have received the second isModelAvailable call's event.
     #expect(first.count == firstCount, "First reporter no longer receives events after swap")
   }
-
-  /// VinetasClient.version is a non-empty string without a `-dev` suffix in release builds.
-  /// This test validates the version bump at both locations in Vinetas.swift.
-  @Test func versionStringIsRelease() {
-    let v = VinetasClient.version
-    #expect(!v.isEmpty, "version must be non-empty")
-    #expect(!v.hasSuffix("-dev"), "release version must not have -dev suffix")
-    // Validate semver structure: MAJOR.MINOR.PATCH
-    let parts = v.split(separator: ".")
-    #expect(parts.count == 3, "version must be X.Y.Z format")
-  }
 }

@@ -204,7 +204,7 @@ struct PixArtIntegrationTests {
 
     // Skip if model weights are not on disk (requires Checkpoint 2 to have run)
     let engine = try await VinetasClient.shared.router.engine(for: model)
-    guard engine.isAvailable(model) else {
+    guard await engine.isAvailable(model) else {
       Issue.record(
         "Model '\(model.displayName)' is not downloaded — run Checkpoint 2 first"
       )
