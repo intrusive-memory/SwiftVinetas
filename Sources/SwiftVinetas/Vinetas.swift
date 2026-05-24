@@ -5,6 +5,21 @@ import SwiftAcervo
 import Tuberia
 import os.lock
 
+// MARK: - VinetasDownloadProgress
+
+/// Progress information for model downloads.
+public struct VinetasDownloadProgress: Sendable {
+  /// Overall progress from 0.0 to 1.0.
+  public let overallProgress: Double
+  /// Human-readable status message.
+  public let message: String
+
+  public init(overallProgress: Double, message: String) {
+    self.overallProgress = overallProgress
+    self.message = message
+  }
+}
+
 // MARK: - VinetasClient
 
 /// The primary public API for SwiftVinetas.
@@ -30,7 +45,19 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.14.0"
+  public static let version = "0.15.0"
+
+  /// Configures a CDN base URL for model downloads.
+  ///
+  /// When set, the downloader fetches models from the CDN instead of
+  /// HuggingFace. Falls back to HuggingFace if the CDN download fails.
+  ///
+  /// Call this once at app startup before any download operations.
+  ///
+  /// - Parameter baseURL: The CDN base URL (e.g. `https://cdn.example.com`).
+  public static func configureCDN(baseURL: URL) {
+    ModelRegistry.cdnBaseURL = baseURL
+  }
 
   /// Telemetry reporter storage, guarded by an unfair lock so the mutable
   /// reporter can live on a `Sendable` class without making the class an actor.
@@ -90,11 +117,6 @@ public final class VinetasClient: Sendable {
   /// configurations). This eliminates compile-time platform gates in favour of runtime checks,
   /// so both engines compile on every platform and only registration is conditional.
   public init() {
-    // Sync model storage to Acervo's resolved path. As of flux-2-swift-mlx v3.0.0
-    // all flux2 downloads route through Acervo's CDN, so configuring Acervo's
-    // base directory propagates to every engine.
-    VinetasModelManager.configureStorage()
-
     let totalMemoryGB = DeviceCapability.current.totalMemoryGB
     let deviceArch = DeviceCapability.current.chipGeneration.rawValue
     var engines: [any ImageGenerationEngine] = [PixArtEngine()]
@@ -653,14 +675,16 @@ extension VinetasClient {
     return available
   }
 
-  /// Three-state availability passthrough for UI consumers (e.g. Vinetas's
+  /// Four-state availability passthrough for UI consumers (e.g. Vinetas's
   /// `ModelManagementService`).
   ///
   /// Returns the underlying `ModelAvailability` directly so callers can
-  /// distinguish `.available`, `.downloading(progress:)`, and
-  /// `.notAvailable`. This is the canonical UI-facing surface; the
-  /// `Bool`-returning ``isModelAvailable(_:)`` collapses the same value
-  /// for code paths that only need a binary answer.
+  /// distinguish `.available`, `.downloading(progress:)`,
+  /// `.partial(missing:)`, and `.notAvailable`. This is the canonical
+  /// UI-facing surface; the `Bool`-returning ``isModelAvailable(_:)``
+  /// collapses these states for code paths that only need a binary answer
+  /// (note: `.partial` collapses to `false` there — repair-vs-download UI
+  /// must read `availability(_:)` directly).
   ///
   /// - Parameter modelId: The model identifier string in HuggingFace
   ///   `"org/repo"` form.
@@ -864,7 +888,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.14.0"
+  public static let version = "0.15.0"
 
   // MARK: - Generation
 

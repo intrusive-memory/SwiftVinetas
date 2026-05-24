@@ -3,8 +3,8 @@ import Testing
 
 @testable import SwiftVinetas
 
-@Suite("VinetasModelManager Tests")
-struct VinetasModelManagerTests {
+@Suite("VinetasClient Routing Tests")
+struct VinetasClientRoutingTests {
 
   // MARK: - VinetasModelInfo Struct Properties
 
@@ -147,9 +147,9 @@ struct VinetasModelManagerTests {
 
   // MARK: - listAllModels
 
-  @Test("listAllModels returns at least one model from shared client")
+  @Test("listModels returns at least one model from shared client")
   func listAllModelsReturnsAtLeastOneModel() async {
-    let models = await VinetasModelManager.listAllModels()
+    let models = await VinetasClient.shared.listModels()
     // PixArtEngine is always registered regardless of memory
     #expect(models.count >= 1)
     let names = models.map(\.name)
