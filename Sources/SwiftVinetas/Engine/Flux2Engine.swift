@@ -450,23 +450,16 @@ public actor Flux2Engine: ImageGenerationEngine {
   public func diskSize(of model: any ModelDescriptor) async -> Int64? {
     guard let descriptor = resolveDescriptor(model) else { return nil }
     let components = Self.modelComponents(for: descriptor)
-    let fm = FileManager.default
+    // Multiple Flux components can share a repoId (e.g., Klein 4B transformer
+    // and VAE both live under "black-forest-labs/FLUX.2-klein-4B"). Dedupe so
+    // we don't double-count the shared directory.
+    let uniqueRepoIds = Set(components.map { Self.acervoRepoId(for: $0) })
     var totalSize: Int64 = 0
-    for component in components {
-      guard let path = Flux2ModelPaths.findModelPath(for: component) else { return nil }
-      // Walk the component directory and sum all file sizes. Uses
-      // `nextObject()` rather than for-in because `FileManager.DirectoryEnumerator`
-      // iterators are unavailable from async contexts (the protocol demoted
-      // `diskSize(of:)` to `async` as of the manifest-driven migration).
-      guard
-        let enumerator = fm.enumerator(at: path, includingPropertiesForKeys: [.fileSizeKey])
-      else { return nil }
-      while let fileURL = enumerator.nextObject() as? URL {
-        if let resourceValues = try? fileURL.resourceValues(forKeys: [.fileSizeKey]),
-          let fileSize = resourceValues.fileSize
-        {
-          totalSize += Int64(fileSize)
-        }
+    for repoId in uniqueRepoIds {
+      do {
+        totalSize += try Acervo.modelInfo(repoId).sizeBytes
+      } catch {
+        return nil
       }
     }
     return totalSize

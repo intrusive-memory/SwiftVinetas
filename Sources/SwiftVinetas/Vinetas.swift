@@ -653,14 +653,16 @@ extension VinetasClient {
     return available
   }
 
-  /// Three-state availability passthrough for UI consumers (e.g. Vinetas's
+  /// Four-state availability passthrough for UI consumers (e.g. Vinetas's
   /// `ModelManagementService`).
   ///
   /// Returns the underlying `ModelAvailability` directly so callers can
-  /// distinguish `.available`, `.downloading(progress:)`, and
-  /// `.notAvailable`. This is the canonical UI-facing surface; the
-  /// `Bool`-returning ``isModelAvailable(_:)`` collapses the same value
-  /// for code paths that only need a binary answer.
+  /// distinguish `.available`, `.downloading(progress:)`,
+  /// `.partial(missing:)`, and `.notAvailable`. This is the canonical
+  /// UI-facing surface; the `Bool`-returning ``isModelAvailable(_:)``
+  /// collapses these states for code paths that only need a binary answer
+  /// (note: `.partial` collapses to `false` there — repair-vs-download UI
+  /// must read `availability(_:)` directly).
   ///
   /// - Parameter modelId: The model identifier string in HuggingFace
   ///   `"org/repo"` form.
