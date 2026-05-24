@@ -47,10 +47,6 @@ struct T5DiffuserComparisonDumpTests {
     .timeLimit(.minutes(5))
   )
   func dumpT5() async throws {
-    // No-op now (kept for source compatibility); Acervo's base directory is
-    // resolved from ACERVO_APP_GROUP_ID, set by `make link-test-models`.
-    VinetasModelManager.configureStorage()
-
     // Trigger PixArt component registration with Acervo + TuberiaCatalog.
     // This must run before any Acervo.component(...) lookup, otherwise the
     // resolver throws componentNotRegistered.
