@@ -45,9 +45,10 @@ public enum VinetasModelManager: Sendable {
   /// models directory.
   ///
   /// This is the **canonical** answer to "is this model on disk". It mirrors
-  /// `Acervo.isModelAvailable(_:)` (file-presence check for `config.json` in
-  /// the model's slugified directory) and returns synchronously without
-  /// throwing.
+  /// `Acervo.isModelAvailable(_:)`, which is a strict, manifest-driven check:
+  /// the cached `.acervo-manifest.json` must self-validate AND every file it
+  /// declares must be present at the recorded size. Returns synchronously
+  /// without throwing.
   ///
   /// Mirrors the VoxAlta `VoxAltaModelManager.isModelInAcervo(_:)` pattern so
   /// consumers across intrusive-memory libraries share one availability API.
@@ -61,9 +62,9 @@ public enum VinetasModelManager: Sendable {
   ///
   /// - Parameter modelId: The model identifier string in HuggingFace
   ///   `"org/repo"` form (e.g. `"black-forest-labs/FLUX.2-klein-4B"`).
-  /// - Returns: `true` if the model directory contains `config.json` in the
-  ///   shared models directory; `false` if the model is missing, the
-  ///   directory cannot be resolved, or the identifier is malformed.
+  /// - Returns: `true` only when the cached manifest exists, self-validates,
+  ///   and every file it declares is on disk at the recorded size; `false`
+  ///   for any partial download, missing manifest, or malformed identifier.
   public static func isModelAvailable(_ modelId: String) -> Bool {
     Acervo.isModelAvailable(modelId)
   }
@@ -129,8 +130,7 @@ public enum VinetasModelManager: Sendable {
     Acervo.sharedModelsDirectory
   }
 
-  /// Runs SwiftAcervo's one-time migration from legacy cache layouts into the
-  /// unified SharedModels directory, then returns.
+  /// No-op retained for source compatibility.
   ///
   /// Storage is configured via the `ACERVO_APP_GROUP_ID` environment variable
   /// (or the process entitlement). SwiftAcervo resolves the storage location
@@ -141,32 +141,15 @@ public enum VinetasModelManager: Sendable {
   /// Set `ACERVO_APP_GROUP_ID` in `~/.zprofile` for CLI/test use, or declare
   /// `com.apple.security.application-groups` in the app's `.entitlements` file.
   ///
-  /// Called automatically by ``VinetasClient/init()``. Safe to call multiple times —
-  /// the migration runs only once per process.
+  /// The legacy-path migration this method previously performed was removed in
+  /// SwiftAcervo 0.14.1 (`Acervo.migrateFromLegacyPaths` no longer exists).
+  /// The one-time guard is preserved so the no-op is observable as a single
+  /// idempotent call site, matching the behavior consumers expect.
   public static func configureStorage() {
-    // One-time guard: skip if migration was already attempted this process lifetime.
-    let alreadyRan = _migrationLock.withLock { state -> Bool in
+    _ = _migrationLock.withLock { state -> Bool in
       if state { return true }
       state = true
       return false
-    }
-    guard !alreadyRan else { return }
-
-    // Run SwiftAcervo's one-time migration from legacy cache layouts
-    // (LLM/TTS/Audio/VLM subdirs) into the unified SharedModels directory.
-    // No-op when nothing needs migrating; gracefully returns an empty array.
-    do {
-      let migrated = try Acervo.migrateFromLegacyPaths()
-      if !migrated.isEmpty {
-        let destination = Acervo.sharedModelsDirectory.path
-        FileHandle.standardError.write(
-          Data("Migrated \(migrated.count) model(s) to \(destination)\n".utf8)
-        )
-      }
-    } catch {
-      FileHandle.standardError.write(
-        Data("Warning: model migration failed: \(error.localizedDescription)\n".utf8)
-      )
     }
   }
 

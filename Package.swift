@@ -74,7 +74,7 @@ let package = Package(
     sibling(
       "SwiftAcervo",
       remote: "https://github.com/intrusive-memory/SwiftAcervo.git",
-      from: "0.14.0"),
+      from: "0.16.0"),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
     sibling(

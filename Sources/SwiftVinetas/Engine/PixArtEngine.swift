@@ -509,9 +509,9 @@ public actor PixArtEngine: ImageGenerationEngine {
         try Acervo.deleteComponent(componentId)
       } catch let acervoError as AcervoError {
         // Silently skip components that are not registered with the
-        // SwiftAcervo registry (per Acervo.swift:1820, deleteComponent
-        // throws `componentNotRegistered` in that case; if registered
-        // but absent on disk, it is a no-op and does not throw).
+        // SwiftAcervo registry: deleteComponent throws
+        // `componentNotRegistered` in that case; if registered but absent
+        // on disk, it is a no-op and does not throw.
         if case .componentNotRegistered = acervoError { continue }
         await telemetry?.capture(
           .errorThrown(
@@ -531,44 +531,24 @@ public actor PixArtEngine: ImageGenerationEngine {
     guard !ids.isEmpty else { return nil }
 
     let registry = CatalogRegistration.shared
-    var totalSize: Int64 = 0
-
+    // Dedupe by repoId so components that share a model directory don't get
+    // counted twice. Returns nil if any descriptor or repoId can't be
+    // resolved, matching the prior "missing means unknown size" semantics.
+    var repoIds = Set<String>()
     for componentId in ids {
       guard registry.descriptor(for: componentId) != nil else { return nil }
-      // Skip components that aren't downloaded — return nil to match the
-      // prior "missing directory means unknown size" semantics rather
-      // than letting `withComponentAccess` throw.
+      guard let acervo = Acervo.component(componentId) else { return nil }
       guard Acervo.isComponentReady(componentId) else { return nil }
+      repoIds.insert(acervo.repoId)
+    }
 
-      let componentSize: Int64
+    var totalSize: Int64 = 0
+    for repoId in repoIds {
       do {
-        componentSize = try await AcervoManager.shared.withComponentAccess(componentId) {
-          handle -> Int64 in
-          // FileManager.default is fetched inside the @Sendable closure to
-          // avoid capturing a non-Sendable FileManager from the outer scope.
-          let fm = FileManager.default
-          var sum: Int64 = 0
-          guard
-            let enumerator = fm.enumerator(
-              at: handle.rootDirectoryURL,
-              includingPropertiesForKeys: [.fileSizeKey]
-            )
-          else { return 0 }
-          while let fileURL = enumerator.nextObject() as? URL {
-            if let resourceValues = try? fileURL.resourceValues(
-              forKeys: Set<URLResourceKey>([.fileSizeKey])),
-              let fileSize = resourceValues.fileSize
-            {
-              sum += Int64(fileSize)
-            }
-          }
-          return sum
-        }
+        totalSize += try Acervo.modelInfo(repoId).sizeBytes
       } catch {
-        // Integrity check or registry mismatch — surface as "unknown".
         return nil
       }
-      totalSize += componentSize
     }
     return totalSize
   }
