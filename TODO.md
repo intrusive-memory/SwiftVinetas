@@ -75,6 +75,37 @@ Not required for the build to work, listed so they're not forgotten:
 
 ---
 
+## H. Kill `VinetasModelManager` entirely (source-breaking; do in its own commit)
+
+`VinetasModelManager` is a 257-line pure facade with zero unique behavior. Every method either pass-throughs to `Acervo.*` (storage/availability) or to `VinetasClient.shared.*` (engine-routed download/delete/list). Only **one** external call site exists across all sibling repos: `configureCDN(baseURL:)` in the two Vinetas apps. After TODO A.2 lands, `configureStorage()` is a no-op-with-a-lock that exists only to be called from `VinetasClient.init()`.
+
+Note on framing: SwiftAcervo cannot absorb the whole thing. `download / delete / listAllModels` dispatch on `engineID` (Flux2 vs PixArt vs vision backbones); SwiftAcervo has no concept of an engine. Those calls must land on `VinetasClient`. Only the storage/availability pass-throughs collapse cleanly into bare `Acervo.*`.
+
+- [ ] **Move `configureCDN(baseURL:)` to `VinetasClient`** as a new static method `VinetasClient.configureCDN(baseURL:)`. Body is the same one-liner: `ModelRegistry.cdnBaseURL = baseURL`. Update the two app call sites:
+  - `/Users/stovak/Projects/Vinetas/Vinetas/VinetasApp.swift:30`
+  - `/Users/stovak/Projects/Vinetas/VinetasIOS/VinetasIOSApp.swift:61`
+
+- [ ] **Drop the `VinetasModelManager.configureStorage()` call** at `Sources/SwiftVinetas/Vinetas.swift:96`. Once `migrateFromLegacyPaths` is gone (TODO A.2), there is no work left to do. Also drop the call at `Tests/SwiftVinetasGPUTests/T5DiffuserComparisonDump.swift:52`.
+
+- [ ] **Inline the remaining pass-throughs at each caller** (search-and-replace, no logic change):
+  - `VinetasModelManager.isModelAvailable(id)` → `Acervo.isModelAvailable(id)`
+  - `VinetasModelManager.sharedModelsDirectory` → `Acervo.sharedModelsDirectory`
+  - `VinetasModelManager.download(model:progress:)` → `VinetasClient.shared.download(model:progress:)`
+  - `VinetasModelManager.delete(_:)` → `VinetasClient.shared.delete(_:)`
+  - `VinetasModelManager.listAllModels()` → `VinetasClient.shared.listModels()`
+
+- [ ] **Delete the deprecated `VinetasModel` enum shims** — `download(model: VinetasModel)`, `isAvailable(model: VinetasModel)`, `delete(model: VinetasModel)`, `modelDirectory(for: VinetasModel)`, `transformerVariant(for:)`, `modelComponents(for:)`. All `@available(*, deprecated)`; no live callers found across sibling checkouts. The `VinetasModel` enum itself may also be dead — verify with a separate grep before deletion.
+
+- [ ] **Delete `Sources/SwiftVinetas/Core/VinetasModelManager.swift`** in its entirety.
+
+- [ ] **Delete `Tests/SwiftVinetasTests/VinetasModelManagerTests.swift`** in its entirety.
+
+- [ ] **Bump SwiftVinetas to a new minor or major version** to signal the source-breaking API removal. Update `Package.swift` if it carries a version comment, and note in `CHANGELOG.md` / release notes.
+
+**Decision required before starting**: should `VinetasClient` absorb a `configureCDN` static, or is the CDN base URL better moved to a `ModelRegistry.configure(cdnBaseURL:)` call on the Flux2Core side (closer to where it's actually consumed)? Default-recommend: put it on `VinetasClient` for caller symmetry — one type to import, mirrors the existing `VinetasClient.shared.*` surface.
+
+---
+
 ## Ambiguities needing human judgment before edits begin
 
 1. **`.partial` propagation.** The three `== .available` comparisons silently collapse `.partial` into "not ready." Spec-conformant but lossy — decide if engines should surface a repair-vs-download signal upward. Default-recommend: leave for follow-up.
