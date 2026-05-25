@@ -688,8 +688,32 @@ extension VinetasClient {
   ///
   /// - Parameter modelId: The model identifier string in HuggingFace
   ///   `"org/repo"` form.
+  ///
+  /// - Important: This only works for models that map 1:1 to a single
+  ///   HuggingFace repository. For multi-component models (e.g.
+  ///   ``PixArtModelDescriptor/sigmaXL``, ``Flux2ModelDescriptor``) use
+  ///   ``availability(model:)`` which routes through the engine and
+  ///   aggregates per-component availability.
   public func availability(_ modelId: String) async -> ModelAvailability {
     await Acervo.availability(modelId)
+  }
+
+  /// Descriptor-keyed four-state availability for multi-component models.
+  ///
+  /// Resolves the engine for `model` and delegates to
+  /// ``ImageGenerationEngine/availability(_:)``, which aggregates per-component
+  /// Acervo state. This is the canonical availability API for UI consumers
+  /// because it works for both single-repo and multi-component models.
+  ///
+  /// - Parameter model: The model descriptor to query.
+  /// - Returns: ``ModelAvailability`` (`.available`, `.downloading(progress:)`,
+  ///   `.partial(missing:)`, or `.notAvailable`). Returns `.notAvailable`
+  ///   if no engine is registered for the model.
+  public func availability(model: any ModelDescriptor) async -> ModelAvailability {
+    guard let engine = try? await router.engine(for: model) else {
+      return .notAvailable
+    }
+    return await engine.availability(model)
   }
 
   /// Canonical telemetry emission site for `modelAvailabilityChecked`.

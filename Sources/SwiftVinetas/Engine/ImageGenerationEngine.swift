@@ -1,4 +1,5 @@
 import Foundation
+import SwiftAcervo
 
 /// A protocol that every generation backend must conform to.
 ///
@@ -91,11 +92,35 @@ public protocol ImageGenerationEngine: Sendable {
   ///
   /// `async` because conforming engines defer to
   /// `Acervo.availability(_:)`, which is async — see
-  /// `ModelAvailability` for the three-state value (`.available`,
-  /// `.downloading(progress:)`, `.notAvailable`). Engines collapse those
-  /// to `Bool` here; UI consumers wanting the full state should use
-  /// `VinetasClient.availability(_:)` instead.
+  /// `ModelAvailability` for the four-state value (`.available`,
+  /// `.downloading(progress:)`, `.partial(missing:)`, `.notAvailable`).
+  /// Engines collapse those to `Bool` here; UI consumers wanting the full
+  /// state should use ``availability(_:)`` (or
+  /// ``VinetasClient/availability(model:)``).
   func isAvailable(_ model: any ModelDescriptor) async -> Bool
+
+  /// Four-state availability for the given model, aggregated across every
+  /// component the model declares.
+  ///
+  /// Engines that download a model as a single repo (e.g. ``Flux2Engine``)
+  /// delegate to ``SwiftAcervo/Acervo/availability(_:)`` per component and
+  /// aggregate the results. Engines that compose multiple repos into one
+  /// logical model (e.g. ``PixArtEngine``) walk `model.componentIds`,
+  /// resolve each to its `repoId`, query Acervo per repo, and aggregate.
+  ///
+  /// Aggregation rules (mirror ``SwiftAcervo/AvailabilityAggregator``):
+  /// - All components `.available` → `.available`
+  /// - Any component `.downloading(p)` → `.downloading(weightedAvg)` with
+  ///   `.available` components contributing `1.0` and others contributing
+  ///   their reported progress (or `0.0`).
+  /// - Some components `.available` and some not (and none downloading) →
+  ///   `.partial(missing: <componentIds>)`
+  /// - Otherwise → `.notAvailable`
+  ///
+  /// Default implementation synthesizes the result from ``isAvailable(_:)``
+  /// so existing engine implementations compile without change; conforming
+  /// engines should override this to expose `.downloading` and `.partial`.
+  func availability(_ model: any ModelDescriptor) async -> ModelAvailability
 
   /// Delete a model's weights from local storage.
   func delete(_ model: any ModelDescriptor) async throws
@@ -128,5 +153,13 @@ extension ImageGenerationEngine {
   public func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async {
     // No-op default — engines override to store the reporter for their own
     // emission sites. See REQUIREMENTS §5.3.
+  }
+
+  /// Default implementation synthesizes a two-state result from
+  /// ``isAvailable(_:)``. Engines that compose multiple Acervo repos should
+  /// override this to expose `.downloading(progress:)` and
+  /// `.partial(missing:)`.
+  public func availability(_ model: any ModelDescriptor) async -> ModelAvailability {
+    await isAvailable(model) ? .available : .notAvailable
   }
 }

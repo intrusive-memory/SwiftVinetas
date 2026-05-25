@@ -432,6 +432,17 @@ public actor Flux2Engine: ImageGenerationEngine {
     return true
   }
 
+  public func availability(_ model: any ModelDescriptor) async -> ModelAvailability {
+    guard let descriptor = resolveDescriptor(model) else { return .notAvailable }
+    var entries: [AvailabilityAggregation.Entry] = []
+    for component in Self.modelComponents(for: descriptor) {
+      let repoId = Self.acervoRepoId(for: component)
+      let state = await Acervo.availability(repoId)
+      entries.append(AvailabilityAggregation.Entry(componentId: repoId, state: state))
+    }
+    return AvailabilityAggregation.aggregate(entries)
+  }
+
   public nonisolated func delete(_ model: any ModelDescriptor) async throws {
     let reporter = await self.telemetry
     guard let descriptor = resolveDescriptor(model) else {

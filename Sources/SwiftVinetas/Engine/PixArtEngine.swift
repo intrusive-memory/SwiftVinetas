@@ -490,6 +490,28 @@ public actor PixArtEngine: ImageGenerationEngine {
     return true
   }
 
+  public func availability(_ model: any ModelDescriptor) async -> ModelAvailability {
+    _ = PixArtComponents.registered
+
+    let ids = model.componentIds
+    guard !ids.isEmpty else { return .notAvailable }
+
+    let registry = CatalogRegistration.shared
+    var entries: [AvailabilityAggregation.Entry] = []
+    for componentId in ids {
+      guard let descriptor = registry.descriptor(for: componentId) else {
+        // Unregistered component → treat as missing so the model surfaces as
+        // partial/not-available rather than silently dropping it.
+        entries.append(
+          AvailabilityAggregation.Entry(componentId: componentId, state: .notAvailable))
+        continue
+      }
+      let state = await Acervo.availability(descriptor.repoId)
+      entries.append(AvailabilityAggregation.Entry(componentId: componentId, state: state))
+    }
+    return AvailabilityAggregation.aggregate(entries)
+  }
+
   public func delete(_ model: any ModelDescriptor) async throws {
     guard model.engineID == engineID || model.id == PixArtModelDescriptor.sigmaXL.id else {
       await telemetry?.capture(
