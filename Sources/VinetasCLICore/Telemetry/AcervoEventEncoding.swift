@@ -9,9 +9,10 @@ import SwiftAcervo
 // Example output:
 //   {"case":"cacheHit","modelID":"flux2-klein-4b","fileName":"transformer.safetensors",…}
 //
-// Covers all 17 top-level cases of AcervoTelemetryEvent (SwiftAcervo 0.16+,
+// Covers all 19 top-level cases of AcervoTelemetryEvent (SwiftAcervo 0.17+,
 // including the component-keyed componentResolveStart/Complete,
-// componentFileAccessOpened, and modelAvailabilityResolved events).
+// componentFileAccessOpened, modelAvailabilityResolved, and the
+// inFlightDownloadRegistered/Cleared diagnostic pair).
 
 public struct AcervoEventCodable: Encodable {
   public let event: AcervoTelemetryEvent
@@ -164,6 +165,20 @@ public struct AcervoEventCodable: Encodable {
       try container.encode(componentCount, forKey: .componentCount)
       try container.encode(result, forKey: .result)
 
+    // MARK: - In-flight download registry (SwiftAcervo 0.17+)
+
+    case .inFlightDownloadRegistered(let modelID, let componentID, let role):
+      try container.encode("inFlightDownloadRegistered", forKey: .case)
+      try container.encode(modelID, forKey: .modelID)
+      try container.encodeIfPresent(componentID, forKey: .componentID)
+      try container.encode(role.rawValue, forKey: .role)
+
+    case .inFlightDownloadCleared(let modelID, let componentID, let outcome):
+      try container.encode("inFlightDownloadCleared", forKey: .case)
+      try container.encode(modelID, forKey: .modelID)
+      try container.encodeIfPresent(componentID, forKey: .componentID)
+      try container.encode(outcome.rawValue, forKey: .outcome)
+
     // MARK: - Error side-channel
 
     case .errorThrown(let phase, let errorDescription, let modelID, let fileName):
@@ -217,5 +232,8 @@ public struct AcervoEventCodable: Encodable {
     // availability-resolved (0.16+)
     case slug
     case result
+    // in-flight download registry (0.17+)
+    case role
+    case outcome
   }
 }

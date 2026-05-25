@@ -33,8 +33,12 @@ final class CLITelemetryBootstrapSmokeTest: XCTestCase {
       "cli-bootstrap-smoke-\(UUID().uuidString).jsonl"
     )
 
-    // 2. Enable bootstrap. Use .partial mode to avoid touching AcervoManager /
-    //    Flux2WeightLoader process-wide state across parallel tests.
+    // 2. Enable bootstrap. Use .partial mode to avoid touching the Flux2/PixArt/
+    //    Tuberia process-wide reporters across parallel tests. (.partial does
+    //    install the Acervo adapter on AcervoManager.shared so image-understanding
+    //    downloads land in the trace — see CLITelemetryBootstrap. AcervoManager
+    //    is an actor, so the install/clear cycle is serialized and finish()
+    //    fully tears it down before the test exits.)
     let bootstrap = try await CLITelemetryBootstrap.enable(
       traceURL: traceURL,
       mode: .partial

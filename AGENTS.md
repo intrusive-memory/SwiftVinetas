@@ -1,6 +1,6 @@
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.15.1
+**Version**: 0.15.2
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -104,7 +104,7 @@ Pinned floors (see [Package.swift](Package.swift) for the source of truth):
 | flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | 3.0.0 | FLUX.2 pipeline (MIT) |
 | SwiftTubería | `Tuberia`, `TuberiaCatalog` | 0.6.0 | Componentized diffusion pipeline protocols |
 | pixart-swift-mlx | `PixArtBackbone` | 0.5.0 | PixArt-Sigma DiT model plugin |
-| SwiftAcervo | `SwiftAcervo` | 0.8.4 | Model download/cache |
+| SwiftAcervo | `SwiftAcervo` | 0.17.0 | Model download/cache; 0.17 in-flight download registry |
 | Universal | `YAML`, `JSON` | 5.3.0 | Prompt file parsing |
 | swift-argument-parser | `ArgumentParser` | 1.7.1 | CLI (vinetas target only) |
 
@@ -285,3 +285,7 @@ e.g. Produciesta owns the call, not the Vinetas library. A library shouldn't mig
 ### Q3 / R5.2 — PixArt component-bridge duplication is intentional
 
 Drift is caught by the WU6 stderr CI gate. Do NOT extract a helper until a third call site appears. See: docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md § R5.2 and Q3
+
+### 0.17 — pass `AcervoManager.shared.currentTelemetry` to `ensureComponentReady`
+
+`Acervo.ensureComponentReady(_:progress:telemetry:)` emits its event stream (including the new `inFlightDownloadRegistered`/`Cleared` pair) only when a reporter is passed via the `telemetry:` parameter — there is no static fallback. Every call site in SwiftVinetas that downloads via this API (`PixArtEngine.download`, `ImageClassifier.loadModel`, `FeatureExtractor.loadModel`) must forward `await AcervoManager.shared.currentTelemetry` so the bootstrap-installed JSONL adapter sees the events. New call sites should follow the same pattern. See [docs/TELEMETRY.md](docs/TELEMETRY.md) for what the surfaced events mean.

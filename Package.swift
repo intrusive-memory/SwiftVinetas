@@ -33,7 +33,7 @@ let package = Package(
 
     // Shared model management (download, cache, discovery)
     .package(
-      url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.16.2")),
+      url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.17.0")),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
     .package(
