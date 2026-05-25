@@ -136,9 +136,16 @@ public actor FeatureExtractor {
         minimumMemoryBytes: 0
       ))
 
-    // Ensure weights are downloaded via component-keyed API
+    // Ensure weights are downloaded via component-keyed API. Forward the
+    // bootstrap-installed Acervo reporter so the SwiftAcervo 0.17+ in-flight
+    // download events surface in --telemetry traces for `vinetas features`.
+    let acervoReporter = await AcervoManager.shared.currentTelemetry
     do {
-      try await Acervo.ensureComponentReady(Self.componentId, progress: { _ in })
+      try await Acervo.ensureComponentReady(
+        Self.componentId,
+        progress: { _ in },
+        telemetry: acervoReporter
+      )
     } catch {
       let description =
         "Failed to download DINOv2-B/14 weights for component \(Self.componentId): \(error.localizedDescription)"

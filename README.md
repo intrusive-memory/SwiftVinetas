@@ -127,6 +127,17 @@ panels:
 
 Models are downloaded from HuggingFace on first use and cached in the App Group container (`group.intrusive-memory.models`) or `Application Support/SwiftAcervo/SharedModels/` as fallback. All paths are sandbox-safe for App Store distribution.
 
+## Telemetry
+
+Every `vinetas` subcommand accepts `--telemetry`, which writes a JSONL trace of every cross-library handoff (engine routing, weight loads, per-step denoise, model downloads, etc.) to `~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl`. The trace path is printed to stderr when the command exits.
+
+```sh
+vinetas generate "a cyberpunk diner at dusk" --telemetry
+vinetas classify ./photo.jpg --telemetry
+```
+
+The trace includes the SwiftAcervo 0.17 in-flight download registry events (`inFlightDownloadRegistered` / `inFlightDownloadCleared`) for any component download that actually runs — useful for diagnosing slow first-run downloads or verifying that concurrent callers correctly deduplicate. See [docs/TELEMETRY.md](docs/TELEMETRY.md) for the full event catalogue, `jq` recipes, and how to embed `CLITelemetryBootstrap` from a host app.
+
 ## Dependencies
 
 | Package | License | Purpose |

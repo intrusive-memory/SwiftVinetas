@@ -96,12 +96,17 @@ public struct Generate: AsyncParsableCommand {
                              encoder/scheduler/backbone/decoder boundary stats,
                              per-step latent stats.
 
-          SwiftAcervo     — PixArt routes only (component-keyed cache events).
+          SwiftAcervo     — PixArt routes only (component-keyed cache events
+                             via withComponentAccess, plus the SwiftAcervo
+                             0.17+ inFlightDownloadRegistered/Cleared pair
+                             from any ensureComponentReady download).
                              Flux2 currently reaches Acervo through a static
                              seam without a reporter, so kind:acervo events do
                              not appear on Flux2 runs.
 
         The trace path is printed to stderr after the run completes.
+
+        See docs/TELEMETRY.md for the full event catalogue and analysis tips.
 
         Example:
           vinetas generate "a cyberpunk diner at dusk" --telemetry
@@ -258,11 +263,15 @@ public struct Batch: AsyncParsableCommand {
           flux-2-swift-mlx — Flux2 routes only.
           pixart-swift-mlx — PixArt routes only.
           SwiftTuberia    — PixArt routes only.
-          SwiftAcervo     — PixArt routes only (Flux2 reaches Acervo via a
-                             static seam with no reporter).
+          SwiftAcervo     — PixArt routes only. Includes the SwiftAcervo 0.17+
+                             inFlightDownloadRegistered/Cleared events for any
+                             component download that actually runs. Flux2
+                             reaches Acervo via a static seam with no reporter,
+                             so kind:acervo events do not appear on Flux2 runs.
 
         Per-prompt events from each iteration land in the same trace file.
         The trace path is printed to stderr after the run completes.
+        See docs/TELEMETRY.md for the full event catalogue.
         """
     )
   )
@@ -495,6 +504,7 @@ public struct Preview: AsyncParsableCommand {
 
         The trace records `mode: "preview"` on the generationStart event.
         The trace path is printed to stderr after the run completes.
+        See docs/TELEMETRY.md for the full event catalogue.
         """
     )
   )
@@ -929,15 +939,23 @@ public struct Classify: AsyncParsableCommand {
     help: ArgumentHelp(
       "Write a JSONL trace of every SwiftVinetas image-understanding handoff to ~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl",
       discussion: """
-        Image-understanding subcommands wire only the SwiftVinetas adapter; no
-        diffusion happens, so the flux2/pixart/tuberia/acervo adapters would
-        never fire and are intentionally not installed (REQUIREMENTS §7.7).
+        Image-understanding subcommands wire the SwiftVinetas adapter and (since
+        SwiftAcervo 0.17) the Acervo adapter, since the ViT-B/16 classifier
+        weights are downloaded on first use via Acervo.ensureComponentReady.
+        The flux2/pixart/tuberia adapters are intentionally not installed
+        because no diffusion happens (REQUIREMENTS §7.7).
 
         Captures:
-          - classifierForwardStart / classifierForwardComplete
-          - errorThrown (phase: .classifierForward) on failure
+          - SwiftVinetas:  classifierForwardStart / classifierForwardComplete
+                           errorThrown (phase: .classifierForward) on failure
+          - SwiftAcervo:   componentResolveStart / componentResolveComplete
+                           inFlightDownloadRegistered / inFlightDownloadCleared
+                           cacheHit / downloadStart / downloadComplete
+                           (only the first run downloads; cached runs emit
+                            cacheHit or componentResolveComplete(.alreadyReady))
 
         The trace path is printed to stderr after the run completes.
+        See docs/TELEMETRY.md for the full event catalogue.
         """
     )
   )
@@ -992,16 +1010,24 @@ public struct Features: AsyncParsableCommand {
     help: ArgumentHelp(
       "Write a JSONL trace of every SwiftVinetas image-understanding handoff to ~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl",
       discussion: """
-        Image-understanding subcommands wire only the SwiftVinetas adapter; no
-        diffusion happens, so the flux2/pixart/tuberia/acervo adapters would
-        never fire and are intentionally not installed (REQUIREMENTS §7.7).
+        Image-understanding subcommands wire the SwiftVinetas adapter and (since
+        SwiftAcervo 0.17) the Acervo adapter, since the DINOv2-B/14 backbone
+        weights are downloaded on first use via Acervo.ensureComponentReady.
+        The flux2/pixart/tuberia adapters are intentionally not installed
+        because no diffusion happens (REQUIREMENTS §7.7).
 
         Captures:
-          - featureExtractionStart / featureExtractionComplete (with one
-            TuberiaTensorStat summary of the feature vector)
-          - errorThrown (phase: .featureExtraction) on failure
+          - SwiftVinetas:  featureExtractionStart / featureExtractionComplete
+                           (with one TuberiaTensorStat summary of the vector)
+                           errorThrown (phase: .featureExtraction) on failure
+          - SwiftAcervo:   componentResolveStart / componentResolveComplete
+                           inFlightDownloadRegistered / inFlightDownloadCleared
+                           cacheHit / downloadStart / downloadComplete
+                           (only the first run downloads; cached runs emit
+                            cacheHit or componentResolveComplete(.alreadyReady))
 
         The trace path is printed to stderr after the run completes.
+        See docs/TELEMETRY.md for the full event catalogue.
         """
     )
   )
@@ -1055,14 +1081,19 @@ public struct Similarity: AsyncParsableCommand {
     help: ArgumentHelp(
       "Write a JSONL trace of every SwiftVinetas image-understanding handoff to ~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl",
       discussion: """
-        Image-understanding subcommands wire only the SwiftVinetas adapter; no
-        diffusion happens, so the flux2/pixart/tuberia/acervo adapters would
-        never fire and are intentionally not installed (REQUIREMENTS §7.7).
+        Image-understanding subcommands wire the SwiftVinetas adapter and (since
+        SwiftAcervo 0.17) the Acervo adapter, since the DINOv2-B/14 backbone
+        weights are downloaded on first use via Acervo.ensureComponentReady.
+        The flux2/pixart/tuberia adapters are intentionally not installed
+        because no diffusion happens (REQUIREMENTS §7.7).
 
         Captures one featureExtractionStart / featureExtractionComplete pair
-        per input image, plus errorThrown on failure.
+        per input image, plus errorThrown on failure. On a cold cache, also
+        captures the SwiftAcervo download events (componentResolveStart/Complete,
+        inFlightDownloadRegistered/Cleared, cacheHit, downloadStart/Complete).
 
         The trace path is printed to stderr after the run completes.
+        See docs/TELEMETRY.md for the full event catalogue.
         """
     )
   )

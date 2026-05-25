@@ -211,6 +211,27 @@ struct CLITelemetryBootstrapTests {
     await bootstrap.finish()
   }
 
+  @Test("enable(.partial) DOES install Acervo adapter on AcervoManager.shared")
+  func partialModeInstallsAcervoAdapter() async throws {
+    // Image-understanding subcommands trigger Acervo backbone downloads
+    // (ImageClassifier ViT-B/16, FeatureExtractor DINOv2-B/14). SwiftAcervo
+    // 0.17 emits inFlightDownloadRegistered/Cleared events for those downloads
+    // and the bootstrap must install the adapter so they reach the trace.
+    let url = makeTraceURL()
+    defer { try? FileManager.default.removeItem(at: url) }
+
+    await AcervoManager.shared.setTelemetry(nil)
+    let bootstrap = try await CLITelemetryBootstrap.enable(traceURL: url, mode: .partial)
+    let installed = await AcervoManager.shared.currentTelemetry
+    #expect(
+      installed != nil,
+      "enable(.partial) must install the Acervo adapter so image-understanding backbone downloads surface in --telemetry traces"
+    )
+    await bootstrap.finish()
+    let postFinish = await AcervoManager.shared.currentTelemetry
+    #expect(postFinish == nil, "finish() must uninstall the Acervo adapter")
+  }
+
   // MARK: - Mode stored on bootstrap
 
   @Test("bootstrap.mode reflects the mode passed to enable")

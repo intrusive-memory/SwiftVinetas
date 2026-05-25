@@ -432,6 +432,10 @@ public actor PixArtEngine: ImageGenerationEngine {
     let total = Double(ids.count)
     let registry = CatalogRegistration.shared
     let reporter = self.telemetry
+    // Forward whatever Acervo reporter the CLI bootstrap installed so the
+    // 0.17+ inFlightDownloadRegistered/Cleared events (and the rest of the
+    // ensureComponentReady event stream) reach the JSONL sink.
+    let acervoReporter = await AcervoManager.shared.currentTelemetry
 
     try await withoutActuallyEscaping(progress) { escapableProgress in
       for (index, componentId) in ids.enumerated() {
@@ -448,14 +452,18 @@ public actor PixArtEngine: ImageGenerationEngine {
         }
 
         do {
-          try await Acervo.ensureComponentReady(componentId) { acervoProgress in
-            let overall = (Double(index) + acervoProgress.overallProgress) / total
-            escapableProgress(
-              DownloadProgress(
-                fraction: overall,
-                message: "Downloading \(componentId): \(acervoProgress.fileName)"
-              ))
-          }
+          try await Acervo.ensureComponentReady(
+            componentId,
+            progress: { acervoProgress in
+              let overall = (Double(index) + acervoProgress.overallProgress) / total
+              escapableProgress(
+                DownloadProgress(
+                  fraction: overall,
+                  message: "Downloading \(componentId): \(acervoProgress.fileName)"
+                ))
+            },
+            telemetry: acervoReporter
+          )
         } catch {
           print("[PixArtEngine] Failed component '\(componentId)': \(error)")
           await reporter?.capture(

@@ -98,13 +98,18 @@ public struct CLITelemetryBootstrap: Sendable {
     // every subcommand, including the image-understanding ones).
     await VinetasClient.shared.setTelemetry(bootstrap.vinetasAdapter)
 
-    // Dep adapters — only installed in .full mode. Image-understanding
-    // subcommands skip these per REQUIREMENTS §7.7 to keep their traces clean
-    // of dep events that wouldn't fire anyway.
-    if mode == .full {
-      // Acervo: singleton actor, reachable everywhere.
-      await AcervoManager.shared.setTelemetry(bootstrap.acervoAdapter)
+    // Acervo: singleton actor, reachable everywhere. Installed in BOTH .full
+    // and .partial modes — image-understanding subcommands now trigger
+    // Acervo-backed backbone downloads (ImageClassifier ViT-B/16,
+    // FeatureExtractor DINOv2-B/14), and SwiftAcervo 0.17+ emits
+    // inFlightDownloadRegistered/Cleared events for those downloads that the
+    // user should be able to observe via --telemetry.
+    await AcervoManager.shared.setTelemetry(bootstrap.acervoAdapter)
 
+    // Diffusion-only adapters — only installed in .full mode. Image-understanding
+    // subcommands skip these per REQUIREMENTS §7.7 because they don't reach
+    // these libraries.
+    if mode == .full {
       // Flux2: process-wide seam (Flux2Core 3.2.2+). Covers all 14 event cases
       // including weight-load, per-step denoise, and quantization events — supersedes
       // the previous Flux2WeightLoader.setTelemetry(_:) static call.
@@ -132,9 +137,9 @@ public struct CLITelemetryBootstrap: Sendable {
   /// exits before this Task runs.
   public func finish() async {
     await VinetasClient.shared.setTelemetry(nil)
+    await AcervoManager.shared.setTelemetry(nil)
 
     if mode == .full {
-      await AcervoManager.shared.setTelemetry(nil)
       Flux2Telemetry.setReporter(nil)
       PixArtTelemetry.setReporter(nil)
       TuberiaTelemetry.setReporter(nil)
