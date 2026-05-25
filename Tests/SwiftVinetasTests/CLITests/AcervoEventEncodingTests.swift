@@ -5,8 +5,9 @@ import VinetasCLICore
 
 // MARK: - AcervoEventEncodingTests (Sortie 11h)
 //
-// Round-trip tests for all 16 cases of AcervoTelemetryEvent via AcervoEventCodable
-// (SwiftAcervo 0.13.1+: componentResolveStart/Complete, componentFileAccessOpened).
+// Round-trip tests for the cases of AcervoTelemetryEvent via AcervoEventCodable.
+// Covers the SwiftAcervo 0.13.1+ component-keyed events and the 0.17.0+
+// inFlightDownloadRegistered/Cleared diagnostic pair.
 // For each case:
 //  - Encodes via the same JSONEncoder config the sink uses
 //  - Re-decodes via JSONSerialization
@@ -429,5 +430,87 @@ struct AcervoEventEncodingTests {
     #expect((dict["repoID"] as? String) == "flux2-klein-4b")
     #expect((dict["baseDirectory"] as? String) == "/tmp/cache/flux2-klein-4b")
     #expect((dict["fileCount"] as? Int) == 3)
+  }
+
+  // MARK: - Case 18: inFlightDownloadRegistered (0.17+)
+
+  @Test("inFlightDownloadRegistered encodes discriminant, role rawValue, and componentID")
+  func testInFlightDownloadRegistered() throws {
+    let dict = try roundTrip(
+      .inFlightDownloadRegistered(
+        modelID: "intrusive-memory/t5-xxl-int4-mlx",
+        componentID: "t5-xxl-encoder-int4",
+        role: .originator
+      )
+    )
+    #expect((dict["case"] as? String) == "inFlightDownloadRegistered")
+    #expect((dict["modelID"] as? String) == "intrusive-memory/t5-xxl-int4-mlx")
+    #expect((dict["componentID"] as? String) == "t5-xxl-encoder-int4")
+    #expect((dict["role"] as? String) == "originator")
+  }
+
+  @Test("inFlightDownloadRegistered encodes nil componentID as absent")
+  func testInFlightDownloadRegisteredNilComponentID() throws {
+    let dict = try roundTrip(
+      .inFlightDownloadRegistered(
+        modelID: "intrusive-memory/t5-xxl-int4-mlx",
+        componentID: nil,
+        role: .joiner
+      )
+    )
+    #expect((dict["case"] as? String) == "inFlightDownloadRegistered")
+    #expect(dict["componentID"] == nil, "nil componentID should be absent from JSON")
+    #expect((dict["role"] as? String) == "joiner")
+  }
+
+  @Test("inFlightDownloadRegistered encodes all InFlightRole rawValues")
+  func testInFlightDownloadRegisteredAllRoles() throws {
+    let rolesAndExpected: [(AcervoTelemetryEvent.InFlightRole, String)] = [
+      (.originator, "originator"),
+      (.joiner, "joiner"),
+    ]
+    for (role, rawValue) in rolesAndExpected {
+      let dict = try roundTrip(
+        .inFlightDownloadRegistered(modelID: "m", componentID: "c", role: role)
+      )
+      #expect(
+        (dict["role"] as? String) == rawValue,
+        "InFlightRole.\(role) should encode as '\(rawValue)'"
+      )
+    }
+  }
+
+  // MARK: - Case 19: inFlightDownloadCleared (0.17+)
+
+  @Test("inFlightDownloadCleared encodes discriminant, outcome rawValue, and componentID")
+  func testInFlightDownloadCleared() throws {
+    let dict = try roundTrip(
+      .inFlightDownloadCleared(
+        modelID: "intrusive-memory/t5-xxl-int4-mlx",
+        componentID: "t5-xxl-encoder-int4",
+        outcome: .success
+      )
+    )
+    #expect((dict["case"] as? String) == "inFlightDownloadCleared")
+    #expect((dict["modelID"] as? String) == "intrusive-memory/t5-xxl-int4-mlx")
+    #expect((dict["componentID"] as? String) == "t5-xxl-encoder-int4")
+    #expect((dict["outcome"] as? String) == "success")
+  }
+
+  @Test("inFlightDownloadCleared encodes all InFlightOutcome rawValues")
+  func testInFlightDownloadClearedAllOutcomes() throws {
+    let outcomesAndExpected: [(AcervoTelemetryEvent.InFlightOutcome, String)] = [
+      (.success, "success"),
+      (.failure, "failure"),
+    ]
+    for (outcome, rawValue) in outcomesAndExpected {
+      let dict = try roundTrip(
+        .inFlightDownloadCleared(modelID: "m", componentID: "c", outcome: outcome)
+      )
+      #expect(
+        (dict["outcome"] as? String) == rawValue,
+        "InFlightOutcome.\(outcome) should encode as '\(rawValue)'"
+      )
+    }
   }
 }
