@@ -31,8 +31,13 @@ struct PixArtGarbageReproTests {
 
   /// Output directory on the desktop for immediate human or agent inspection.
   private var debugDir: URL {
-    FileManager.default.homeDirectoryForCurrentUser
-      .appendingPathComponent("Desktop/SwiftVinetasDebug")
+    #if os(macOS)
+      FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Desktop/SwiftVinetasDebug")
+    #else
+      URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("SwiftVinetasDebug")
+    #endif
   }
 
   // MARK: - Repeated generation diagnostic
