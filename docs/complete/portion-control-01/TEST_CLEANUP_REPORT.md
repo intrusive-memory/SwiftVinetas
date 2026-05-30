@@ -1,3 +1,10 @@
+---
+feature_name: OPERATION PORTION CONTROL
+mission_branch: mission/portion-control/01
+iteration: 1
+state: completed
+---
+
 # Test Cleanup Report: OPERATION PORTION CONTROL
 
 **Date**: 2026-05-30  
