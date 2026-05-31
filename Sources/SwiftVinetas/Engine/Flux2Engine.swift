@@ -179,6 +179,9 @@ public actor Flux2Engine: ImageGenerationEngine {
     let loadClock = ContinuousClock()
     let loadStart = loadClock.now
 
+    // Configure MLX memory budget for the current process before loading
+    VinetasMemory.configureMLXBudgetForCurrentProcess()
+
     try await withoutActuallyEscaping(progress) { escapableProgress in
       try await newPipeline.loadModels(progressCallback: { downloadProgress, message in
         let fraction = 0.1 + downloadProgress * 0.9

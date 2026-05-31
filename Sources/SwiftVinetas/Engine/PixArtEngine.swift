@@ -210,6 +210,9 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     progress(LoadProgress(phase: "Loading model weights", fraction: 0.1))
 
+    // Configure MLX memory budget for the current process before loading
+    VinetasMemory.configureMLXBudgetForCurrentProcess()
+
     do {
       try await newPipeline.loadModels { fraction, component in
         let mapped = 0.1 + fraction * 0.9
@@ -241,6 +244,7 @@ public actor PixArtEngine: ImageGenerationEngine {
     let unloadingID = loadedModelID
     if let pipeline = pipeline {
       await pipeline.unloadModels()
+      VinetasMemory.releaseMLXCache()
     }
     pipeline = nil
     loadedModelID = nil
@@ -305,6 +309,7 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     isGenerating = true
     defer { isGenerating = false }
+    defer { VinetasMemory.releaseMLXCache() }
 
     let result: DiffusionGenerationResult
     do {

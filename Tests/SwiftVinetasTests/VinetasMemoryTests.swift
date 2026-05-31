@@ -1,4 +1,5 @@
 import Foundation
+import MLX
 import Testing
 
 @testable import SwiftVinetas
@@ -172,4 +173,93 @@ struct VinetasMemoryTests {
     let required = VinetasMemory.requiredMemoryBytes(for: .klein9b)
     #expect(required == 24 * Self.bytesPerGB)
   }
+}
+
+// MARK: - VinetasMemory iOS MLX Budget API Tests
+
+@Suite("VinetasMemory MLX Budget Tests")
+struct VinetasMemoryMLXBudgetTests {
+
+  // MARK: - configureMLXBudgetForCurrentProcess
+
+  @Test("configureMLXBudgetForCurrentProcess sets expected memoryLimit and cacheLimit on iOS")
+  func budgetClampSetsLimits() {
+    // Guard: os(iOS) for the feature boundary; !targetEnvironment(simulator) because
+    // MLX's Metal backend does not fully initialize on the iOS Simulator (the default
+    // Metal device name is nil on the simulator, causing a C++ nullptr crash inside
+    // mlx_set_memory_limit/mlx_set_cache_limit). The production path runs on real
+    // Apple Silicon iOS devices where Metal initializes correctly.
+    #if os(iOS) && !targetEnvironment(simulator)
+      // Snapshot current process-global MLX statics so we can restore them.
+      let savedMemoryLimit = Memory.memoryLimit
+      let savedCacheLimit = Memory.cacheLimit
+      defer {
+        Memory.memoryLimit = savedMemoryLimit
+        Memory.cacheLimit = savedCacheLimit
+      }
+
+      let availableBytes: UInt64 = 4 * 1_073_741_824  // 4 GiB — deterministic injected value
+      let safetyFraction: Double = 0.8
+      let cacheLimitBytes: Int = 32 * 1_048_576  // 32 MiB
+
+      VinetasMemory.configureMLXBudgetForCurrentProcess(
+        availableBytes: availableBytes,
+        safetyFraction: safetyFraction,
+        cacheLimitBytes: cacheLimitBytes
+      )
+
+      let expectedMemoryLimit = Int(Double(availableBytes) * safetyFraction)
+      #expect(Memory.memoryLimit == expectedMemoryLimit)
+      #expect(Memory.cacheLimit == cacheLimitBytes)
+    #endif
+  }
+
+  @Test("configureMLXBudgetForCurrentProcess is a no-op when availableBytes is nil")
+  func budgetClampNoopsOnNil() {
+    #if os(iOS) && !targetEnvironment(simulator)
+      let savedMemoryLimit = Memory.memoryLimit
+      let savedCacheLimit = Memory.cacheLimit
+      defer {
+        Memory.memoryLimit = savedMemoryLimit
+        Memory.cacheLimit = savedCacheLimit
+      }
+
+      // Set known baseline so we can confirm no change.
+      let baseline = 2 * 1_073_741_824  // 2 GiB
+      Memory.memoryLimit = baseline
+
+      VinetasMemory.configureMLXBudgetForCurrentProcess(availableBytes: nil)
+
+      #expect(Memory.memoryLimit == baseline)
+    #endif
+  }
+
+  @Test("configureMLXBudgetForCurrentProcess is a no-op when availableBytes is 0")
+  func budgetClampNoopsOnZero() {
+    #if os(iOS) && !targetEnvironment(simulator)
+      let savedMemoryLimit = Memory.memoryLimit
+      let savedCacheLimit = Memory.cacheLimit
+      defer {
+        Memory.memoryLimit = savedMemoryLimit
+        Memory.cacheLimit = savedCacheLimit
+      }
+
+      let baseline = 2 * 1_073_741_824
+      Memory.memoryLimit = baseline
+
+      VinetasMemory.configureMLXBudgetForCurrentProcess(availableBytes: 0)
+
+      #expect(Memory.memoryLimit == baseline)
+    #endif
+  }
+
+  // MARK: - processAvailableMemoryBytes
+
+  @Test("processAvailableMemoryBytes returns nil on macOS")
+  func processAvailableMemoryBytesIsNilOnMacOS() {
+    #if !os(iOS)
+      #expect(VinetasMemory.processAvailableMemoryBytes == nil)
+    #endif
+  }
+
 }
