@@ -16,7 +16,7 @@
 //
 // Loaded artifacts: tokens, mask (Float), embeddings (Float).
 //
-// This test is gated on the same TEST_RUNNER_VINETAS_TEST_MODELS_DIR plumbing
+// This test is gated on the same TEST_RUNNER_ACERVO_MODELS_DIR plumbing
 // as the rest of the GPU suite — Acervo's storage (resolved from
 // ACERVO_APP_GROUP_ID) must point at the hard-linked /tmp/vinetas-test-models
 // layout produced by `make link-test-models`.

@@ -4,43 +4,28 @@ import SwiftVinetas
 import VinetasCLICore
 import XCTest
 
-// MARK: - xcodebuild sandbox investigation (Sortie 9d)
+// MARK: - Reading model weights from an unentitled test runner
 //
-// Problem: `xcodebuild test` cannot read files inside
+// `xcodebuild test` runs the xctest bundle inside the macOS MACF sandbox, which
+// blocks fopen() on the App Group container
 //   ~/Library/Group Containers/group.intrusive-memory.models/
-// even when TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models is set.
-// The macOS MACF sandbox blocks fopen() on App Group container paths for test
-// runners that lack the com.apple.security.application-groups entitlement.
-// Direct `xcrun xctest` works (no sandbox), but xcodebuild always sandboxes.
+// because the runner lacks the com.apple.security.application-groups entitlement.
 //
-// Resolution: Already implemented via `make link-test-models`.
-// The Makefile target (running in an entitled shell) hardlinks model weights from
-// the App Group container into /tmp/vinetas-test-models, which the sandbox permits.
-// Tests consume this path via TEST_RUNNER_VINETAS_TEST_MODELS_DIR.
-//
-// Options investigated and ruled out:
-//   a) TEST_RUNNER_HOME_RELATIVE_PATH_READ_WRITE — this entitlement key is
-//      not documented for Swift Package Manager test targets and would require
-//      an .xcconfig or entitlements file, making it an Xcode project change
-//      outside this sortie's scope.
-//   b) Passing VINETAS_TEST_MODELS_DIR_RESOLVED via env var — viable but
-//      redundant since link-test-models already provides PIXART_TEST_MODELS=/tmp/…
-//      and the Makefile already passes TEST_RUNNER_VINETAS_TEST_MODELS_DIR.
-//   c) Acervo customSharedModelsDirectory override — SwiftAcervo does not expose
-//      a testable override for the App Group resolution path in its public API.
-//
-// VERDICT: No code change required. The hardlink workaround is sufficient and
-// is already in production via `make link-test-models`. If a future release of
-// SwiftAcervo exposes a `setSharedModelsDirectory` test hook, the hardlink
-// approach can be retired.
+// SwiftAcervo exposes the ACERVO_MODELS_DIR override for exactly this case: when
+// set, Acervo.sharedModelsDirectory returns that path verbatim instead of
+// resolving the App Group container. `make link-test-models` (running in an
+// entitled shell) hardlinks the weights into /tmp/vinetas-test-models using the
+// canonical <org>_<repo> slug layout, and the Makefile points the runner at it
+// via TEST_RUNNER_ACERVO_MODELS_DIR (xcodebuild strips the TEST_RUNNER_ prefix
+// before injecting ACERVO_MODELS_DIR into the test process).
 //
 // MARK: - TelemetryIntegrationTests
 //
 // Canonical fidelity assertions for OPERATION WIRETAP DARKROOM (Sortie 9).
 //
 // Each test:
-//   1. Gates on VINETAS_TEST_MODELS_DIR (set by `make link-test-models`); skips
-//      cleanly in CI where models are not cached.
+//   1. Gates on ACERVO_MODELS_DIR (set by `make link-test-models`); skips
+//      cleanly when the hardlinked weight mirror is absent.
 //   2. Creates a unique temp trace URL and registers a teardown block to remove it.
 //   3. Enables CLITelemetryBootstrap using the same code path as the `vinetas` CLI.
 //   4. Drives a real (or deliberately failing) generation.
@@ -109,8 +94,8 @@ final class TelemetryIntegrationTests: XCTestCase {
   /// Per REQUIREMENTS §8.2 Test A.
   func testEndToEndGenerationProducesCompleteTrace() async throws {
     try XCTSkipUnless(
-      ProcessInfo.processInfo.environment["VINETAS_TEST_MODELS_DIR"] != nil,
-      "VINETAS_TEST_MODELS_DIR not set — run `make link-test-models` first"
+      ProcessInfo.processInfo.environment["ACERVO_MODELS_DIR"] != nil,
+      "ACERVO_MODELS_DIR not set — run `make link-test-models` first"
     )
 
     // Use a non-cleaned-up URL so the developer can inspect the trace after
@@ -251,8 +236,8 @@ final class TelemetryIntegrationTests: XCTestCase {
   /// that the test does not assert exhaustive event counts.
   func testGenerationFailurePathEmitsErrorThrown() async throws {
     try XCTSkipUnless(
-      ProcessInfo.processInfo.environment["VINETAS_TEST_MODELS_DIR"] != nil,
-      "VINETAS_TEST_MODELS_DIR not set — run `make link-test-models` first"
+      ProcessInfo.processInfo.environment["ACERVO_MODELS_DIR"] != nil,
+      "ACERVO_MODELS_DIR not set — run `make link-test-models` first"
     )
 
     let traceURL = makeTempTraceURL()
@@ -328,8 +313,8 @@ final class TelemetryIntegrationTests: XCTestCase {
   /// engineID `"pixart-sigma"`).
   func testPixArtEngineRoutingEmitsCorrectEvents() async throws {
     try XCTSkipUnless(
-      ProcessInfo.processInfo.environment["VINETAS_TEST_MODELS_DIR"] != nil,
-      "VINETAS_TEST_MODELS_DIR not set — run `make link-test-models` first"
+      ProcessInfo.processInfo.environment["ACERVO_MODELS_DIR"] != nil,
+      "ACERVO_MODELS_DIR not set — run `make link-test-models` first"
     )
 
     let traceURL = makeTempTraceURL()
@@ -437,8 +422,8 @@ final class TelemetryIntegrationTests: XCTestCase {
   ///   - The rejected path emits `errorThrown(phase: "generationConcurrency")`.
   func testConcurrentGenerationGateEmitsRejection() async throws {
     try XCTSkipUnless(
-      ProcessInfo.processInfo.environment["VINETAS_TEST_MODELS_DIR"] != nil,
-      "VINETAS_TEST_MODELS_DIR not set — run `make link-test-models` first"
+      ProcessInfo.processInfo.environment["ACERVO_MODELS_DIR"] != nil,
+      "ACERVO_MODELS_DIR not set — run `make link-test-models` first"
     )
 
     let traceURL = makeTempTraceURL()
