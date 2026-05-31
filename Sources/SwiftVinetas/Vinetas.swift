@@ -45,7 +45,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.15.2"
+  public static let version = "0.15.3"
 
   /// Configures a CDN base URL for model downloads.
   ///
@@ -912,7 +912,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.15.2"
+  public static let version = "0.15.3"
 
   // MARK: - Generation
 

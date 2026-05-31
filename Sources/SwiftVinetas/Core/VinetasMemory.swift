@@ -1,4 +1,9 @@
 import Foundation
+import MLX
+
+#if os(iOS)
+  import os
+#endif
 
 /// Pre-flight memory validation for model loading.
 ///
@@ -89,5 +94,60 @@ public enum VinetasMemory: Sendable {
   /// - Returns: The required memory in bytes.
   public static func requiredMemoryBytes(for model: VinetasModel) -> UInt64 {
     UInt64(model.minimumMemoryGB) * bytesPerGB
+  }
+
+  // MARK: - iOS MLX Budget API
+
+  /// The number of bytes available to this process before jetsam, as reported
+  /// by `os_proc_available_memory()`.
+  ///
+  /// Returns a positive `UInt64` on iOS (the per-process jetsam cap minus
+  /// current footprint). Returns `nil` on macOS, where there is no per-process
+  /// jetsam cap and the concept does not apply.
+  public static var processAvailableMemoryBytes: UInt64? {
+    #if os(iOS)
+      let available = os_proc_available_memory()
+      guard available > 0 else { return nil }
+      return UInt64(available)
+    #else
+      return nil
+    #endif
+  }
+
+  /// Configures MLX's memory and cache limits for the current process based on
+  /// the available per-process memory reported by the OS.
+  ///
+  /// On iOS, this sets `MLX.Memory.memoryLimit` to `availableBytes * safetyFraction`
+  /// and `MLX.Memory.cacheLimit` to `cacheLimitBytes`, causing MLX to
+  /// self-throttle before reaching the jetsam cap.
+  ///
+  /// On macOS this function is a no-op — macOS does not impose a per-process
+  /// jetsam cap, and macOS memory behavior is intentionally left unmodified.
+  ///
+  /// - Parameters:
+  ///   - availableBytes: The process-available memory in bytes. Defaults to
+  ///     ``processAvailableMemoryBytes``. Pass an explicit value in tests.
+  ///   - safetyFraction: Fraction of `availableBytes` to allow MLX to use
+  ///     (default 0.8 — leaves a 20 % buffer before the jetsam cap).
+  ///   - cacheLimitBytes: Hard cap on MLX's buffer cache (default 32 MiB).
+  public static func configureMLXBudgetForCurrentProcess(
+    availableBytes: UInt64? = processAvailableMemoryBytes,
+    safetyFraction: Double = 0.8,
+    cacheLimitBytes: Int = 32 * 1_048_576
+  ) {
+    #if os(iOS)
+      guard let available = availableBytes, available > 0 else { return }
+      Memory.memoryLimit = Int(Double(available) * safetyFraction)
+      Memory.cacheLimit = cacheLimitBytes
+    #endif
+  }
+
+  /// Releases MLX's buffer cache immediately.
+  ///
+  /// Calls `MLX.Memory.clearCache()`, which frees all cached (but not
+  /// actively used) Metal buffers back to the system allocator. Safe to call
+  /// on both iOS and macOS.
+  public static func releaseMLXCache() {
+    Memory.clearCache()
   }
 }

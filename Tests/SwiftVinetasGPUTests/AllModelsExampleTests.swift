@@ -33,8 +33,13 @@ struct AllModelsExampleTests {
   private static let seed: UInt64 = 42
 
   /// Output directory — Desktop so the user can find files easily.
-  private static let outputDir = FileManager.default.homeDirectoryForCurrentUser
-    .appendingPathComponent("Desktop/SwiftVinetasExamples")
+  #if os(macOS)
+    private static let outputDir = FileManager.default.homeDirectoryForCurrentUser
+      .appendingPathComponent("Desktop/SwiftVinetasExamples")
+  #else
+    private static let outputDir = URL(fileURLWithPath: NSTemporaryDirectory())
+      .appendingPathComponent("SwiftVinetasExamples")
+  #endif
 
   // MARK: - PixArt-Sigma XL
 
