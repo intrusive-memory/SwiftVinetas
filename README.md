@@ -34,7 +34,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.14.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.15.3")
 ]
 ```
 
@@ -176,6 +176,20 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 
 ## Status
+
+**v0.15.3** — iOS MLX memory throttle (OPERATION PORTION CONTROL): new `VinetasMemory` helper applies an iOS-only MLX cache-limit / relaxed-memory throttle so Flux2 and PixArt generation stays within the device memory budget; `Flux2Engine` and `PixArtEngine` install the throttle before loading weights. Adds `VinetasMemoryTests`.
+
+**v0.15.2** — SwiftAcervo 0.17 download instrumentation: richer download progress/telemetry surfaced through the SwiftAcervo 0.17 contract.
+
+**v0.15.1** — Descriptor-keyed availability for multi-component models: availability is now keyed by component descriptor so multi-component models report correct per-component readiness.
+
+**v0.15.0** — `VinetasModelManager` facade removed; migrated to SwiftAcervo 0.16 manifest-driven sizing. Model size/availability now derives from the published manifest rather than the removed facade.
+
+**v0.14.0** — SwiftAcervo Flux2 migration + three-state availability API (`available` / `partial` / `unavailable`).
+
+**v0.13.0** — Cross-library telemetry instrumentation + PixArt VAE color-cast fix.
+
+**v0.11.0** — SwiftAcervo manifest-driven contract: model discovery and sizing move to the SwiftAcervo manifest.
 
 **v0.10.1** — Release tooling: new `release.yml` workflow builds + uploads the canonical tarball and dispatches the Homebrew formula update on `release: published`; Makefile install/release targets reorganized so `make dist` is CI-reproducible; release upload step now passes `GITHUB_TOKEN` explicitly.
 
