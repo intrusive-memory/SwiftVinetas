@@ -986,15 +986,66 @@ public enum Vinetas: Sendable {
       @Sendable (_ currentStep: Int, _ totalSteps: Int, _ elapsed: TimeInterval) -> Void
     )? = nil
   ) async throws -> [PanelOutput] {
-    // generateFromFile retains its own implementation since VinetasClient
-    // does not yet expose a prompt-file API; delegate to VinetasPipeline.
+    // Route prompt-file generation through the engine router (VinetasClient) so
+    // the selected model's engine is honored — e.g. pixart-sigma must run on
+    // PixArtEngine. The previous implementation delegated to the now-deprecated
+    // VinetasPipeline, which hardcoded the Flux2 pipeline and silently coerced
+    // pixart-sigma -> klein4b. See https://github.com/intrusive-memory/SwiftVinetas/issues/40.
+    //
+    // Note: `stepProgress` is currently unused here — VinetasClient.generate
+    // does not surface per-step callbacks for a single panel. Per-panel
+    // progress is still reported via `progress`.
+    _ = stepProgress
     let promptFile = try PromptFile.parse(url: url)
-    return try await VinetasPipeline.generateFromPromptFile(
-      promptFile,
-      model: model,
-      panelProgress: progress,
-      stepProgress: stepProgress
-    )
+    guard !promptFile.panels.isEmpty else { return [] }
+
+    // Ensure the selected model's weights are present before iterating, mirroring
+    // the single-panel `generate` CLI path (which downloads up front).
+    try await download(model: model)
+
+    let descriptor = model.descriptor
+    let total = promptFile.panels.count
+    var outputs: [PanelOutput] = []
+    outputs.reserveCapacity(total)
+
+    for index in 0..<total {
+      progress?(index + 1, total)
+
+      let panel = promptFile.panels[index]
+      var panelStyle = promptFile.resolvedStyle(for: index)
+
+      // Resolve the seed up front so PanelOutput.seed is accurate even when the
+      // prompt file leaves it unset; the router uses style.seed for the request.
+      let resolvedSeed = panelStyle.seed ?? UInt64.random(in: 0...UInt64.max)
+      panelStyle.seed = resolvedSeed
+
+      // VinetasClient.generate composes the style prompt + panel prompt itself,
+      // so pass the raw panel prompt and let the engine combine them.
+      let clock = ContinuousClock()
+      let startTime = clock.now
+      let image = try await VinetasClient.shared.generate(
+        prompt: panel.prompt,
+        style: panelStyle,
+        model: descriptor
+      )
+      let elapsed = clock.now - startTime
+      let durationSeconds =
+        Double(elapsed.components.seconds)
+        + Double(elapsed.components.attoseconds) / 1e18
+
+      outputs.append(
+        PanelOutput(
+          image: image,
+          prompt: panel.prompt,
+          seed: resolvedSeed,
+          durationSeconds: durationSeconds,
+          modelID: model.rawValue,
+          width: panelStyle.width,
+          height: panelStyle.height
+        )
+      )
+    }
+    return outputs
   }
 
   // MARK: - Character-Aware Generation
