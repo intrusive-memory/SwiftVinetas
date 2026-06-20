@@ -257,18 +257,30 @@ public actor Flux2Engine: ImageGenerationEngine {
     switch request.mode {
     case .textToImage:
       do {
-        flux2Result = try await pipeline.generateTextToImageWithResult(
-          prompt: request.prompt,
-          height: request.height,
-          width: request.width,
-          steps: request.steps,
-          guidance: request.guidanceScale,
-          seed: resolvedSeed,
-          onProgress: { currentStep, totalSteps in
-            let elapsed = Self.elapsedSeconds(from: startTime, clock: clock)
-            stepProgress?(currentStep, totalSteps, elapsed)
-          }
-        )
+        // Wrap the pipeline call so a cancelled generation Task deterministically
+        // flushes the MLX buffer cache. PixArt already does this via
+        // `defer { VinetasMemory.releaseMLXCache() }`; Flux2 lacked an equivalent,
+        // leaving the cache un-flushed on cancel. `releaseMLXCache()` is a static
+        // `enum` call (Memory.clearCache()) — Sendable and non-actor-isolated, so
+        // it is legal inside the synchronous, nonisolated `onCancel` closure.
+        // Flush-only (not unload): keeps the loaded weights warm for the next
+        // generate while reclaiming the transient diffusion working-set buffers.
+        flux2Result = try await withTaskCancellationHandler {
+          try await pipeline.generateTextToImageWithResult(
+            prompt: request.prompt,
+            height: request.height,
+            width: request.width,
+            steps: request.steps,
+            guidance: request.guidanceScale,
+            seed: resolvedSeed,
+            onProgress: { currentStep, totalSteps in
+              let elapsed = Self.elapsedSeconds(from: startTime, clock: clock)
+              stepProgress?(currentStep, totalSteps, elapsed)
+            }
+          )
+        } onCancel: {
+          VinetasMemory.releaseMLXCache()
+        }
       } catch {
         await telemetry?.capture(
           .errorThrown(
@@ -282,19 +294,25 @@ public actor Flux2Engine: ImageGenerationEngine {
 
     case .imageToImage(let references):
       do {
-        flux2Result = try await pipeline.generateImageToImageWithResult(
-          prompt: request.prompt,
-          images: references,
-          height: request.height,
-          width: request.width,
-          steps: request.steps,
-          guidance: request.guidanceScale,
-          seed: resolvedSeed,
-          onProgress: { currentStep, totalSteps in
-            let elapsed = Self.elapsedSeconds(from: startTime, clock: clock)
-            stepProgress?(currentStep, totalSteps, elapsed)
-          }
-        )
+        // See the text-to-image branch above: flush the MLX cache on cancel so a
+        // cancelled Flux2 generation does not leave transient buffers resident.
+        flux2Result = try await withTaskCancellationHandler {
+          try await pipeline.generateImageToImageWithResult(
+            prompt: request.prompt,
+            images: references,
+            height: request.height,
+            width: request.width,
+            steps: request.steps,
+            guidance: request.guidanceScale,
+            seed: resolvedSeed,
+            onProgress: { currentStep, totalSteps in
+              let elapsed = Self.elapsedSeconds(from: startTime, clock: clock)
+              stepProgress?(currentStep, totalSteps, elapsed)
+            }
+          )
+        } onCancel: {
+          VinetasMemory.releaseMLXCache()
+        }
       } catch {
         await telemetry?.capture(
           .errorThrown(

@@ -59,7 +59,7 @@ INTEGRATION_SUITES = \
 	-only-testing:SwiftVinetasGPUTests/AllModelsExampleTests \
 	-only-testing:SwiftVinetasTests/TelemetryIntegrationTests
 
-.PHONY: build release test test-unit test-gpu test-integration test-fixtures test-pixart-repro test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help check-acervo-warnings test-telemetry-debug
+.PHONY: build release test test-unit test-gpu test-integration test-fixtures test-pixart-repro test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help check-acervo-warnings test-telemetry-debug codesign-cli
 
 help: ## Show all available targets with descriptions
 	@echo "SwiftVinetas — Makefile targets"
@@ -191,22 +191,23 @@ link-test-models: ## Hardlink all model weights + tokenizer files from App Group
 link-pixart-models: link-test-models
 
 test-gpu: link-test-models ## Run GPU tests only (requires Apple Silicon + cached model)
-	ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
-
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
+		-parallel-testing-enabled NO \
 		-only-testing:SwiftVinetasGPUTests
 
 test-integration: link-test-models ## Run integration tests only (model download + image generation)
-	ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
+		-parallel-testing-enabled NO \
 		$(INTEGRATION_SUITES)
 
 test-telemetry-debug: link-test-models ## Run the Flux2 + PixArt telemetry integration tests; pipes log to /tmp/test-telemetry.log and prints the trace paths
-	@TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+	@TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
@@ -226,7 +227,7 @@ test-fixtures: build ## Generate one image per engine via the CLI, save to tmp/f
 
 test-pixart-repro: link-test-models ## Run PixArt 5× across seeds 42-46 to diagnose garbage output — saves to ~/Desktop/SwiftVinetasDebug/
 	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
-	TEST_RUNNER_VINETAS_TEST_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+	TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
@@ -267,6 +268,28 @@ check-acervo-warnings: ## Fail if build/test-output.log contains SwiftAcervo reg
 	echo "OK: no SwiftAcervo regression warnings in $$LOG"
 
 install: release ## Alias for `release` (Release build + copy to ./bin/)
+
+# ── App Group code-signing ────────────────────────────────────────────────
+# Sign the vinetas CLI with the com.apple.security.application-groups entitlement
+# so the group ID is embedded in the binary and SwiftAcervo resolves the shared
+# models container (~/Library/Group Containers/group.intrusive-memory.models/)
+# WITHOUT requiring ACERVO_APP_GROUP_ID in the environment. Container access is
+# plain POSIX (same-user, mode 700); the entitlement only supplies the group
+# identifier at runtime via SecTaskCopyValueForEntitlement.
+#
+# Default identity is ad-hoc (-). For a distributable build, override with a
+# Developer ID by certificate SHA-1 (names collide in the keychain):
+#   make release codesign-cli CODESIGN_IDENTITY=<sha1>
+APP_GROUP_ID ?= group.intrusive-memory.models
+CODESIGN_IDENTITY ?= -
+CODESIGN_FLAGS ?=
+CODESIGN_ENTITLEMENTS ?= cli.entitlements
+
+codesign-cli: ## Sign the vinetas CLI with the App Group entitlement (run after release/install)
+	@test -f "$(BINDIR)/vinetas" || { echo "Error: $(BINDIR)/vinetas not found — run 'make release' or 'make install' first."; exit 1; }
+	@codesign --force --sign "$(CODESIGN_IDENTITY)" --entitlements "$(CODESIGN_ENTITLEMENTS)" $(CODESIGN_FLAGS) "$(BINDIR)/vinetas"
+	@echo "Signed $(BINDIR)/vinetas (identity: $(CODESIGN_IDENTITY), group: $(APP_GROUP_ID))"
+	@codesign -d --entitlements - "$(BINDIR)/vinetas" 2>/dev/null | grep -A1 "application-groups" || true
 
 lint: ## Format Swift source files with swift-format
 	swift format -i -r .

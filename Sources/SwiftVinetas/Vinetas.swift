@@ -45,7 +45,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.15.3"
+  public static let version = "0.15.4"
 
   /// Configures a CDN base URL for model downloads.
   ///
@@ -169,6 +169,41 @@ public final class VinetasClient: Sendable {
   /// - Parameter router: The engine router to use for dispatch.
   public init(router: EngineRouter) {
     self.router = router
+  }
+}
+
+// MARK: - Eviction
+
+extension VinetasClient {
+
+  /// Release all resident model weights across every registered engine.
+  ///
+  /// Fans out through the ``EngineRouter`` to each engine's `unloadModel()`,
+  /// freeing the MLX weights every loaded engine holds. Safe to call repeatedly;
+  /// engines with nothing loaded are no-ops. After this, the next
+  /// generate/preview pays the model-reload cost, so reserve it for genuine
+  /// memory pressure or app-background transitions rather than between rapid
+  /// Generate→Cancel→Generate toggles.
+  ///
+  /// This does **not** cancel in-flight generation. If a `generate` is running
+  /// on an engine, this call suspends behind it on that engine's actor and runs
+  /// after the in-flight work yields. Pair it with `Task` cancellation if the
+  /// consumer wants immediate teardown.
+  ///
+  /// Each engine emits its own `.modelUnload` telemetry event as it releases.
+  public func unloadAll() async {
+    await router.unloadAllEngines()
+  }
+
+  /// Evict a single engine's resident weights by engine ID.
+  ///
+  /// Covers the "free the big Flux2 engine but keep PixArt warm" case. A no-op
+  /// if `engineID` is unknown or that engine has nothing loaded.
+  ///
+  /// - Parameter engineID: The engine identifier to evict (e.g. `"flux2"`,
+  ///   `"pixart-sigma"`).
+  public func evictEngine(forEngineID engineID: String) async {
+    await router.evictEngine(forEngineID: engineID)
   }
 }
 
@@ -912,7 +947,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.15.3"
+  public static let version = "0.15.4"
 
   // MARK: - Generation
 
@@ -986,15 +1021,66 @@ public enum Vinetas: Sendable {
       @Sendable (_ currentStep: Int, _ totalSteps: Int, _ elapsed: TimeInterval) -> Void
     )? = nil
   ) async throws -> [PanelOutput] {
-    // generateFromFile retains its own implementation since VinetasClient
-    // does not yet expose a prompt-file API; delegate to VinetasPipeline.
+    // Route prompt-file generation through the engine router (VinetasClient) so
+    // the selected model's engine is honored — e.g. pixart-sigma must run on
+    // PixArtEngine. The previous implementation delegated to the now-deprecated
+    // VinetasPipeline, which hardcoded the Flux2 pipeline and silently coerced
+    // pixart-sigma -> klein4b. See https://github.com/intrusive-memory/SwiftVinetas/issues/40.
+    //
+    // Note: `stepProgress` is currently unused here — VinetasClient.generate
+    // does not surface per-step callbacks for a single panel. Per-panel
+    // progress is still reported via `progress`.
+    _ = stepProgress
     let promptFile = try PromptFile.parse(url: url)
-    return try await VinetasPipeline.generateFromPromptFile(
-      promptFile,
-      model: model,
-      panelProgress: progress,
-      stepProgress: stepProgress
-    )
+    guard !promptFile.panels.isEmpty else { return [] }
+
+    // Ensure the selected model's weights are present before iterating, mirroring
+    // the single-panel `generate` CLI path (which downloads up front).
+    try await download(model: model)
+
+    let descriptor = model.descriptor
+    let total = promptFile.panels.count
+    var outputs: [PanelOutput] = []
+    outputs.reserveCapacity(total)
+
+    for index in 0..<total {
+      progress?(index + 1, total)
+
+      let panel = promptFile.panels[index]
+      var panelStyle = promptFile.resolvedStyle(for: index)
+
+      // Resolve the seed up front so PanelOutput.seed is accurate even when the
+      // prompt file leaves it unset; the router uses style.seed for the request.
+      let resolvedSeed = panelStyle.seed ?? UInt64.random(in: 0...UInt64.max)
+      panelStyle.seed = resolvedSeed
+
+      // VinetasClient.generate composes the style prompt + panel prompt itself,
+      // so pass the raw panel prompt and let the engine combine them.
+      let clock = ContinuousClock()
+      let startTime = clock.now
+      let image = try await VinetasClient.shared.generate(
+        prompt: panel.prompt,
+        style: panelStyle,
+        model: descriptor
+      )
+      let elapsed = clock.now - startTime
+      let durationSeconds =
+        Double(elapsed.components.seconds)
+        + Double(elapsed.components.attoseconds) / 1e18
+
+      outputs.append(
+        PanelOutput(
+          image: image,
+          prompt: panel.prompt,
+          seed: resolvedSeed,
+          durationSeconds: durationSeconds,
+          modelID: model.rawValue,
+          width: panelStyle.width,
+          height: panelStyle.height
+        )
+      )
+    }
+    return outputs
   }
 
   // MARK: - Character-Aware Generation

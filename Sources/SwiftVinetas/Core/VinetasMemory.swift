@@ -121,25 +121,61 @@ public enum VinetasMemory: Sendable {
   /// and `MLX.Memory.cacheLimit` to `cacheLimitBytes`, causing MLX to
   /// self-throttle before reaching the jetsam cap.
   ///
-  /// On macOS this function is a no-op — macOS does not impose a per-process
-  /// jetsam cap, and macOS memory behavior is intentionally left unmodified.
+  /// On macOS this sets **only** a loose `MLX.Memory.cacheLimit` (a generous
+  /// fraction of physical RAM) and never a `memoryLimit`: macOS has no jetsam
+  /// cap, so a hard memory limit risks OOM-aborting valid large generations,
+  /// whereas an uncapped buffer cache only ever grows — pinning RAM and pushing
+  /// the system into memory compression/swap (the GL4 "runs/responds very
+  /// slowly" symptom). The loose ceiling lets MLX recycle buffers under its own
+  /// budget without throttling throughput on high-RAM Macs.
   ///
   /// - Parameters:
   ///   - availableBytes: The process-available memory in bytes. Defaults to
   ///     ``processAvailableMemoryBytes``. Pass an explicit value in tests.
   ///   - safetyFraction: Fraction of `availableBytes` to allow MLX to use
   ///     (default 0.8 — leaves a 20 % buffer before the jetsam cap).
-  ///   - cacheLimitBytes: Hard cap on MLX's buffer cache (default 32 MiB).
+  ///   - cacheLimitBytes: Hard cap on MLX's buffer cache on iOS (default 32 MiB).
+  ///   - macOSCacheFraction: Fraction of total physical RAM to use as the macOS
+  ///     MLX `cacheLimit` ceiling (default 0.5). Tunable — verify against the 4K
+  ///     working set before shipping. Ignored on iOS.
   public static func configureMLXBudgetForCurrentProcess(
     availableBytes: UInt64? = processAvailableMemoryBytes,
     safetyFraction: Double = 0.8,
-    cacheLimitBytes: Int = 32 * 1_048_576
+    cacheLimitBytes: Int = 32 * 1_048_576,
+    macOSCacheFraction: Double = 0.5
   ) {
     #if os(iOS)
       guard let available = availableBytes, available > 0 else { return }
       Memory.memoryLimit = Int(Double(available) * safetyFraction)
       Memory.cacheLimit = cacheLimitBytes
+    #else
+      // macOS: no jetsam cap → set only a loose cache ceiling, never memoryLimit.
+      let total = Double(systemMemoryBytes)
+      let limit = Int(total * macOSCacheFraction)
+      if limit > 0 {
+        Memory.cacheLimit = limit
+      }
     #endif
+  }
+
+  // MARK: - Observability
+
+  /// The current MLX buffer-cache ceiling in bytes.
+  ///
+  /// Reflects whatever ``configureMLXBudgetForCurrentProcess(availableBytes:safetyFraction:cacheLimitBytes:macOSCacheFraction:)``
+  /// last set (or MLX's own default if never configured). Read-only passthrough
+  /// to `MLX.Memory.cacheLimit`. Cross-platform.
+  public static var currentCacheLimit: Int {
+    Memory.cacheLimit
+  }
+
+  /// A snapshot of MLX's memory counters (active / cache / peak) for logging.
+  ///
+  /// Read-only passthrough to `MLX.Memory.snapshot()`. Use the `cacheMemory`
+  /// field to confirm a flush (``releaseMLXCache()`` or a cancellation teardown)
+  /// actually dropped the cached buffer footprint. Cross-platform.
+  public static func snapshot() -> Memory.Snapshot {
+    Memory.snapshot()
   }
 
   /// Releases MLX's buffer cache immediately.

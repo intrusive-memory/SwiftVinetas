@@ -28,16 +28,16 @@ let package = Package(
   dependencies: [
     // FLUX.2 image generation pipeline (MIT license, includes mlx-swift transitively)
     .package(
-      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.3.1")
+      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.3.2")
     ),
 
     // Shared model management (download, cache, discovery)
     .package(
-      url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.19.0")),
+      url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.19.2")),
 
     // Componentized diffusion pipeline (protocols + infrastructure)
     .package(
-      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.7.4")),
+      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.7.6")),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
     .package(
@@ -50,14 +50,13 @@ let package = Package(
     // CLI argument parsing
     .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
 
-    // Pin swift-tokenizers to the 0.5.x line. 0.6.x ships a UniFFI Rust
-    // artifactbundle whose module map fails to expose RustBuffer / RustCallStatus /
-    // ForeignBytes to TokenizersFFI when consumed via xcodebuild (works under
-    // `swift build`). Bump only when upstream ships a 0.6.x release that compiles
-    // cleanly under xcodebuild.
+    // swift-tokenizers 0.7.1 carries upstream 0.6.3's "Fixes for Xcode build
+    // with artifact bundle", which resolves the UniFFI module-map/linker blocker
+    // that previously froze us at 0.5.x. 0.6.0+ also makes the Tokenizer protocol
+    // typed-throwing and relabels the encode/decode/tokenize convenience overloads.
     .package(
       url: "https://github.com/DePasqualeOrg/swift-tokenizers.git",
-      .upToNextMinor(from: "0.5.0")),
+      .upToNextMinor(from: "0.7.1")),
   ],
   targets: [
     // Main library - storyboard/comic panel generation

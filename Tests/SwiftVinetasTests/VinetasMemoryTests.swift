@@ -263,3 +263,90 @@ struct VinetasMemoryMLXBudgetTests {
   }
 
 }
+
+/// macOS cache-limit configuration + observability passthroughs (SwiftVinetas#41).
+///
+/// These tests mutate and read the process-global `MLX.Memory.cacheLimit` /
+/// `memoryLimit` statics. Marked `.serialized` so they do not race each other
+/// (and the rest of this file's MLX-static tests) on that shared global —
+/// parallel execution makes a set-then-read round-trip non-deterministic.
+@Suite("VinetasMemory macOS Cache Limit + Observability", .serialized)
+struct VinetasMemoryMacOSCacheLimitTests {
+
+  @Test("configureMLXBudgetForCurrentProcess sets a loose cacheLimit on macOS")
+  func macOSSetsLooseCacheLimit() {
+    #if !os(iOS)
+      let savedCacheLimit = Memory.cacheLimit
+      defer { Memory.cacheLimit = savedCacheLimit }
+
+      let fraction = 0.5
+      VinetasMemory.configureMLXBudgetForCurrentProcess(macOSCacheFraction: fraction)
+
+      let expected = Int(Double(VinetasMemory.systemMemoryBytes) * fraction)
+      #expect(Memory.cacheLimit == expected)
+      // The loose macOS cap must be far larger than the tight 32 MiB iOS value.
+      #expect(Memory.cacheLimit > 32 * 1_048_576)
+    #endif
+  }
+
+  @Test("configureMLXBudgetForCurrentProcess does not set memoryLimit on macOS")
+  func macOSDoesNotTouchMemoryLimit() {
+    #if !os(iOS)
+      let savedCacheLimit = Memory.cacheLimit
+      let savedMemoryLimit = Memory.memoryLimit
+      defer {
+        Memory.cacheLimit = savedCacheLimit
+        Memory.memoryLimit = savedMemoryLimit
+      }
+
+      // macOS has no jetsam cap; a hard memoryLimit risks OOM-aborting valid
+      // large generations, so the function must leave memoryLimit untouched.
+      let baselineMemoryLimit = Memory.memoryLimit
+      VinetasMemory.configureMLXBudgetForCurrentProcess()
+      #expect(Memory.memoryLimit == baselineMemoryLimit)
+    #endif
+  }
+
+  @Test("currentCacheLimit reflects the configured macOS cacheLimit")
+  func currentCacheLimitReflectsConfiguration() {
+    #if !os(iOS)
+      let savedCacheLimit = Memory.cacheLimit
+      defer { Memory.cacheLimit = savedCacheLimit }
+
+      VinetasMemory.configureMLXBudgetForCurrentProcess(macOSCacheFraction: 0.25)
+      let expected = Int(Double(VinetasMemory.systemMemoryBytes) * 0.25)
+      #expect(VinetasMemory.currentCacheLimit == expected)
+    #endif
+  }
+
+  @Test("snapshot() exposes MLX memory counters")
+  func snapshotExposesCounters() {
+    // MLX's Metal backend does not initialize on the iOS Simulator (nil default
+    // device → C++ nullptr crash inside the MLX memory C API). Gate the same way
+    // the budget-clamp tests above do; the production path runs on real Apple
+    // Silicon iOS devices and on macOS.
+    #if !targetEnvironment(simulator)
+      let snap = VinetasMemory.snapshot()
+      // Counters are non-negative; this is a smoke test that the passthrough
+      // compiles and returns a usable Snapshot value.
+      #expect(snap.activeMemory >= 0)
+      #expect(snap.cacheMemory >= 0)
+      #expect(snap.peakMemory >= 0)
+    #endif
+  }
+
+  @Test("releaseMLXCache does not raise the configured cache limit")
+  func releaseDoesNotRaiseLimit() {
+    // Touches MLX Memory statics → gate off the iOS Simulator (see above).
+    #if !targetEnvironment(simulator)
+      let saved = Memory.cacheLimit
+      defer { Memory.cacheLimit = saved }
+
+      // Pin a known ceiling, then flush; the configured ceiling must be unchanged.
+      let known = 64 * 1_048_576
+      Memory.cacheLimit = known
+      VinetasMemory.releaseMLXCache()
+      #expect(VinetasMemory.currentCacheLimit == known)
+    #endif
+  }
+}
