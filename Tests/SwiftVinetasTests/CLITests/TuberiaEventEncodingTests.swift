@@ -498,11 +498,18 @@ struct TuberiaEventEncodingTests {
   @Test("decoderDecodeComplete encodes discriminant and all associated values")
   func testDecoderDecodeComplete() throws {
     let dict = try roundTrip(
-      .decoderDecodeComplete(outputStat: makeStat(shape: [1, 512, 512, 3]), durationSeconds: 0.9)
+      .decoderDecodeComplete(
+        outputStat: makeStat(shape: [1, 512, 512, 3]),
+        durationSeconds: 0.9,
+        residentBytesBefore: 1_000_000,
+        residentBytesAfter: 1_500_000
+      )
     )
     #expect((dict["case"] as? String) == "decoderDecodeComplete")
     #expect(dict["outputStat"] != nil)
     #expect((dict["durationSeconds"] as? Double) == 0.9)
+    #expect((dict["residentBytesBefore"] as? Int) == 1_000_000)
+    #expect((dict["residentBytesAfter"] as? Int) == 1_500_000)
   }
 
   // MARK: - Case 24: rendererRenderStart
