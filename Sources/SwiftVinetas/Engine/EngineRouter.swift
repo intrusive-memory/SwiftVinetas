@@ -101,6 +101,34 @@ public actor EngineRouter {
     return engine
   }
 
+  // MARK: - Eviction
+
+  /// Unload every registered engine's resident model, freeing all MLX weights.
+  ///
+  /// Fans out to each engine's ``ImageGenerationEngine/unloadModel()`` (already
+  /// part of the protocol). The engine instances stay registered — only the
+  /// weights each one holds are released — so a subsequent `loadModel` does not
+  /// pay re-registration churn. Because `EngineRouter` is an `actor`, the
+  /// iteration is serialized and `Sendable`-safe; each `unloadModel()` is itself
+  /// actor-isolated on its engine. Safe to call repeatedly: each engine's
+  /// `unloadModel()` is idempotent (no-op when nothing is loaded).
+  public func unloadAllEngines() async {
+    for engine in engines {
+      await engine.unloadModel()
+    }
+  }
+
+  /// Unload a single engine's resident model by engine ID.
+  ///
+  /// Best-effort: a no-op if the ID is unknown (an absent engine is already
+  /// "unloaded"). Does not throw.
+  ///
+  /// - Parameter engineID: The unique engine identifier to evict (e.g.
+  ///   `"flux2"`, `"pixart-sigma"`).
+  public func evictEngine(forEngineID engineID: String) async {
+    await enginesByID[engineID]?.unloadModel()
+  }
+
   // MARK: - Telemetry
 
   /// Install (or clear) the telemetry reporter on this router and every

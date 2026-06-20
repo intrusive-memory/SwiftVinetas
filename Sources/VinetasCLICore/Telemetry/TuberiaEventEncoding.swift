@@ -233,11 +233,14 @@ public struct TuberiaEventCodable: Encodable {
       try container.encode(latentStat, forKey: .latentStat)
       try container.encode(scalingFactor, forKey: .scalingFactor)
 
-    case .decoderDecodeComplete(let outputStat, let durationSeconds):
+    case .decoderDecodeComplete(
+      let outputStat, let durationSeconds, let residentBytesBefore, let residentBytesAfter):
       try container.encode("decoderDecodeComplete", forKey: .case)
       // TuberiaTensorStat is Codable — encode verbatim.
       try container.encode(outputStat, forKey: .outputStat)
       try container.encode(durationSeconds, forKey: .durationSeconds)
+      try container.encode(residentBytesBefore, forKey: .residentBytesBefore)
+      try container.encode(residentBytesAfter, forKey: .residentBytesAfter)
 
     // MARK: - Renderer handoff
 
@@ -352,6 +355,8 @@ public struct TuberiaEventCodable: Encodable {
     // decoder
     case scalingFactor
     case outputStat
+    case residentBytesBefore
+    case residentBytesAfter
     // renderer
     case modality
     case inputStat

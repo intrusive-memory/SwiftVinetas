@@ -133,6 +133,36 @@ actor MockEngine: ImageGenerationEngine {
     generateStepCount = count
   }
 
+  // MARK: - Cancellation Teardown Simulation
+
+  /// When `true`, `generate` suspends indefinitely (honoring cancellation) and
+  /// wraps the suspend in `withTaskCancellationHandler`, mirroring the real
+  /// engines' generate path so cancellation teardown can be exercised without a
+  /// GPU. On cancel it runs `onCancelFlush` (recording a flush) and then throws
+  /// `CancellationError`. `isGenerating` is set on entry and cleared on exit via
+  /// `defer`, matching the actor-reentrancy guard the real engines use.
+  var suspendUntilCancelled = false
+
+  /// Mirrors the real engines' `isGenerating` reentrancy flag so tests can
+  /// assert it is reset after a cancelled generate unwinds.
+  private(set) var isGenerating = false
+
+  /// Set to `true` by the simulated `onCancel` closure when a suspended
+  /// `generate` is cancelled — the mock-level stand-in for
+  /// `VinetasMemory.releaseMLXCache()`.
+  private(set) var cacheFlushed = false
+
+  /// Enables the suspend-until-cancelled generate behavior.
+  func setSuspendUntilCancelled(_ value: Bool) {
+    suspendUntilCancelled = value
+  }
+
+  /// Records that the simulated MLX cache flush ran on cancellation. Invoked
+  /// from the nonisolated `onCancel` closure via a hop onto the actor.
+  func markCacheFlushed() {
+    cacheFlushed = true
+  }
+
   // MARK: - Init
 
   init(
@@ -190,6 +220,28 @@ actor MockEngine: ImageGenerationEngine {
     if let error = generateError {
       throw error
     }
+
+    // Cancellation teardown simulation: suspend until the Task is cancelled,
+    // wrapped in the same `withTaskCancellationHandler` shape the real engines
+    // use. On cancel, record a "cache flushed" flag (the mock stand-in for
+    // VinetasMemory.releaseMLXCache()) and rethrow CancellationError, while the
+    // `defer` resets `isGenerating` — mirroring the actor-reentrancy guard.
+    if suspendUntilCancelled {
+      isGenerating = true
+      defer { isGenerating = false }
+      try await withTaskCancellationHandler {
+        // Suspend until cancellation; Task.sleep throws CancellationError on cancel.
+        while !Task.isCancelled {
+          try await Task.sleep(for: .milliseconds(10))
+        }
+        try Task.checkCancellation()
+        // Unreachable in the cancel path, but keeps the closure total.
+        fatalError("suspendUntilCancelled generate resumed without cancellation")
+      } onCancel: {
+        Task { await self.markCacheFlushed() }
+      }
+    }
+
     // Fire step-progress callbacks if configured
     if generateStepCount > 0 {
       for step in 1...generateStepCount {
