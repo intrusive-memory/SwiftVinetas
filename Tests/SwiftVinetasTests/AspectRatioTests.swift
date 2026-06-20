@@ -14,66 +14,66 @@ struct AspectRatioTests {
   @Test("square preset: macOS 2160×2160, iOS 1024×1024")
   func squareDimensions() {
     #if os(macOS)
-    #expect(AspectRatio.square.width == 2160)
-    #expect(AspectRatio.square.height == 2160)
+      #expect(AspectRatio.square.width == 2160)
+      #expect(AspectRatio.square.height == 2160)
     #else
-    #expect(AspectRatio.square.width == 1024)
-    #expect(AspectRatio.square.height == 1024)
+      #expect(AspectRatio.square.width == 1024)
+      #expect(AspectRatio.square.height == 1024)
     #endif
   }
 
   @Test("wide preset: macOS 3840×2160 (4K UHD), iOS 1344×768")
   func wideDimensions() {
     #if os(macOS)
-    #expect(AspectRatio.wide.width == 3840)
-    #expect(AspectRatio.wide.height == 2160)
+      #expect(AspectRatio.wide.width == 3840)
+      #expect(AspectRatio.wide.height == 2160)
     #else
-    #expect(AspectRatio.wide.width == 1344)
-    #expect(AspectRatio.wide.height == 768)
+      #expect(AspectRatio.wide.width == 1344)
+      #expect(AspectRatio.wide.height == 768)
     #endif
   }
 
   @Test("ultrawide preset: macOS 3840×1600, iOS 1536×640")
   func ultrawideDimensions() {
     #if os(macOS)
-    #expect(AspectRatio.ultrawide.width == 3840)
-    #expect(AspectRatio.ultrawide.height == 1600)
+      #expect(AspectRatio.ultrawide.width == 3840)
+      #expect(AspectRatio.ultrawide.height == 1600)
     #else
-    #expect(AspectRatio.ultrawide.width == 1536)
-    #expect(AspectRatio.ultrawide.height == 640)
+      #expect(AspectRatio.ultrawide.width == 1536)
+      #expect(AspectRatio.ultrawide.height == 640)
     #endif
   }
 
   @Test("portrait preset: macOS 2160×3840, iOS 768×1344")
   func portraitDimensions() {
     #if os(macOS)
-    #expect(AspectRatio.portrait.width == 2160)
-    #expect(AspectRatio.portrait.height == 3840)
+      #expect(AspectRatio.portrait.width == 2160)
+      #expect(AspectRatio.portrait.height == 3840)
     #else
-    #expect(AspectRatio.portrait.width == 768)
-    #expect(AspectRatio.portrait.height == 1344)
+      #expect(AspectRatio.portrait.width == 768)
+      #expect(AspectRatio.portrait.height == 1344)
     #endif
   }
 
   @Test("panel preset: macOS 3232×2160, iOS 1216×832")
   func panelDimensions() {
     #if os(macOS)
-    #expect(AspectRatio.panel.width == 3232)
-    #expect(AspectRatio.panel.height == 2160)
+      #expect(AspectRatio.panel.width == 3232)
+      #expect(AspectRatio.panel.height == 2160)
     #else
-    #expect(AspectRatio.panel.width == 1216)
-    #expect(AspectRatio.panel.height == 832)
+      #expect(AspectRatio.panel.width == 1216)
+      #expect(AspectRatio.panel.height == 832)
     #endif
   }
 
   @Test("strip preset: macOS 3840×960, iOS 2048×512")
   func stripDimensions() {
     #if os(macOS)
-    #expect(AspectRatio.strip.width == 3840)
-    #expect(AspectRatio.strip.height == 960)
+      #expect(AspectRatio.strip.width == 3840)
+      #expect(AspectRatio.strip.height == 960)
     #else
-    #expect(AspectRatio.strip.width == 2048)
-    #expect(AspectRatio.strip.height == 512)
+      #expect(AspectRatio.strip.width == 2048)
+      #expect(AspectRatio.strip.height == 512)
     #endif
   }
 
@@ -92,15 +92,15 @@ struct AspectRatioTests {
   // MARK: - macOS TV tier stays within a single 4K UHD frame
 
   #if os(macOS)
-  @Test("macOS presets never exceed a 3840×2160 4K UHD frame")
-  func macOSPresetsFitWithin4KFrame() {
-    for ratio in AspectRatio.allCases {
-      let longEdge = max(ratio.width, ratio.height)
-      let shortEdge = min(ratio.width, ratio.height)
-      #expect(longEdge <= 3840, "\(ratio.rawValue) long edge \(longEdge) exceeds 3840")
-      #expect(shortEdge <= 2160, "\(ratio.rawValue) short edge \(shortEdge) exceeds 2160")
+    @Test("macOS presets never exceed a 3840×2160 4K UHD frame")
+    func macOSPresetsFitWithin4KFrame() {
+      for ratio in AspectRatio.allCases {
+        let longEdge = max(ratio.width, ratio.height)
+        let shortEdge = min(ratio.width, ratio.height)
+        #expect(longEdge <= 3840, "\(ratio.rawValue) long edge \(longEdge) exceeds 3840")
+        #expect(shortEdge <= 2160, "\(ratio.rawValue) short edge \(shortEdge) exceeds 2160")
+      }
     }
-  }
   #endif
 
   // MARK: - CaseIterable

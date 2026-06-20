@@ -42,46 +42,46 @@ public enum AspectRatio: String, Sendable, CaseIterable {
   /// The output width in pixels for this aspect ratio, for the current platform tier.
   public var width: Int {
     #if os(macOS)
-    switch self {
-    case .square: 2160
-    case .wide: 3840
-    case .ultrawide: 3840
-    case .portrait: 2160
-    case .panel: 3232
-    case .strip: 3840
-    }
+      switch self {
+      case .square: 2160
+      case .wide: 3840
+      case .ultrawide: 3840
+      case .portrait: 2160
+      case .panel: 3232
+      case .strip: 3840
+      }
     #else
-    switch self {
-    case .square: 1024
-    case .wide: 1344
-    case .ultrawide: 1536
-    case .portrait: 768
-    case .panel: 1216
-    case .strip: 2048
-    }
+      switch self {
+      case .square: 1024
+      case .wide: 1344
+      case .ultrawide: 1536
+      case .portrait: 768
+      case .panel: 1216
+      case .strip: 2048
+      }
     #endif
   }
 
   /// The output height in pixels for this aspect ratio, for the current platform tier.
   public var height: Int {
     #if os(macOS)
-    switch self {
-    case .square: 2160
-    case .wide: 2160
-    case .ultrawide: 1600
-    case .portrait: 3840
-    case .panel: 2160
-    case .strip: 960
-    }
+      switch self {
+      case .square: 2160
+      case .wide: 2160
+      case .ultrawide: 1600
+      case .portrait: 3840
+      case .panel: 2160
+      case .strip: 960
+      }
     #else
-    switch self {
-    case .square: 1024
-    case .wide: 768
-    case .ultrawide: 640
-    case .portrait: 1344
-    case .panel: 832
-    case .strip: 512
-    }
+      switch self {
+      case .square: 1024
+      case .wide: 768
+      case .ultrawide: 640
+      case .portrait: 1344
+      case .panel: 832
+      case .strip: 512
+      }
     #endif
   }
 

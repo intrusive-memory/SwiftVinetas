@@ -34,7 +34,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.15.3")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.15.4")
 ]
 ```
 
@@ -176,6 +176,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 
 ## Status
+
+**v0.15.4** — Engine eviction + cancellation teardown (#41): the engine router now evicts the resident engine on backend switch and tears down in-flight work on cancellation, reclaiming GPU memory between runs. Adds platform-tier aspect-ratio dimensions (macOS television resolution) and encodes SwiftTuberia 0.7.6's new `decoderDecodeComplete` resident-bytes telemetry fields. Adds `EngineEvictionTests` and `CancellationTeardownTests`.
 
 **v0.15.3** — iOS MLX memory throttle (OPERATION PORTION CONTROL): new `VinetasMemory` helper applies an iOS-only MLX cache-limit / relaxed-memory throttle so Flux2 and PixArt generation stays within the device memory budget; `Flux2Engine` and `PixArtEngine` install the throttle before loading weights. Adds `VinetasMemoryTests`.
 
