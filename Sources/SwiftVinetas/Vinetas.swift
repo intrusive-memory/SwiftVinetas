@@ -172,6 +172,41 @@ public final class VinetasClient: Sendable {
   }
 }
 
+// MARK: - Eviction
+
+extension VinetasClient {
+
+  /// Release all resident model weights across every registered engine.
+  ///
+  /// Fans out through the ``EngineRouter`` to each engine's `unloadModel()`,
+  /// freeing the MLX weights every loaded engine holds. Safe to call repeatedly;
+  /// engines with nothing loaded are no-ops. After this, the next
+  /// generate/preview pays the model-reload cost, so reserve it for genuine
+  /// memory pressure or app-background transitions rather than between rapid
+  /// Generate→Cancel→Generate toggles.
+  ///
+  /// This does **not** cancel in-flight generation. If a `generate` is running
+  /// on an engine, this call suspends behind it on that engine's actor and runs
+  /// after the in-flight work yields. Pair it with `Task` cancellation if the
+  /// consumer wants immediate teardown.
+  ///
+  /// Each engine emits its own `.modelUnload` telemetry event as it releases.
+  public func unloadAll() async {
+    await router.unloadAllEngines()
+  }
+
+  /// Evict a single engine's resident weights by engine ID.
+  ///
+  /// Covers the "free the big Flux2 engine but keep PixArt warm" case. A no-op
+  /// if `engineID` is unknown or that engine has nothing loaded.
+  ///
+  /// - Parameter engineID: The engine identifier to evict (e.g. `"flux2"`,
+  ///   `"pixart-sigma"`).
+  public func evictEngine(forEngineID engineID: String) async {
+    await router.evictEngine(forEngineID: engineID)
+  }
+}
+
 // MARK: - Generation
 
 extension VinetasClient {

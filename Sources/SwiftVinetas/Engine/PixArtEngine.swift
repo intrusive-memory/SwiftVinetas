@@ -313,10 +313,19 @@ public actor PixArtEngine: ImageGenerationEngine {
 
     let result: DiffusionGenerationResult
     do {
-      result = try await pipeline.generate(request: diffusionRequest) { pipelineProgress in
-        if case .generating(let step, let total, let elapsed) = pipelineProgress {
-          stepProgress?(step, total, elapsed)
+      // PixArt already flushes the MLX cache on any exit via the
+      // `defer { VinetasMemory.releaseMLXCache() }` above (which covers the
+      // cancellation throw). The explicit `withTaskCancellationHandler` here
+      // matches Flux2's structure and guarantees the flush runs synchronously at
+      // the cancellation point rather than only when the awaited call unwinds.
+      result = try await withTaskCancellationHandler {
+        try await pipeline.generate(request: diffusionRequest) { pipelineProgress in
+          if case .generating(let step, let total, let elapsed) = pipelineProgress {
+            stepProgress?(step, total, elapsed)
+          }
         }
+      } onCancel: {
+        VinetasMemory.releaseMLXCache()
       }
     } catch {
       await telemetry?.capture(
