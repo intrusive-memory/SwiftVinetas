@@ -27,22 +27,25 @@ let package = Package(
   ],
   dependencies: [
     // FLUX.2 image generation pipeline (MIT license, includes mlx-swift transitively)
+    // Floored at 3.3.3: flux 3.3.2 floors mlx-swift at 0.31.4, which carries
+    // upstream #410 (deadlock/EINVAL). 3.3.3 pins mlx exactly to 0.31.3. Keep
+    // this as upToNextMajor so a future flux that adopts a fixed mlx is picked
+    // up automatically — the mlx-version guarantee lives in flux itself.
     .package(
-      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.3.2")
-    ),
+      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.3.3")),
 
     // Shared model management (download, cache, discovery)
     .package(
       url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.19.2")),
 
-    // Componentized diffusion pipeline (protocols + infrastructure)
+    // Componentized diffusion pipeline (protocols + infrastructure).
+    // Floored at 0.7.7 (mlx-swift pinned .exact("0.31.3")).
     .package(
-      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.7.6")),
+      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.7.7")),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe)
     .package(
-      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.7.6")
-    ),
+      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.7.6")),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
