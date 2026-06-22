@@ -4,10 +4,13 @@ import Foundation
 ///
 /// Dimensions are **platform-tiered**:
 ///
-/// - **macOS** generates at television resolution — each ratio is fit inside a
-///   3840×2160 4K UHD (Rec. 2020 / UHD-1) frame. Macs have the unified-memory and
-///   swap headroom for full-resolution panels, so the ceiling is one 4K frame
-///   (≤ 8.3 MP).
+/// - **macOS** targets television resolution — each ratio's *desired* size is fit
+///   inside a 3840×2160 4K UHD (Rec. 2020 / UHD-1) frame (≤ 8.3 MP). This is a
+///   ceiling, not a guarantee: the size actually generated (``width``/``height``)
+///   is clamped down per device via ``ResolutionClamp`` so the worst-case
+///   attention buffer never exceeds the Metal `maxBufferLength` — a 4K frame on a
+///   32 GB Mac would otherwise demand a single >20 GB allocation and abort
+///   `mlx_eval` on the first denoising step. High-RAM Macs still render full 4K.
 /// - **iOS** uses a smaller, memory-safe tier. iOS has no swap and a per-app jetsam
 ///   dirty-page budget that is a fraction of physical RAM, so the largest tensors
 ///   (latent, VAE-decode transient, decoded `CGImage`, encoded PNG — all scale with
@@ -39,8 +42,10 @@ public enum AspectRatio: String, Sendable, CaseIterable {
   /// Strip (4:1) — macOS 3840×960, iOS 2048×512.
   case strip
 
-  /// The output width in pixels for this aspect ratio, for the current platform tier.
-  public var width: Int {
+  /// The *desired* output width in pixels for this aspect ratio's platform tier,
+  /// before any device-capability clamping. On macOS this is the 4K-class
+  /// ceiling; see ``width`` for the value actually used.
+  public var desiredWidth: Int {
     #if os(macOS)
       switch self {
       case .square: 2160
@@ -62,8 +67,9 @@ public enum AspectRatio: String, Sendable, CaseIterable {
     #endif
   }
 
-  /// The output height in pixels for this aspect ratio, for the current platform tier.
-  public var height: Int {
+  /// The *desired* output height in pixels for this aspect ratio's platform tier,
+  /// before any device-capability clamping. See ``height``.
+  public var desiredHeight: Int {
     #if os(macOS)
       switch self {
       case .square: 2160
@@ -84,6 +90,31 @@ public enum AspectRatio: String, Sendable, CaseIterable {
       }
     #endif
   }
+
+  /// The device-clamped output dimensions actually used for generation.
+  ///
+  /// On **macOS** the 4K-class ``desiredWidth``/``desiredHeight`` are scaled down
+  /// (preserving aspect ratio, staying multiples of 16) so the worst-case
+  /// attention buffer fits the Metal device's `maxBufferLength` — see
+  /// ``ResolutionClamp``. On a high-RAM Mac this is a no-op and full 4K panels
+  /// are produced; on a memory-constrained Mac the resolution steps down instead
+  /// of crashing `mlx_eval` on the first step. **iOS** dimensions are already
+  /// well within the per-buffer ceiling and are returned unclamped.
+  public var dimensions: (width: Int, height: Int) {
+    #if os(macOS)
+      return ResolutionClamp.clampedDimensions(width: desiredWidth, height: desiredHeight)
+    #else
+      return (desiredWidth, desiredHeight)
+    #endif
+  }
+
+  /// The output width in pixels for this aspect ratio, clamped to device
+  /// capability. See ``dimensions``.
+  public var width: Int { dimensions.width }
+
+  /// The output height in pixels for this aspect ratio, clamped to device
+  /// capability. See ``dimensions``.
+  public var height: Int { dimensions.height }
 
   /// Returns a `StyleConfig` with this aspect ratio's dimensions applied.
   ///

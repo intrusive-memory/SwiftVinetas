@@ -892,14 +892,20 @@ extension VinetasClient {
     style: StyleConfig,
     mode: GenerationRequest.GenerationMode
   ) -> GenerationRequest {
-    GenerationRequest(
+    // Defense-in-depth: clamp to device capability so no generation path can
+    // request a resolution whose attention buffer exceeds the Metal per-buffer
+    // ceiling and aborts `mlx_eval`. Idempotent for ``AspectRatio``-derived
+    // sizes (already clamped); this additionally protects callers that pass an
+    // explicit oversized ``StyleConfig`` (e.g. a CLI `--width/--height`).
+    let clamped = ResolutionClamp.clampedDimensions(width: style.width, height: style.height)
+    return GenerationRequest(
       prompt: prompt,
       negativePrompt: style.negativePrompt,
       steps: style.steps,
       guidanceScale: style.guidanceScale,
       seed: style.seed,
-      width: style.width,
-      height: style.height,
+      width: clamped.width,
+      height: clamped.height,
       mode: mode
     )
   }
