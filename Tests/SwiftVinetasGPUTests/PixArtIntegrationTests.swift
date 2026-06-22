@@ -86,19 +86,9 @@ struct PixArtIntegrationTests {
   func modelDownload() async throws {
     let model = PixArtModelDescriptor.sigmaXL
 
-    // Validate memory before attempting download
+    // Validate memory before attempting download (CI may bypass via env override)
     let memValidation = try await VinetasClient.shared.validateMemory(for: model)
-    switch memValidation {
-    case .insufficient(let required, let available):
-      let requiredGB = required / 1_073_741_824
-      let availableGB = available / 1_073_741_824
-      Issue.record(
-        "Insufficient memory: required \(requiredGB) GB, available \(availableGB) GB — skipping download"
-      )
-      return
-    case .ok, .warning:
-      break
-    }
+    guard memoryGateAllowsExecution(memValidation) else { return }
 
     try await VinetasClient.shared.download(model: model) { progress in
       // Progress callback — no-op in test context
@@ -124,19 +114,9 @@ struct PixArtIntegrationTests {
   func generationValidation() async throws {
     let model = PixArtModelDescriptor.sigmaXL
 
-    // Validate memory before attempting generation
+    // Validate memory before attempting generation (CI may bypass via env override)
     let memValidation = try await VinetasClient.shared.validateMemory(for: model)
-    switch memValidation {
-    case .insufficient(let required, let available):
-      let requiredGB = required / 1_073_741_824
-      let availableGB = available / 1_073_741_824
-      Issue.record(
-        "Insufficient memory: required \(requiredGB) GB, available \(availableGB) GB — skipping generation"
-      )
-      return
-    case .ok, .warning:
-      break
-    }
+    guard memoryGateAllowsExecution(memValidation) else { return }
 
     // Obtain the engine from the router
     let engine = try await VinetasClient.shared.router.engine(for: model)
@@ -188,19 +168,9 @@ struct PixArtIntegrationTests {
   func storyboardFrameWrittenToDisk() async throws {
     let model = PixArtModelDescriptor.sigmaXL
 
-    // Skip if memory is insufficient
+    // Skip if memory is insufficient (CI may bypass via env override)
     let memValidation = try await VinetasClient.shared.validateMemory(for: model)
-    switch memValidation {
-    case .insufficient(let required, let available):
-      let requiredGB = required / 1_073_741_824
-      let availableGB = available / 1_073_741_824
-      Issue.record(
-        "Insufficient memory: required \(requiredGB) GB, available \(availableGB) GB — skipping storyboard frame test"
-      )
-      return
-    case .ok, .warning:
-      break
-    }
+    guard memoryGateAllowsExecution(memValidation) else { return }
 
     // Skip if model weights are not on disk (requires Checkpoint 2 to have run)
     let engine = try await VinetasClient.shared.router.engine(for: model)

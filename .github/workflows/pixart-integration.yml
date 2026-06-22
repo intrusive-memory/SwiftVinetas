@@ -101,6 +101,7 @@ jobs:
           mkdir -p build
           TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
           TEST_RUNNER_ACERVO_MODELS_DIR="$MODELS_DIR" \
+          TEST_RUNNER_VINETAS_TEST_IGNORE_MEMORY_GATE=1 \
           xcodebuild test \
             -scheme SwiftVinetas-Package \
             -destination 'platform=macOS,arch=arm64' \

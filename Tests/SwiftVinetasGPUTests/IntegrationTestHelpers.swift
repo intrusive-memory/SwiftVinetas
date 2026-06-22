@@ -86,6 +86,40 @@ func assertImageNotGarbage(_ image: CGImage) {
   )
 }
 
+// MARK: - Memory Gate (with CI escape hatch)
+
+/// Evaluates a `MemoryValidation` for an integration checkpoint, honoring a CI
+/// escape hatch.
+///
+/// PixArt's nominal minimum is 8 GB, but GitHub's hosted Apple-Silicon runners
+/// report ~7 GB. The int4 PixArt pipeline (int4 T5 + int4 DiT + fp16 VAE) fits
+/// well under that, so CI sets `VINETAS_TEST_IGNORE_MEMORY_GATE=1` (forwarded by
+/// xcodebuild as `TEST_RUNNER_VINETAS_TEST_IGNORE_MEMORY_GATE`) to exercise real
+/// generation on the under-reporting runner. Without the override — i.e. locally
+/// — behavior is unchanged: insufficient memory records an issue and the caller
+/// bails.
+///
+/// - Returns: `true` if the checkpoint should proceed; `false` if it should bail.
+func memoryGateAllowsExecution(_ validation: MemoryValidation) -> Bool {
+  switch validation {
+  case .ok, .warning:
+    return true
+  case .insufficient(let required, let available):
+    let requiredGB = required / 1_073_741_824
+    let availableGB = available / 1_073_741_824
+    if ProcessInfo.processInfo.environment["VINETAS_TEST_IGNORE_MEMORY_GATE"] == "1" {
+      print(
+        "[integration] Memory gate bypassed (VINETAS_TEST_IGNORE_MEMORY_GATE=1): "
+          + "required \(requiredGB) GB, available \(availableGB) GB — proceeding")
+      return true
+    }
+    Issue.record(
+      "Insufficient memory: required \(requiredGB) GB, available \(availableGB) GB — skipping"
+    )
+    return false
+  }
+}
+
 // MARK: - Model Availability Validation
 
 /// Asserts that a model's weights are present on disk and ready to use.
