@@ -109,6 +109,7 @@ struct PixArtIntegrationTests {
   @Test(
     "Checkpoint 3: PixArt generates non-garbage image from prompt",
     .tags(.integration, .gpu, .pixart),
+    .enabled(if: !ciSkipsGPUTests),
     .timeLimit(.minutes(5))
   )
   func generationValidation() async throws {
@@ -163,6 +164,7 @@ struct PixArtIntegrationTests {
   @Test(
     "Checkpoint 4: PixArt writes a storyboard frame PNG to disk via VinetasClient",
     .tags(.integration, .gpu, .pixart),
+    .enabled(if: !ciSkipsGPUTests),
     .timeLimit(.minutes(5))
   )
   func storyboardFrameWrittenToDisk() async throws {

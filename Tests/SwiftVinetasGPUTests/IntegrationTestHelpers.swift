@@ -86,6 +86,23 @@ func assertImageNotGarbage(_ image: CGImage) {
   )
 }
 
+// MARK: - CI GPU Opt-Out
+
+/// True when CI has opted out of GPU-bound checkpoints, set via
+/// `VINETAS_CI_SKIP_GPU=1` (forwarded by xcodebuild as
+/// `TEST_RUNNER_VINETAS_CI_SKIP_GPU`).
+///
+/// GitHub-hosted runners compile and run MLX correctly, but their
+/// paravirtualized GPU is orders of magnitude too slow for image generation —
+/// a ~10 s generation on real Apple Silicon does not finish within minutes
+/// there. Generation checkpoints carry `.enabled(if: !ciSkipsGPUTests)` so they
+/// are reported as *skipped* (not failed, not silently dropped) on hosted CI,
+/// while still running locally and on self-hosted Apple-Silicon runners. See
+/// the SCOPE note in `.github/workflows/pixart-integration.yml`.
+var ciSkipsGPUTests: Bool {
+  ProcessInfo.processInfo.environment["VINETAS_CI_SKIP_GPU"] == "1"
+}
+
 // MARK: - Memory Gate (with CI escape hatch)
 
 /// Evaluates a `MemoryValidation` for an integration checkpoint, honoring a CI

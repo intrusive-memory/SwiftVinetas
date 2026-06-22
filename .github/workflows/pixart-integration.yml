@@ -105,23 +105,25 @@ jobs:
           echo "Downloaded model tree:"
           du -sh "$MODELS_DIR"/* 2>/dev/null || true
 
-      - name: Run PixArt integration checkpoints 1-2 (compile + real-model fetch)
+      - name: Run PixArt integration (compile + real-model fetch; GPU checkpoints skipped)
         run: |
           mkdir -p build
-          # Checkpoints 1 (binaryCompilation) and 2 (modelDownload) only.
-          # The .gpu generation checkpoints (3 generationValidation, 4
-          # storyboardFrameWrittenToDisk) are excluded — see the SCOPE note in
-          # this file's header: the hosted virtual GPU runs MLX but is too slow.
+          # Whole PixArtIntegrationTests suite at the suite level (function-level
+          # -only-testing is unreliable for swift-testing @Test funcs and silently
+          # matches zero tests). VINETAS_CI_SKIP_GPU=1 disables the .gpu generation
+          # checkpoints (3/4) via .enabled(if:) traits — they report as skipped,
+          # not failed — so Checkpoints 1 (compile) and 2 (real-model download +
+          # manifest verify + pipeline assembly) actually run and gate.
           TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
           TEST_RUNNER_ACERVO_MODELS_DIR="$MODELS_DIR" \
           TEST_RUNNER_VINETAS_TEST_IGNORE_MEMORY_GATE=1 \
+          TEST_RUNNER_VINETAS_CI_SKIP_GPU=1 \
           xcodebuild test \
             -scheme SwiftVinetas-Package \
             -destination 'platform=macOS,arch=arm64' \
             -derivedDataPath "$DERIVED_DATA" \
             -parallel-testing-enabled NO \
-            -only-testing:SwiftVinetasGPUTests/PixArtIntegrationTests/binaryCompilation \
-            -only-testing:SwiftVinetasGPUTests/PixArtIntegrationTests/modelDownload \
+            -only-testing:SwiftVinetasGPUTests/PixArtIntegrationTests \
             2>&1 | tee build/pixart-integration.log; exit ${PIPESTATUS[0]}
 
       - name: Upload test logs on failure
