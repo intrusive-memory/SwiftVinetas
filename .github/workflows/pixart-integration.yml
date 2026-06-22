@@ -1,6 +1,9 @@
 name: PixArt Integration
 
-# Runs the PixArt-Sigma integration suite against REAL model weights in CI.
+# Exercises the PixArt-Sigma pipeline against REAL model weights in CI:
+# Checkpoint 1 (the dependency graph + Metal kernels compile) and Checkpoint 2
+# (the int4 PixArt components download from the CDN, verify against their
+# manifests, and the engine assembles the pipeline with real weights).
 #
 # How it works:
 #   - SwiftAcervo downloads PixArt's components (T5 int4 + DiT int4 + SDXL VAE,
@@ -11,15 +14,21 @@ name: PixArt Integration
 #   - The dir is cached via actions/cache, keyed on the three CDN manifest
 #     checksums, so the ~3.5 GB download only happens on the first run (and
 #     re-runs automatically when a model is republished).
-#   - The integration test loads + generates with the same ACERVO_MODELS_DIR,
-#     so it reads the cached weights.
+#   - The test reads weights from the same ACERVO_MODELS_DIR. GitHub's free
+#     runner under-reports RAM (7 GB) vs. PixArt's 8 GB gate, so CI sets
+#     VINETAS_TEST_IGNORE_MEMORY_GATE=1 to let the download/assembly checkpoints
+#     run; int4 PixArt fits comfortably.
 #
-# The "Runner diagnostics" step reports RAM and Metal/GPU capability up front:
-# PixArt gates on 8 GB RAM and image generation needs a working Metal stack, so
-# those facts are surfaced explicitly to make any failure self-explanatory.
-#
-# Flux2 integration is intentionally NOT here — its weight footprint (~7.9 GB)
-# does not co-exist with this set under GitHub's 10 GB cache pool. Tracked separately.
+# SCOPE — Checkpoints 1 & 2 only. The image-GENERATION checkpoints (3 & 4,
+# tagged .gpu) are intentionally excluded: GitHub-hosted runners expose a
+# paravirtualized GPU that runs MLX correctly but is orders of magnitude too
+# slow — a ~10 s generation on real Apple Silicon did not clear the T5 encoder
+# in 5 minutes here (empirically measured, 2026-06-22). MLX itself compiles and
+# runs fine on macos-26 now (the older `deferred-static-alloca-size` blocker is
+# gone); the wall is GPU speed, not Metal support. Real-generation gating (incl.
+# the garbage-output #39 regression) needs a SELF-HOSTED Apple-Silicon runner —
+# tracked separately, alongside Flux2 (whose ~7.9 GB footprint also wants the
+# persistent disk a self-hosted runner provides).
 
 on:
   pull_request:
@@ -39,7 +48,7 @@ jobs:
   pixart-integration:
     name: PixArt Integration (macOS)
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -96,9 +105,13 @@ jobs:
           echo "Downloaded model tree:"
           du -sh "$MODELS_DIR"/* 2>/dev/null || true
 
-      - name: Run PixArt integration tests
+      - name: Run PixArt integration checkpoints 1-2 (compile + real-model fetch)
         run: |
           mkdir -p build
+          # Checkpoints 1 (binaryCompilation) and 2 (modelDownload) only.
+          # The .gpu generation checkpoints (3 generationValidation, 4
+          # storyboardFrameWrittenToDisk) are excluded — see the SCOPE note in
+          # this file's header: the hosted virtual GPU runs MLX but is too slow.
           TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
           TEST_RUNNER_ACERVO_MODELS_DIR="$MODELS_DIR" \
           TEST_RUNNER_VINETAS_TEST_IGNORE_MEMORY_GATE=1 \
@@ -107,7 +120,8 @@ jobs:
             -destination 'platform=macOS,arch=arm64' \
             -derivedDataPath "$DERIVED_DATA" \
             -parallel-testing-enabled NO \
-            -only-testing:SwiftVinetasGPUTests/PixArtIntegrationTests \
+            -only-testing:SwiftVinetasGPUTests/PixArtIntegrationTests/binaryCompilation \
+            -only-testing:SwiftVinetasGPUTests/PixArtIntegrationTests/modelDownload \
             2>&1 | tee build/pixart-integration.log; exit ${PIPESTATUS[0]}
 
       - name: Upload test logs on failure
