@@ -1,0 +1,118 @@
+name: PixArt Integration
+
+# Runs the PixArt-Sigma integration suite against REAL model weights in CI.
+#
+# How it works:
+#   - SwiftAcervo downloads PixArt's components (T5 int4 + DiT int4 + SDXL VAE,
+#     ~3.5 GB total) from the public R2 CDN. `vinetas download` honors the
+#     ACERVO_MODELS_DIR override, so weights land in a cacheable workspace dir
+#     instead of the App Group container — sidestepping the MACF sandbox and
+#     making `link-test-models` unnecessary.
+#   - The dir is cached via actions/cache, keyed on the three CDN manifest
+#     checksums, so the ~3.5 GB download only happens on the first run (and
+#     re-runs automatically when a model is republished).
+#   - The integration test loads + generates with the same ACERVO_MODELS_DIR,
+#     so it reads the cached weights.
+#
+# The "Runner diagnostics" step reports RAM and Metal/GPU capability up front:
+# PixArt gates on 8 GB RAM and image generation needs a working Metal stack, so
+# those facts are surfaced explicitly to make any failure self-explanatory.
+#
+# Flux2 integration is intentionally NOT here — its weight footprint (~7.9 GB)
+# does not co-exist with this set under GitHub's 10 GB cache pool. Tracked separately.
+
+on:
+  pull_request:
+    branches: [main, development]
+  workflow_dispatch:
+
+env:
+  ACERVO_APP_GROUP_ID: group.intrusive-memory.models
+  MODELS_DIR: ${{ github.workspace }}/.pixart-models
+  DERIVED_DATA: /tmp/SwiftVinetasBuild
+
+concurrency:
+  group: pixart-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pixart-integration:
+    name: PixArt Integration (macOS)
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Runner diagnostics (RAM / GPU / toolchain)
+        run: |
+          RAM_BYTES=$(sysctl -n hw.memsize)
+          RAM_GB=$((RAM_BYTES / 1073741824))
+          echo "## PixArt Integration — runner diagnostics" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **RAM:** ${RAM_GB} GB (PixArt requires 8 GB)" >> "$GITHUB_STEP_SUMMARY"
+          echo "RAM: ${RAM_GB} GB"
+          echo "CPU: $(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo unknown)"
+          echo "Free disk:"; df -h / | tail -1
+          swift --version || true
+          xcodebuild -version || true
+          echo "Metal / GPU:"
+          system_profiler SPDisplaysDataType 2>/dev/null | grep -iE 'Chipset|Vendor|Metal|Device' || echo "  (no SPDisplaysDataType output)"
+          if [ "$RAM_GB" -lt 8 ]; then
+            echo "- ⚠️ **Runner RAM is below PixArt's 8 GB gate — memory-gated checkpoints may fail.**" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Compute model cache key (PixArt CDN manifests)
+        run: |
+          BASE="https://pub-8e049ed02be340cbb18f921765fd24f3.r2.dev/models"
+          : > pixart-manifests.lock
+          for slug in \
+            intrusive-memory_t5-xxl-int4-mlx \
+            intrusive-memory_pixart-sigma-xl-dit-int4-mlx \
+            intrusive-memory_sdxl-vae-fp16-mlx ; do
+            CK=$(curl -sf "$BASE/$slug/manifest.json" \
+              | python3 -c "import sys,json;print(json.load(sys.stdin).get('manifestChecksum',''))")
+            echo "$slug=$CK" >> pixart-manifests.lock
+          done
+          echo "Cache key inputs:"; cat pixart-manifests.lock
+
+      - name: Restore PixArt model cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.MODELS_DIR }}
+          key: pixart-models-v1-${{ hashFiles('pixart-manifests.lock') }}
+
+      - name: Build vinetas CLI
+        run: make build
+
+      - name: Download PixArt models from CDN (cache miss only)
+        if: steps.cache.outputs.cache-hit != 'true'
+        env:
+          ACERVO_MODELS_DIR: ${{ env.MODELS_DIR }}
+        run: |
+          mkdir -p "$MODELS_DIR"
+          ./bin/vinetas download --model pixart-sigma
+          echo "Downloaded model tree:"
+          du -sh "$MODELS_DIR"/* 2>/dev/null || true
+
+      - name: Run PixArt integration tests
+        run: |
+          mkdir -p build
+          TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
+          TEST_RUNNER_ACERVO_MODELS_DIR="$MODELS_DIR" \
+          xcodebuild test \
+            -scheme SwiftVinetas-Package \
+            -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "$DERIVED_DATA" \
+            -parallel-testing-enabled NO \
+            -only-testing:SwiftVinetasGPUTests/PixArtIntegrationTests \
+            2>&1 | tee build/pixart-integration.log; exit ${PIPESTATUS[0]}
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixart-integration-log
+          path: build/pixart-integration.log
+          retention-days: 7
