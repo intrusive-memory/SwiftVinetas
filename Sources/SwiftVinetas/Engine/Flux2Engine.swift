@@ -475,7 +475,19 @@ public actor Flux2Engine: ImageGenerationEngine {
       throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
     }
     for component in Self.modelComponents(for: descriptor) {
-      try Flux2ModelPaths.delete(component)
+      if let registryComponent = component.registryComponent {
+        try Flux2ModelPaths.delete(registryComponent)
+      } else {
+        // Text encoder: SwiftVinetas manages it by repo id directly (the
+        // upstream component would resolve to the wrong Mistral repo). Delete
+        // the Acervo model directory if present; idempotent otherwise.
+        let repoId = component.repoId
+        if let modelDir = try? Acervo.modelDirectory(for: repoId),
+          FileManager.default.fileExists(atPath: modelDir.path)
+        {
+          try? Acervo.deleteModel(repoId)
+        }
+      }
     }
   }
 
@@ -543,38 +555,39 @@ public actor Flux2Engine: ImageGenerationEngine {
     }
   }
 
-  /// Extract the HuggingFace repo ID from a Flux2Core `ModelComponent`.
+  /// Resolve the Acervo repo ID for a ``Flux2Component``.
   ///
-  /// Used by `isAvailable` as the `repoId` argument to `Acervo.isModelAvailable` when
-  /// a component is not registered in Acervo's ComponentRegistry.
+  /// Used by `isAvailable`/`availability`/`diskSize` as the `repoId` argument to
+  /// the corresponding `Acervo` queries.
   ///
   /// **Note**: The VAE shares its `repoId` (`"black-forest-labs/FLUX.2-klein-4B"`) with
   /// the Klein 4B transformer; both Acervo checks resolve to the same directory.
   /// This is intentional — the VAE lives in a subfolder of the same Acervo model directory.
-  private nonisolated static func acervoRepoId(for component: ModelRegistry.ModelComponent)
-    -> String
-  {
-    switch component {
-    case .transformer(let variant): return variant.repoId
-    case .textEncoder(let variant): return variant.repoId
-    case .vae(let variant): return variant.repoId
-    }
+  ///
+  /// **Text encoder**: SwiftVinetas owns this mapping via ``Flux2Component/TextEncoder``
+  /// and routes to the Acervo-managed Qwen3-MLX-8bit encoders — never the upstream
+  /// `ModelRegistry.TextEncoderVariant.repoId`, which returns Mistral repos.
+  nonisolated static func acervoRepoId(for component: Flux2Component) -> String {
+    component.repoId
   }
 
-  /// Map a descriptor to its Flux2Core model components.
-  private nonisolated static func modelComponents(
+  /// Map a descriptor to its FLUX.2 model components.
+  ///
+  /// Klein 4B/9B both require a transformer, a dedicated Qwen3 text encoder, and
+  /// the shared VAE. Enumerating the text encoder here is what lets
+  /// `availability(_:)` surface a missing dependency as `.partial` rather than
+  /// reporting the model `.available` with the encoder absent (R4 / D1).
+  nonisolated static func modelComponents(
     for descriptor: Flux2ModelDescriptor
-  ) -> [ModelRegistry.ModelComponent] {
-    let variant: ModelRegistry.TransformerVariant
+  ) -> [Flux2Component] {
     switch descriptor.id {
     case Flux2ModelDescriptor.klein4B.id:
-      variant = .klein4B_bf16
+      return [.transformer(.klein4B_bf16), .textEncoder(.klein4B), .vae(.standard)]
     case Flux2ModelDescriptor.klein9B.id:
-      variant = .klein9B_bf16
+      return [.transformer(.klein9B_bf16), .textEncoder(.klein9B), .vae(.standard)]
     default:
-      variant = .klein4B_bf16
+      return [.transformer(.klein4B_bf16), .textEncoder(.klein4B), .vae(.standard)]
     }
-    return [.transformer(variant), .vae(.standard)]
   }
 
   /// Calculate elapsed seconds from a start time.
@@ -585,5 +598,81 @@ public actor Flux2Engine: ImageGenerationEngine {
     let elapsed = clock.now - start
     return Double(elapsed.components.seconds)
       + Double(elapsed.components.attoseconds) / 1e18
+  }
+}
+
+// MARK: - Flux2Component
+
+/// SwiftVinetas-owned model-component descriptor for FLUX.2 Klein.
+///
+/// Mirrors `ModelRegistry.ModelComponent` for the transformer and VAE, but owns
+/// the text-encoder repo-id mapping directly. The upstream
+/// `ModelRegistry.TextEncoderVariant` (and its `repoId`/`huggingFaceRepo`)
+/// resolves to **Mistral** repos, which is the wrong source for the FLUX.2 Klein
+/// text encoder. SwiftVinetas instead routes the text encoder to the
+/// Acervo-managed Qwen3-MLX-8bit encoders:
+/// - `klein4B` → `lmstudio-community/Qwen3-4B-MLX-8bit`
+/// - `klein9B` → `lmstudio-community/Qwen3-8B-MLX-8bit`
+enum Flux2Component: Sendable {
+  case transformer(ModelRegistry.TransformerVariant)
+  case textEncoder(TextEncoder)
+  case vae(ModelRegistry.VAEVariant)
+
+  /// The Acervo-managed Qwen3 text encoder paired with a FLUX.2 Klein variant.
+  ///
+  /// Deliberately **not** backed by `ModelRegistry.TextEncoderVariant`, whose
+  /// `repoId` returns Mistral repos. SwiftVinetas owns this mapping so the
+  /// dependency audit targets the correct (Qwen3) source.
+  enum TextEncoder: String, Sendable, CaseIterable {
+    case klein4B
+    case klein9B
+
+    /// Acervo repo id for the paired Qwen3-MLX-8bit text encoder.
+    var repoId: String {
+      switch self {
+      case .klein4B: return "lmstudio-community/Qwen3-4B-MLX-8bit"
+      case .klein9B: return "lmstudio-community/Qwen3-8B-MLX-8bit"
+      }
+    }
+
+    var displayName: String {
+      switch self {
+      case .klein4B: return "Qwen3-4B Text Encoder"
+      case .klein9B: return "Qwen3-8B Text Encoder"
+      }
+    }
+  }
+
+  /// Acervo repo id for this component.
+  var repoId: String {
+    switch self {
+    case .transformer(let variant): return variant.repoId
+    case .textEncoder(let encoder): return encoder.repoId
+    case .vae(let variant): return variant.repoId
+    }
+  }
+
+  /// Human-readable name surfaced in download progress + telemetry.
+  var displayName: String {
+    switch self {
+    case .transformer(let variant):
+      return ModelRegistry.ModelComponent.transformer(variant).displayName
+    case .textEncoder(let encoder):
+      return encoder.displayName
+    case .vae(let variant):
+      return ModelRegistry.ModelComponent.vae(variant).displayName
+    }
+  }
+
+  /// Bridge to the upstream `ModelRegistry.ModelComponent` for `Flux2ModelPaths`
+  /// path/delete helpers. Returns `nil` for the text encoder, which SwiftVinetas
+  /// manages by repo id directly (the upstream component would resolve to the
+  /// wrong Mistral repo).
+  var registryComponent: ModelRegistry.ModelComponent? {
+    switch self {
+    case .transformer(let variant): return .transformer(variant)
+    case .vae(let variant): return .vae(variant)
+    case .textEncoder: return nil
+    }
   }
 }

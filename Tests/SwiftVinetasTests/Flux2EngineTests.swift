@@ -1,4 +1,5 @@
 import Foundation
+import SwiftAcervo
 import Testing
 
 @testable import SwiftVinetas
@@ -244,5 +245,72 @@ struct Flux2EngineTests {
     let descriptor = Flux2ModelDescriptor.klein4B
     let result = await Task { descriptor }.value
     #expect(result.id == "flux2-klein-4b")
+  }
+
+  // MARK: - Dependency-aware components (B1: C1 · D1 · R4)
+
+  @Test("Klein 4B modelComponents enumerates the text encoder")
+  func klein4BComponentsIncludeTextEncoder() {
+    let components = Flux2Engine.modelComponents(for: .klein4B)
+    let hasTextEncoder = components.contains {
+      if case .textEncoder = $0 { return true }
+      return false
+    }
+    #expect(hasTextEncoder)
+  }
+
+  @Test("Klein 9B modelComponents enumerates the text encoder")
+  func klein9BComponentsIncludeTextEncoder() {
+    let components = Flux2Engine.modelComponents(for: .klein9B)
+    let hasTextEncoder = components.contains {
+      if case .textEncoder = $0 { return true }
+      return false
+    }
+    #expect(hasTextEncoder)
+  }
+
+  @Test("Klein 4B text encoder resolves to Qwen3-4B (NOT Mistral)")
+  func klein4BTextEncoderRepoId() {
+    #expect(
+      Flux2Engine.acervoRepoId(for: .textEncoder(.klein4B))
+        == "lmstudio-community/Qwen3-4B-MLX-8bit")
+  }
+
+  @Test("Klein 9B text encoder resolves to Qwen3-8B (NOT Mistral)")
+  func klein9BTextEncoderRepoId() {
+    #expect(
+      Flux2Engine.acervoRepoId(for: .textEncoder(.klein9B))
+        == "lmstudio-community/Qwen3-8B-MLX-8bit")
+  }
+
+  @Test("Text encoder repo ids never route through the Mistral source")
+  func textEncoderNeverRoutesToMistral() {
+    for encoder in Flux2Component.TextEncoder.allCases {
+      let repoId = Flux2Engine.acervoRepoId(for: .textEncoder(encoder))
+      #expect(!repoId.lowercased().contains("mistral"))
+      #expect(repoId.contains("Qwen3"))
+    }
+  }
+
+  @Test("availability is .partial(missing:) when the text encoder is absent")
+  func availabilityPartialWhenTextEncoderAbsent() {
+    // Simulate the Klein 4B component set with the transformer + VAE present
+    // and the Qwen3 text encoder missing. The aggregation must surface
+    // .partial(missing:) — never .available — so a missing dependency cannot
+    // slip past availability (R4 / D1). Exercises the same aggregation path
+    // Flux2Engine.availability(_:) uses.
+    let textEncoderRepoId = "lmstudio-community/Qwen3-4B-MLX-8bit"
+    let entries = Flux2Engine.modelComponents(for: .klein4B).map {
+      component -> AvailabilityAggregation.Entry in
+      let repoId = Flux2Engine.acervoRepoId(for: component)
+      let state: ModelAvailability = repoId == textEncoderRepoId ? .notAvailable : .available
+      return AvailabilityAggregation.Entry(componentId: repoId, state: state)
+    }
+    let result = AvailabilityAggregation.aggregate(entries)
+    guard case .partial(let missing) = result else {
+      Issue.record("Expected .partial when text encoder absent, got \(result)")
+      return
+    }
+    #expect(missing.contains(textEncoderRepoId))
   }
 }
