@@ -388,6 +388,59 @@ struct Flux2EngineTests {
     }
   }
 
+  @Test("marker-aware checker is consulted once per component when all return .available (gated fast-path)")
+  func loadModelConsultsCheckerPerComponentWhenAllAvailable() async {
+    // Documents the gated decisive-moment behavior (B2 cont / R2.2 / R3):
+    // the integrityChecker seam simulates the marker-aware fast-path in which
+    // every required component already has a valid .acervo-verified.json marker
+    // (so Acervo.availability(_:verifyHashes:true) returns .available without
+    // running a SHA-256 audit). This test verifies two things:
+    //   1. The checker is consulted for EACH required Klein 4B component.
+    //   2. No .modelIncomplete is thrown when every checker call returns .available.
+    actor InvocationRecorder {
+      var invokedRepoIds: [String] = []
+      func record(_ repoId: String) { invokedRepoIds.append(repoId) }
+      func recorded() -> [String] { invokedRepoIds }
+    }
+
+    let recorder = InvocationRecorder()
+    let engine = Flux2Engine(integrityChecker: { repoId in
+      await recorder.record(repoId)
+      return .available
+    })
+
+    do {
+      try await engine.loadModel(
+        Flux2ModelDescriptor.klein4B,
+        progress: { _ in }
+      )
+      // Rarely succeeds without a GPU — acceptable if it does.
+    } catch let error as VinetasError {
+      if case .modelIncomplete = error {
+        Issue.record(
+          "Must not throw .modelIncomplete when all components return .available.")
+      }
+      // Other VinetasError variants from the deep loader are acceptable.
+    } catch {
+      // Non-VinetasError (MLX/Foundation deep-loader failures) are acceptable.
+    }
+
+    // Verify the checker was consulted for every required component.
+    // Klein 4B has three components [transformer, textEncoder, vae]; transformer
+    // and VAE share the same repoId, but each is a separate checker invocation.
+    let consulted = await recorder.recorded()
+    let expectedComponents = Flux2Engine.modelComponents(for: .klein4B)
+    #expect(
+      consulted.count == expectedComponents.count,
+      "Expected checker invoked \(expectedComponents.count) times, got \(consulted.count)")
+    for component in expectedComponents {
+      let repoId = Flux2Engine.acervoRepoId(for: component)
+      #expect(
+        consulted.contains(repoId),
+        "Checker was not invoked for component repoId: \(repoId)")
+    }
+  }
+
   @Test("availability is .partial(missing:) when the text encoder is absent")
   func availabilityPartialWhenTextEncoderAbsent() {
     // Simulate the Klein 4B component set with the transformer + VAE present
