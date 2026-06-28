@@ -110,9 +110,33 @@ public actor Flux2Engine: ImageGenerationEngine {
   /// onto the Vinetas surface.
   private var telemetry: (any VinetasTelemetryReporter)?
 
+  /// Per-component integrity checker invoked in `loadModel` before the deep
+  /// loader runs (B2 · C4 · R2.2).
+  ///
+  /// Defaults to `Acervo.verifyIntegrity`, which performs a full SHA-256 audit
+  /// and — on a passing run — writes the `.acervo-verified.json` verified
+  /// marker so subsequent `availability` calls take the fast-path.
+  ///
+  /// Unit tests supply a stub via `init(integrityChecker:)` to force specific
+  /// `.partial`/`.available` verdicts without filesystem or CDN access.
+  private var integrityChecker: @Sendable (String) async -> ModelAvailability
+
   // MARK: - Init
 
-  public init() {}
+  /// Creates a `Flux2Engine` with the production integrity checker
+  /// (`Acervo.verifyIntegrity`).
+  public init() {
+    self.integrityChecker = Acervo.verifyIntegrity(_:)
+  }
+
+  /// Creates a `Flux2Engine` with an injected integrity checker.
+  ///
+  /// - Parameter integrityChecker: A closure with the same signature as
+  ///   `Acervo.verifyIntegrity(_:)`. Inject a stub in unit tests to force
+  ///   specific availability verdicts without touching the filesystem.
+  init(integrityChecker: @escaping @Sendable (String) async -> ModelAvailability) {
+    self.integrityChecker = integrityChecker
+  }
 
   // MARK: - Telemetry
 
@@ -161,7 +185,42 @@ public actor Flux2Engine: ImageGenerationEngine {
     // Unload any existing model first
     await unloadModel()
 
-    progress(LoadProgress(phase: "Creating pipeline", fraction: 0.0))
+    // B2: Fail-fast integrity guard (C4 · R2.2 · R6).
+    //
+    // Before the Flux2Pipeline constructor or any deep loader call, run the
+    // integrity checker for each required component. A `.partial` result means
+    // the on-disk weights do not match the CDN manifest (corrupted or
+    // incomplete download); surface a clear, user-facing error instead of
+    // letting the MLX loader emit a cryptic shard-missing message.
+    //
+    // The checker defaults to `Acervo.verifyIntegrity`, which performs a full
+    // SHA-256 audit and writes `.acervo-verified.json` on a passing run.
+    // After the first passing run the marker is present, so later availability
+    // checks skip re-hashing (R3). Unit tests inject a stub via the internal
+    // `init(integrityChecker:)` to force specific verdicts without filesystem
+    // access.
+    progress(LoadProgress(phase: "Verifying model integrity", fraction: 0.0))
+    var incompleteComponents: [String] = []
+    for component in Self.modelComponents(for: descriptor) {
+      let repoId = Self.acervoRepoId(for: component)
+      let result = await integrityChecker(repoId)
+      if case .partial = result {
+        incompleteComponents.append(repoId)
+      }
+    }
+    if !incompleteComponents.isEmpty {
+      await telemetry?.capture(
+        .errorThrown(
+          phase: .modelLoad,
+          errorDescription:
+            "modelIncomplete: \(descriptor.id) — components: \(incompleteComponents.joined(separator: ", "))"))
+      throw VinetasError.modelIncomplete(
+        modelID: descriptor.id,
+        components: incompleteComponents
+      )
+    }
+
+    progress(LoadProgress(phase: "Creating pipeline", fraction: 0.05))
 
     let memoryOpt = MemoryOptimizationConfig.recommended(
       forRAMGB: VinetasMemory.systemMemoryGB

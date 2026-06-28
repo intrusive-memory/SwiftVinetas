@@ -292,6 +292,102 @@ struct Flux2EngineTests {
     }
   }
 
+  // MARK: - B2: Fail-fast integrity guard in loadModel (C4 · R2.2 · R6)
+
+  @Test("loadModel throws .modelIncomplete before the deep loader when a component is .partial")
+  func loadModelFailsFastOnPartialComponent() async {
+    // Inject an integrity checker that returns .partial for the Qwen3 text
+    // encoder, simulating a corrupted or incomplete download. The guard must
+    // throw VinetasError.modelIncomplete BEFORE creating Flux2Pipeline or
+    // invoking any deep MLX loader — the test never reaches those paths.
+    let textEncoderRepoId = "lmstudio-community/Qwen3-4B-MLX-8bit"
+    let engine = Flux2Engine(integrityChecker: { repoId in
+      if repoId == textEncoderRepoId {
+        return .partial(missing: [repoId])
+      }
+      return .available
+    })
+
+    do {
+      try await engine.loadModel(
+        Flux2ModelDescriptor.klein4B,
+        progress: { _ in }
+      )
+      Issue.record(
+        "Expected VinetasError.modelIncomplete to be thrown; loadModel returned normally.")
+    } catch let error as VinetasError {
+      // Assert the specific error case and message substrings (R6).
+      guard case .modelIncomplete(let modelID, let components) = error else {
+        Issue.record("Expected .modelIncomplete, got \(error)")
+        return
+      }
+      #expect(modelID == "flux2-klein-4b")
+      #expect(components.contains(textEncoderRepoId))
+      let desc = error.localizedDescription
+      #expect(desc.lowercased().contains("incomplete"))
+      #expect(desc.lowercased().contains("re-download"))
+    } catch {
+      Issue.record("Unexpected error type: \(error)")
+    }
+  }
+
+  @Test("loadModel throws .modelIncomplete with correct components list")
+  func loadModelIncompleteListsAffectedComponents() async {
+    // Two components: text encoder (.partial) and VAE (.partial).
+    // The error must list both in its components array.
+    let textEncoderRepoId = "lmstudio-community/Qwen3-4B-MLX-8bit"
+    // Klein 4B transformer and VAE share the same Acervo repo id.
+    let sharedRepoId = "black-forest-labs/FLUX.2-klein-4B"
+    let engine = Flux2Engine(integrityChecker: { _ in
+      // All components return .partial.
+      return .partial(missing: ["simulated-shard.safetensors"])
+    })
+
+    do {
+      try await engine.loadModel(
+        Flux2ModelDescriptor.klein4B,
+        progress: { _ in }
+      )
+      Issue.record("Expected .modelIncomplete to be thrown.")
+    } catch let error as VinetasError {
+      guard case .modelIncomplete(_, let components) = error else {
+        Issue.record("Expected .modelIncomplete, got \(error)")
+        return
+      }
+      // All three components (transformer, textEncoder, vae) should appear.
+      // Note: transformer and vae share the same repoId; deduplicated or not,
+      // at minimum the text encoder must be listed.
+      #expect(components.contains(textEncoderRepoId))
+      #expect(components.contains(sharedRepoId))
+    } catch {
+      Issue.record("Unexpected error type: \(error)")
+    }
+  }
+
+  @Test("loadModel does NOT throw .modelIncomplete when all components are .available")
+  func loadModelDoesNotFailWhenAllAvailable() async {
+    // When the integrity checker reports all components as .available,
+    // the guard passes. loadModel will still fail (no GPU in unit tests),
+    // but the failure must NOT be .modelIncomplete — it must be a loader error.
+    let engine = Flux2Engine(integrityChecker: { _ in .available })
+
+    do {
+      try await engine.loadModel(
+        Flux2ModelDescriptor.klein4B,
+        progress: { _ in }
+      )
+      // If it somehow succeeds, that's acceptable (unlikely without a GPU).
+    } catch let error as VinetasError {
+      if case .modelIncomplete = error {
+        Issue.record(
+          "loadModel should not throw .modelIncomplete when all components pass integrity check.")
+      }
+      // Other VinetasError variants (e.g. generationFailed from deep loader) are acceptable.
+    } catch {
+      // Non-VinetasError (e.g. MLX/Foundation failures in the deep loader) are acceptable.
+    }
+  }
+
   @Test("availability is .partial(missing:) when the text encoder is absent")
   func availabilityPartialWhenTextEncoderAbsent() {
     // Simulate the Klein 4B component set with the transformer + VAE present
