@@ -114,9 +114,43 @@ public actor PixArtEngine: ImageGenerationEngine {
   /// onto the Vinetas surface.
   private var telemetry: (any VinetasTelemetryReporter)?
 
+  /// Per-component integrity checker invoked in `loadModel` before pipeline
+  /// assembly and weight loading (B2 · C4 · R2.2), mirroring ``Flux2Engine``.
+  ///
+  /// Production default wraps `Acervo.availability(_:verifyHashes:true)`, which is
+  /// **marker-aware**: a valid `.acervo-verified.json` marker short-circuits to
+  /// `.available` with no SHA-256 hashing; otherwise a full SHA-256 audit runs and
+  /// the marker is written on success. A `.partial` verdict means on-disk weights
+  /// do not match the CDN manifest (corrupted or incomplete download), and
+  /// `loadModel` throws `.modelIncomplete`.
+  ///
+  /// Unit tests supply a stub via `init(integrityChecker:)` to force specific
+  /// verdicts without filesystem or CDN access.
+  private var integrityChecker: @Sendable (String) async -> ModelAvailability
+
   // MARK: - Init
 
-  public init() {}
+  /// Creates a `PixArtEngine` with the production marker-aware integrity checker.
+  ///
+  /// The default checker calls `Acervo.availability(_:verifyHashes:true)`: when a
+  /// valid `.acervo-verified.json` marker is present it returns `.available` without
+  /// re-hashing; when no marker or a stale marker exists it performs a full SHA-256
+  /// audit and writes the marker on success.
+  public init() {
+    self.integrityChecker = { repoId in
+      await Acervo.availability(repoId, verifyHashes: true)
+    }
+  }
+
+  /// Creates a `PixArtEngine` with an injected integrity checker (test seam).
+  ///
+  /// - Parameter integrityChecker: A `@Sendable (String) async -> ModelAvailability`
+  ///   closure. The production default uses `Acervo.availability(_:verifyHashes:true)`
+  ///   (marker-aware); inject a stub in unit tests to force specific availability
+  ///   verdicts without filesystem or CDN access.
+  init(integrityChecker: @escaping @Sendable (String) async -> ModelAvailability) {
+    self.integrityChecker = integrityChecker
+  }
 
   // MARK: - Telemetry
 
@@ -186,6 +220,48 @@ public actor PixArtEngine: ImageGenerationEngine {
         minimumMemoryBytes: 0
       )
       Acervo.register(descriptor)
+    }
+
+    // Fail-fast integrity guard — mirrors Flux2Engine's checkpoint (B2 · C4 · R2.2).
+    //
+    // Before assembling the pipeline or loading any weights, run the marker-aware
+    // integrity checker for each required component repo. A `.partial` verdict means
+    // on-disk weights do not match the CDN manifest (corrupted or incomplete
+    // download); surface a clear `.modelIncomplete` error here instead of letting the
+    // MLX deep loader emit a cryptic shard-missing message.
+    //
+    // Only `.partial` (downloaded-but-corrupt) throws here — `.notAvailable`
+    // (not-yet-downloaded) is the caller's responsibility to resolve before
+    // `loadModel`, matching the Flux2 contract. Components are deduped by repoId so a
+    // shared model directory is hashed once; a component whose descriptor can't be
+    // resolved is skipped (re-downloading wouldn't fix a registration anomaly).
+    //
+    // The checker defaults to `Acervo.availability(_:verifyHashes:true)` (marker-
+    // aware). Unit tests inject a stub via `init(integrityChecker:)`.
+    progress(LoadProgress(phase: "Verifying model integrity", fraction: 0.0))
+    let integrityRegistry = CatalogRegistration.shared
+    var verifiedRepoIds = Set<String>()
+    var incompleteComponents: [String] = []
+    for componentId in model.componentIds {
+      guard let componentDescriptor = integrityRegistry.descriptor(for: componentId),
+        verifiedRepoIds.insert(componentDescriptor.repoId).inserted
+      else { continue }
+      let result = await integrityChecker(componentDescriptor.repoId)
+      if case .partial = result {
+        incompleteComponents.append(componentDescriptor.repoId)
+      }
+    }
+    if !incompleteComponents.isEmpty {
+      await telemetry?.capture(
+        .errorThrown(
+          phase: .modelLoad,
+          errorDescription:
+            "modelIncomplete: \(model.id) — components: \(incompleteComponents.joined(separator: ", "))"
+        ))
+      throw VinetasError.modelIncomplete(
+        modelID: model.id,
+        components: incompleteComponents
+      )
     }
 
     progress(LoadProgress(phase: "Assembling pipeline", fraction: 0.0))

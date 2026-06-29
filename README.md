@@ -39,7 +39,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.15.8")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.16.0")
 ]
 ```
 
@@ -181,6 +181,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 
 ## Status
+
+**v0.16.0** — PixArt model-integrity checkpoint: `PixArtEngine.loadModel` now carries the same fail-fast `verifyIntegrity` guard already shipped for Flux2 in v0.15.8, so a PixArt model with a missing or corrupt component fails loudly at load time instead of producing garbage downstream. Adds `PixArtEngineTests` coverage for the checkpoint.
 
 **v0.15.8** — Model-integrity checkpoint: `loadModel` now carries a fail-fast `verifyIntegrity` guard gated on marker-aware availability, so a model with a missing or corrupt component fails loudly at load time instead of producing garbage downstream. Enumerates the FLUX Klein text-encoder component (Qwen3) for integrity tracking. Floors SwiftAcervo at 0.23.0 for lossless safetensors resharding + model-integrity verification (CDN base URL is now a required per-consumer config). Adds `Flux2EngineTests` and `VinetasErrorTests` coverage.
 
