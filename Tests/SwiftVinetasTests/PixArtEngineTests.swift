@@ -328,4 +328,76 @@ struct PixArtEngineTests {
     // Should not throw
     await engine.unloadLoRA()
   }
+
+  // MARK: - Fail-fast integrity guard in loadModel (parity with Flux2Engine · B2 · C4 · R2.2)
+
+  @Test("loadModel throws .modelIncomplete before the deep loader when a component is .partial")
+  func loadModelFailsFastOnPartialComponent() async {
+    // Inject an integrity checker that reports every component repo as .partial,
+    // simulating a corrupted or incomplete download. The guard must throw
+    // VinetasError.modelIncomplete BEFORE assembling PixArtPipeline or invoking the
+    // MLX deep loader — the test never reaches those (GPU-less) paths.
+    let ditRepoId = "intrusive-memory/pixart-sigma-xl-dit-int4-mlx"
+    let engine = PixArtEngine(integrityChecker: { repoId in
+      .partial(missing: [repoId])
+    })
+
+    do {
+      try await engine.loadModel(
+        PixArtModelDescriptor.sigmaXL,
+        progress: { _ in }
+      )
+      Issue.record(
+        "Expected VinetasError.modelIncomplete to be thrown; loadModel returned normally.")
+    } catch let error as VinetasError {
+      guard case .modelIncomplete(let modelID, let components) = error else {
+        Issue.record("Expected .modelIncomplete, got \(error)")
+        return
+      }
+      #expect(modelID == "pixart-sigma-xl")
+      // The DiT component repo is registered by PixArtComponents and must be flagged.
+      #expect(components.contains(ditRepoId))
+      let desc = error.localizedDescription
+      #expect(desc.lowercased().contains("incomplete"))
+      #expect(desc.lowercased().contains("re-download"))
+    } catch {
+      Issue.record("Unexpected error type: \(error)")
+    }
+  }
+
+  @Test("loadModel dedupes component repos in the .modelIncomplete list")
+  func loadModelIncompleteDedupesRepos() async {
+    // Every component returns .partial; the reported list must be deduplicated by
+    // repoId (a shared model directory is hashed/listed once, matching diskSize).
+    let engine = PixArtEngine(integrityChecker: { repoId in
+      .partial(missing: [repoId])
+    })
+
+    do {
+      try await engine.loadModel(
+        PixArtModelDescriptor.sigmaXL,
+        progress: { _ in }
+      )
+      Issue.record("Expected .modelIncomplete to be thrown.")
+    } catch let error as VinetasError {
+      guard case .modelIncomplete(_, let components) = error else {
+        Issue.record("Expected .modelIncomplete, got \(error)")
+        return
+      }
+      #expect(!components.isEmpty)
+      #expect(components.count == Set(components).count)
+    } catch {
+      Issue.record("Unexpected error type: \(error)")
+    }
+  }
+
+  // Note: there is intentionally NO "all components .available → does not throw
+  // .modelIncomplete" unit test here (the Flux2EngineTests analogue exists because
+  // Flux2's deep loader fails fast on absent weights). PixArt's loader auto-downloads
+  // when weights are missing, so letting loadModel proceed past the checkpoint would
+  // download ~3.6 GB (or trap on an unset cdnBaseURL) — violating `make test-unit`'s
+  // "no GPU or model required" contract. The no-false-positive property is instead
+  // guaranteed structurally: the checkpoint only appends to `incompleteComponents`
+  // on `case .partial`. The full available→load path is covered by the gated
+  // SwiftVinetasGPUTests/PixArtIntegrationTests.
 }
