@@ -194,6 +194,16 @@ struct PixArtEngineTests {
     #expect(ids.contains { $0.contains("vae") })
   }
 
+  @Test("sigmaXL componentIds lists all three expected components (B1 regression)")
+  func sigmaXLComponentIdsListsAllThree() {
+    // Regression guard: PixArt's dependency list must stay complete (D1
+    // comparison baseline). All three Acervo component ids must be present.
+    let ids = PixArtModelDescriptor.sigmaXL.componentIds
+    #expect(ids.contains("t5-xxl-encoder-int4"))
+    #expect(ids.contains("pixart-sigma-xl-dit-int4"))
+    #expect(ids.contains("sdxl-vae-decoder-fp16"))
+  }
+
   // MARK: - Generate without loaded model
 
   @Test("PixArtEngine generate throws when no model is loaded")

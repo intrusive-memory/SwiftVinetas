@@ -75,10 +75,15 @@ let package = Package(
       from: "3.3.3"),
 
     // Shared model management (download, cache, discovery)
+    // Floored at 0.23.0: 0.21.0 made the CDN base URL a per-consumer config value
+    // with NO hardcoded default (Acervo.cdnBaseURL traps when unset), and 0.23.0
+    // adds lossless safetensors resharding + model-integrity verification used by
+    // the integrity-checkpoint work. Consumers must supply ACERVO_CDN_BASE_URL
+    // (CLI / tests / CI) or the AcervoCDNBaseURL Info.plist key (UI apps).
     sibling(
       "SwiftAcervo",
       remote: "https://github.com/intrusive-memory/SwiftAcervo.git",
-      from: "0.19.2"),
+      from: "0.23.0"),
 
     // Componentized diffusion pipeline (protocols + infrastructure).
     // Floored at 0.7.7 (mlx-swift pinned .exact("0.31.3")).
