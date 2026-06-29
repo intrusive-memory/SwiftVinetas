@@ -1,6 +1,44 @@
 // swift-tools-version: 6.2
 
+import Foundation
 import PackageDescription
+
+// In CI we always pin to released remotes. Locally, prefer a sibling checkout
+// at ../<name> if present so in-flight changes can be exercised end-to-end
+// without publishing a release. Falls back to the remote pin if the sibling
+// directory is missing, so fresh clones still build.
+//
+// When this manifest is evaluated as a transitive dependency inside Xcode's
+// `SourcePackages/checkouts/` or SwiftPM's `.build/checkouts/`, every other
+// dependency lives as a sibling in the same directory. Treating those as
+// in-development local paths produces conflicting package identities, so we
+// must skip the sibling shortcut in that context.
+let manifestDir = (#filePath as NSString).deletingLastPathComponent
+let isSPMCheckout =
+  manifestDir.contains("/SourcePackages/checkouts/")
+  || manifestDir.contains("/.build/checkouts/")
+let isCI = ProcessInfo.processInfo.environment["CI"] == "true"
+let useLocalSiblings = !isCI && !isSPMCheckout
+
+func sibling(_ name: String, remote: String, from version: Version) -> Package.Dependency {
+  let localPath = "../\(name)"
+  if useLocalSiblings && FileManager.default.fileExists(atPath: localPath) {
+    return .package(path: localPath)
+  }
+  return .package(url: remote, .upToNextMajor(from: version))
+}
+
+/// Same sibling-priority pattern as ``sibling(_:remote:from:)`` but pins to a
+/// remote branch when no local sibling exists. Use only when a temporary
+/// pre-release dependency on a feature branch is required; switch back to the
+/// version-pinned ``sibling(_:remote:from:)`` once the upstream tags a release.
+func sibling(_ name: String, remote: String, branch: String) -> Package.Dependency {
+  let localPath = "../\(name)"
+  if useLocalSiblings && FileManager.default.fileExists(atPath: localPath) {
+    return .package(path: localPath)
+  }
+  return .package(url: remote, branch: branch)
+}
 
 let package = Package(
   name: "SwiftVinetas",
@@ -31,9 +69,10 @@ let package = Package(
     // upstream #410 (deadlock/EINVAL). 3.3.3 pins mlx exactly to 0.31.3. Keep
     // this as upToNextMajor so a future flux that adopts a fixed mlx is picked
     // up automatically — the mlx-version guarantee lives in flux itself.
-    .package(
-      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.3.3")
-    ),
+    sibling(
+      "flux-2-swift-mlx",
+      remote: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
+      from: "3.3.3"),
 
     // Shared model management (download, cache, discovery)
     // Floored at 0.23.0: 0.21.0 made the CDN base URL a per-consumer config value
@@ -41,20 +80,25 @@ let package = Package(
     // adds lossless safetensors resharding + model-integrity verification used by
     // the integrity-checkpoint work. Consumers must supply ACERVO_CDN_BASE_URL
     // (CLI / tests / CI) or the AcervoCDNBaseURL Info.plist key (UI apps).
-    .package(
-      url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.23.0")),
+    sibling(
+      "SwiftAcervo",
+      remote: "https://github.com/intrusive-memory/SwiftAcervo.git",
+      from: "0.23.0"),
 
     // Componentized diffusion pipeline (protocols + infrastructure).
     // Floored at 0.7.7 (mlx-swift pinned .exact("0.31.3")).
-    .package(
-      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.7.7")),
+    sibling(
+      "SwiftTuberia",
+      remote: "https://github.com/intrusive-memory/SwiftTuberia.git",
+      from: "0.7.7"),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe).
     // Floored at 0.8.0 for the seam-free tiled VAE decode (#45/#83): PixArtRecipe
     // sets decodeTileLatentSize so the macOS 4K decode transient is bounded.
-    .package(
-      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.8.0")
-    ),
+    sibling(
+      "pixart-swift-mlx",
+      remote: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
+      from: "0.8.0"),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
