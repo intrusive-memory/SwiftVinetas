@@ -5,7 +5,7 @@ updated: 2026-06-29
 
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.15.8-dev
+**Version**: 0.16.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -37,7 +37,7 @@ Active investigations / in-flight design notes live in [docs/incomplete/](docs/i
 ## Queryable Codemap
 
 A prebuilt [graphify](https://pypi.org/project/graphifyy/) knowledge graph of this
-codebase lives in [`graphify-out/`](graphify-out/) (2398 nodes · 3705 edges). **Prefer
+codebase lives in [`graphify-out/`](graphify-out/) (2536 nodes · 4017 edges). **Prefer
 querying it before grepping** for architecture or "what connects to what" questions:
 
 ```bash
