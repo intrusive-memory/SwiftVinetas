@@ -101,4 +101,44 @@ struct VinetasErrorTests {
     #expect(!desc.isEmpty)
     #expect(desc.contains("flux2"))
   }
+
+  // MARK: - modelIncomplete (B2 · C4 · R6)
+
+  @Test("modelIncomplete description contains modelID")
+  func modelIncompleteDescriptionContainsModelID() {
+    let error = VinetasError.modelIncomplete(
+      modelID: "flux2-klein-4b",
+      components: ["lmstudio-community/Qwen3-4B-MLX-8bit"])
+    let desc = error.localizedDescription
+    #expect(!desc.isEmpty)
+    #expect(desc.contains("flux2-klein-4b"))
+  }
+
+  @Test("modelIncomplete description contains affected component")
+  func modelIncompleteDescriptionContainsComponent() {
+    let component = "lmstudio-community/Qwen3-4B-MLX-8bit"
+    let error = VinetasError.modelIncomplete(
+      modelID: "flux2-klein-4b",
+      components: [component])
+    let desc = error.localizedDescription
+    #expect(desc.contains(component))
+  }
+
+  @Test("modelIncomplete description contains 're-download'")
+  func modelIncompleteDescriptionMentionsReDownload() {
+    let error = VinetasError.modelIncomplete(
+      modelID: "flux2-klein-4b",
+      components: ["lmstudio-community/Qwen3-4B-MLX-8bit"])
+    let desc = error.localizedDescription
+    #expect(desc.lowercased().contains("re-download"))
+  }
+
+  @Test("modelIncomplete description contains 'incomplete'")
+  func modelIncompleteDescriptionMentionsIncomplete() {
+    let error = VinetasError.modelIncomplete(
+      modelID: "flux2-klein-4b",
+      components: ["lmstudio-community/Qwen3-4B-MLX-8bit"])
+    let desc = error.localizedDescription
+    #expect(desc.lowercased().contains("incomplete"))
+  }
 }

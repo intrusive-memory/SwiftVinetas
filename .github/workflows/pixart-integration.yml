@@ -37,6 +37,10 @@ on:
 
 env:
   ACERVO_APP_GROUP_ID: group.intrusive-memory.models
+  # SwiftAcervo 0.21.0+ has no hardcoded CDN default — vinetas download (and any
+  # shell step that touches the CDN) traps without this. Forwarded to the xctest
+  # runner separately via TEST_RUNNER_ACERVO_CDN_BASE_URL below.
+  ACERVO_CDN_BASE_URL: https://cdn.intrusive-memory.productions/models
   MODELS_DIR: ${{ github.workspace }}/.pixart-models
   DERIVED_DATA: /tmp/SwiftVinetasBuild
 
@@ -87,7 +91,7 @@ jobs:
 
       - name: Restore PixArt model cache
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.MODELS_DIR }}
           key: pixart-models-v1-${{ hashFiles('pixart-manifests.lock') }}
@@ -115,6 +119,7 @@ jobs:
           # not failed — so Checkpoints 1 (compile) and 2 (real-model download +
           # manifest verify + pipeline assembly) actually run and gate.
           TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
+          TEST_RUNNER_ACERVO_CDN_BASE_URL=https://cdn.intrusive-memory.productions/models \
           TEST_RUNNER_ACERVO_MODELS_DIR="$MODELS_DIR" \
           TEST_RUNNER_VINETAS_TEST_IGNORE_MEMORY_GATE=1 \
           TEST_RUNNER_VINETAS_CI_SKIP_GPU=1 \
@@ -128,7 +133,7 @@ jobs:
 
       - name: Upload test logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pixart-integration-log
           path: build/pixart-integration.log

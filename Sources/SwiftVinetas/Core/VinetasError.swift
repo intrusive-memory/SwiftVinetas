@@ -20,6 +20,14 @@ public enum VinetasError: Error, LocalizedError {
   /// The requested feature is not supported by the given engine.
   case engineFeatureUnsupported(feature: EngineFeature, engineID: String)
 
+  /// One or more required model components are incomplete or corrupted on disk.
+  ///
+  /// Thrown by ``Flux2Engine/loadModel(_:progress:)`` when
+  /// `Acervo.verifyIntegrity` returns `.partial` for a required component
+  /// before the deep loader runs (C4 · R2.2 · R6). The user must re-download
+  /// the model to restore a complete, hash-verified copy.
+  case modelIncomplete(modelID: String, components: [String])
+
   public var errorDescription: String? {
     switch self {
     case .modelNotFound(let model):
@@ -51,6 +59,11 @@ public enum VinetasError: Error, LocalizedError {
     case .engineFeatureUnsupported(let feature, let engineID):
       return
         "Feature '\(feature)' is not supported by engine '\(engineID)'."
+    case .modelIncomplete(let modelID, let components):
+      let list = components.joined(separator: ", ")
+      return
+        "Model '\(modelID)' is incomplete or corrupted on disk — re-download it to continue. "
+        + "Affected components: \(list)."
     }
   }
 }
