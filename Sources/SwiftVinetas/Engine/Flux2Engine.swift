@@ -232,7 +232,8 @@ public actor Flux2Engine: ImageGenerationEngine {
         .errorThrown(
           phase: .modelLoad,
           errorDescription:
-            "modelIncomplete: \(descriptor.id) — components: \(incompleteComponents.joined(separator: ", "))"))
+            "modelIncomplete: \(descriptor.id) — components: \(incompleteComponents.joined(separator: ", "))"
+        ))
       throw VinetasError.modelIncomplete(
         modelID: descriptor.id,
         components: incompleteComponents

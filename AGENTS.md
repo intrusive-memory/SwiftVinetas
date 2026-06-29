@@ -1,10 +1,11 @@
 ---
 type: doc
+updated: 2026-06-29
 ---
 
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.15.7-dev
+**Version**: 0.15.8
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 

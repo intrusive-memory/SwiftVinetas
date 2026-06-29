@@ -1,3 +1,8 @@
+---
+type: doc
+updated: 2026-06-29
+---
+
 # SwiftVinetas
 
 **Viñetas Gráficas** — On-device storyboard and comic panel generation from text prompts via FLUX.2 on Apple Silicon.
@@ -34,7 +39,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.15.4")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.15.8")
 ]
 ```
 
@@ -176,6 +181,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 
 ## Status
+
+**v0.15.8** — Model-integrity checkpoint: `loadModel` now carries a fail-fast `verifyIntegrity` guard gated on marker-aware availability, so a model with a missing or corrupt component fails loudly at load time instead of producing garbage downstream. Enumerates the FLUX Klein text-encoder component (Qwen3) for integrity tracking. Floors SwiftAcervo at 0.23.0 for lossless safetensors resharding + model-integrity verification (CDN base URL is now a required per-consumer config). Adds `Flux2EngineTests` and `VinetasErrorTests` coverage.
 
 **v0.15.4** — Engine eviction + cancellation teardown (#41): the engine router now evicts the resident engine on backend switch and tears down in-flight work on cancellation, reclaiming GPU memory between runs. Adds platform-tier aspect-ratio dimensions (macOS television resolution) and encodes SwiftTuberia 0.7.6's new `decoderDecodeComplete` resident-bytes telemetry fields. Adds `EngineEvictionTests` and `CancellationTeardownTests`.
 

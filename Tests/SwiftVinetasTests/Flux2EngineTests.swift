@@ -388,7 +388,9 @@ struct Flux2EngineTests {
     }
   }
 
-  @Test("marker-aware checker is consulted once per component when all return .available (gated fast-path)")
+  @Test(
+    "marker-aware checker is consulted once per component when all return .available (gated fast-path)"
+  )
   func loadModelConsultsCheckerPerComponentWhenAllAvailable() async {
     // Documents the gated decisive-moment behavior (B2 cont / R2.2 / R3):
     // the integrityChecker seam simulates the marker-aware fast-path in which
