@@ -44,6 +44,12 @@ BINDIR = ./bin
 PIXART_TEST_MODELS = /tmp/vinetas-test-models
 PIXART_SHARED_MODELS = $(HOME)/Library/Group Containers/group.intrusive-memory.models/SharedModels
 
+# CDN base URL forwarded to the xctest runner. SwiftAcervo 0.21.0+ resolves the
+# CDN host per-consumer with NO hardcoded default and traps with fatalError when
+# unset (Acervo+CDNConfiguration.swift). xcodebuild does not propagate shell env
+# to the xctest runner, so it must be passed with the TEST_RUNNER_ prefix below.
+ACERVO_CDN_BASE_URL = https://cdn.intrusive-memory.productions/models
+
 # Default prompt for fixture generation. Override via:
 #   make test-fixtures PROMPT="A field of sunflowers bathed in sunshine underneath a blue sky."
 PROMPT ?= A red car parked on a cobblestone street
@@ -111,14 +117,14 @@ release: ## Release build of the vinetas CLI + copy binary and Metal bundle to .
 	fi
 
 test: ## Run all macOS tests (unit + GPU)
-	TEST_RUNNER_CI=$${CI:-} TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
+	TEST_RUNNER_CI=$${CI:-} TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA)
 
 test-unit: ## Run macOS unit tests only (no GPU or model required); output captured to build/test-output.log
 	@mkdir -p build
-	TEST_RUNNER_CI=$${CI:-} TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
+	TEST_RUNNER_CI=$${CI:-} TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
@@ -191,7 +197,7 @@ link-test-models: ## Hardlink all model weights + tokenizer files from App Group
 link-pixart-models: link-test-models
 
 test-gpu: link-test-models ## Run GPU tests only (requires Apple Silicon + cached model)
-	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
@@ -199,7 +205,7 @@ test-gpu: link-test-models ## Run GPU tests only (requires Apple Silicon + cache
 		-only-testing:SwiftVinetasGPUTests
 
 test-integration: link-test-models ## Run integration tests only (model download + image generation)
-	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
@@ -207,7 +213,7 @@ test-integration: link-test-models ## Run integration tests only (model download
 		$(INTEGRATION_SUITES)
 
 test-telemetry-debug: link-test-models ## Run the Flux2 + PixArt telemetry integration tests; pipes log to /tmp/test-telemetry.log and prints the trace paths
-	@TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+	@TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
@@ -226,7 +232,7 @@ test-fixtures: build ## Generate one image per engine via the CLI, save to tmp/f
 	@open tmp/fixtures/pixart-seed42.png tmp/fixtures/flux2-seed42.png
 
 test-pixart-repro: link-test-models ## Run PixArt 5× across seeds 42-46 to diagnose garbage output — saves to ~/Desktop/SwiftVinetasDebug/
-	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) \
 	TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
@@ -234,14 +240,14 @@ test-pixart-repro: link-test-models ## Run PixArt 5× across seeds 42-46 to diag
 		-only-testing:SwiftVinetasGPUTests/PixArtGarbageReproTests
 
 test-ios: ## Run all iOS Simulator tests
-	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_IOS) \
 		-derivedDataPath $(DERIVED_DATA)
 
 test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required); output captured to build/test-output-ios.log
 	@mkdir -p build
-	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models xcodebuild test \
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_IOS) \
 		-derivedDataPath $(DERIVED_DATA) \
