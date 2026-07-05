@@ -71,20 +71,26 @@ struct Flux2EventEncodingTests {
   @Test("weightLoadComplete encodes discriminant, component rawValue, and all associated values")
   func testWeightLoadComplete() throws {
     let dict = try roundTrip(
-      .weightLoadComplete(component: .transformer, paramCount: 12_000_000, durationSeconds: 3.7)
+      .weightLoadComplete(
+        component: .transformer, paramCount: 12_000_000, durationSeconds: 3.7,
+        physFootprint: 1_234_567)
     )
     #expect((dict["case"] as? String) == "weightLoadComplete")
     #expect((dict["component"] as? String) == "transformer")
     #expect((dict["paramCount"] as? Int) == 12_000_000)
     #expect((dict["durationSeconds"] as? Double) == 3.7)
+    #expect((dict["physFootprint"] as? Int) == 1_234_567)
   }
 
   @Test("weightLoadComplete encodes WeightComponent.vae rawValue")
   func testWeightLoadCompleteVAE() throws {
     let dict = try roundTrip(
-      .weightLoadComplete(component: .vae, paramCount: 5_000_000, durationSeconds: 1.2)
+      .weightLoadComplete(
+        component: .vae, paramCount: 5_000_000, durationSeconds: 1.2, physFootprint: nil)
     )
     #expect((dict["component"] as? String) == "vae")
+    // physFootprint is optional — a nil value must be omitted from the JSON.
+    #expect(dict["physFootprint"] == nil)
   }
 
   // MARK: - Case 4: textEncodeComplete
@@ -96,7 +102,8 @@ struct Flux2EventEncodingTests {
         encoderName: "KleinTextEncoder",
         finalPromptLength: 77,
         embeddingStat: makeStat(),
-        durationSeconds: 0.5
+        durationSeconds: 0.5,
+        physFootprint: 987_654
       )
     )
     #expect((dict["case"] as? String) == "textEncodeComplete")
@@ -104,6 +111,7 @@ struct Flux2EventEncodingTests {
     #expect((dict["finalPromptLength"] as? Int) == 77)
     #expect(dict["embeddingStat"] != nil, "embeddingStat should be encoded")
     #expect((dict["durationSeconds"] as? Double) == 0.5)
+    #expect((dict["physFootprint"] as? Int) == 987_654)
   }
 
   // MARK: - Case 5: schedulerConfigured
@@ -149,7 +157,8 @@ struct Flux2EventEncodingTests {
         totalSteps: 28,
         completedSteps: 28,
         finalLatentStat: makeStat(),
-        durationSeconds: 8.5
+        durationSeconds: 8.5,
+        physFootprint: 42_000_000
       )
     )
     #expect((dict["case"] as? String) == "denoiseLoopEnd")
@@ -158,6 +167,7 @@ struct Flux2EventEncodingTests {
     #expect((dict["completedSteps"] as? Int) == 28)
     #expect(dict["finalLatentStat"] != nil, "finalLatentStat should be encoded")
     #expect((dict["durationSeconds"] as? Double) == 8.5)
+    #expect((dict["physFootprint"] as? Int) == 42_000_000)
   }
 
   // MARK: - Case 8: vaeDecodeComplete
@@ -166,13 +176,15 @@ struct Flux2EventEncodingTests {
   func testVaeDecodeComplete() throws {
     let dict = try roundTrip(
       .vaeDecodeComplete(
-        pixelStat: makeStat(), outputDims: [512, 512, 3], durationSeconds: 1.3
+        pixelStat: makeStat(), outputDims: [512, 512, 3], durationSeconds: 1.3,
+        physFootprint: 7_654_321
       )
     )
     #expect((dict["case"] as? String) == "vaeDecodeComplete")
     #expect(dict["pixelStat"] != nil, "pixelStat should be encoded")
     #expect((dict["outputDims"] as? [Int]) == [512, 512, 3])
     #expect((dict["durationSeconds"] as? Double) == 1.3)
+    #expect((dict["physFootprint"] as? Int) == 7_654_321)
   }
 
   // MARK: - Case 9: numericalAnomaly
