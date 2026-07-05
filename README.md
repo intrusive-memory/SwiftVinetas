@@ -39,7 +39,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.16.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.16.2")
 ]
 ```
 
@@ -181,6 +181,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 
 ## Status
+
+**v0.16.2** — Dependency floor bump: FLUX.2 pipeline floored at flux-2-swift-mlx 3.4.0, which adds iPad memory-tier support (device-RAM-aware defaults, direct pre-quantized int4 load, VAE-tiled decode) while keeping the exact 0.31.3 mlx-swift pin that guards against the upstream #410 deadlock. Also floors SwiftTuberia at 0.7.8 and pixart-swift-mlx at 0.8.1.
 
 **v0.16.0** — PixArt model-integrity checkpoint: `PixArtEngine.loadModel` now carries the same fail-fast `verifyIntegrity` guard already shipped for Flux2 in v0.15.8, so a PixArt model with a missing or corrupt component fails loudly at load time instead of producing garbage downstream. Adds `PixArtEngineTests` coverage for the checkpoint.
 
