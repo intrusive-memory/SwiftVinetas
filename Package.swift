@@ -65,16 +65,18 @@ let package = Package(
   ],
   dependencies: [
     // FLUX.2 image generation pipeline (MIT license, includes mlx-swift transitively)
-    // Floored at 3.3.4: flux 3.3.2 floors mlx-swift at 0.31.4, which carries
-    // upstream #410 (deadlock/EINVAL); 3.3.3 pins mlx exactly to 0.31.3, and
-    // 3.3.4 fixes Klein transformer-weight resolution (weights live in the
-    // diffusers `transformer/` subfolder, not the repo root). Keep this as
-    // upToNextMajor so a future flux that adopts a fixed mlx is picked up
-    // automatically — the mlx-version guarantee lives in flux itself.
+    // Floored at 3.4.0: flux 3.3.2 floors mlx-swift at 0.31.4, which carries
+    // upstream #410 (deadlock/EINVAL); 3.3.3 pins mlx exactly to 0.31.3, 3.3.4
+    // fixes Klein transformer-weight resolution (weights live in the diffusers
+    // `transformer/` subfolder, not the repo root), and 3.4.0 adds iPad
+    // memory-tier support (device-RAM-aware defaults, direct int4 load, VAE
+    // tiling) while keeping the exact 0.31.3 mlx pin. Keep this as upToNextMajor
+    // so a future flux that adopts a fixed mlx is picked up automatically — the
+    // mlx-version guarantee lives in flux itself.
     sibling(
       "flux-2-swift-mlx",
       remote: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
-      from: "3.3.4"),
+      from: "3.4.0"),
 
     // Shared model management (download, cache, discovery)
     // Floored at 0.23.0: 0.21.0 made the CDN base URL a per-consumer config value
