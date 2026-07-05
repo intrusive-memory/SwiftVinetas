@@ -39,11 +39,12 @@ public struct Flux2EventCodable: Encodable {
 
     // MARK: - Weight loading
 
-    case .weightLoadComplete(let component, let paramCount, let durationSeconds):
+    case .weightLoadComplete(let component, let paramCount, let durationSeconds, let physFootprint):
       try container.encode("weightLoadComplete", forKey: .case)
       try container.encode(component.rawValue, forKey: .component)
       try container.encode(paramCount, forKey: .paramCount)
       try container.encode(durationSeconds, forKey: .durationSeconds)
+      try container.encodeIfPresent(physFootprint, forKey: .physFootprint)
 
     // MARK: - Quantization
 
@@ -57,13 +58,15 @@ public struct Flux2EventCodable: Encodable {
     // MARK: - Text encoding
 
     case .textEncodeComplete(
-      let encoderName, let finalPromptLength, let embeddingStat, let durationSeconds):
+      let encoderName, let finalPromptLength, let embeddingStat, let durationSeconds,
+      let physFootprint):
       try container.encode("textEncodeComplete", forKey: .case)
       try container.encode(encoderName, forKey: .encoderName)
       try container.encode(finalPromptLength, forKey: .finalPromptLength)
       // TuberiaTensorStat is Codable — encode verbatim.
       try container.encode(embeddingStat, forKey: .embeddingStat)
       try container.encode(durationSeconds, forKey: .durationSeconds)
+      try container.encodeIfPresent(physFootprint, forKey: .physFootprint)
 
     // MARK: - Scheduler
 
@@ -84,7 +87,8 @@ public struct Flux2EventCodable: Encodable {
       try container.encode(latentDtype, forKey: .latentDtype)
 
     case .denoiseLoopEnd(
-      let variant, let totalSteps, let completedSteps, let finalLatentStat, let durationSeconds):
+      let variant, let totalSteps, let completedSteps, let finalLatentStat, let durationSeconds,
+      let physFootprint):
       try container.encode("denoiseLoopEnd", forKey: .case)
       try container.encode(variant.rawValue, forKey: .variant)
       try container.encode(totalSteps, forKey: .totalSteps)
@@ -92,6 +96,7 @@ public struct Flux2EventCodable: Encodable {
       // TuberiaTensorStat is Codable — encode verbatim.
       try container.encode(finalLatentStat, forKey: .finalLatentStat)
       try container.encode(durationSeconds, forKey: .durationSeconds)
+      try container.encodeIfPresent(physFootprint, forKey: .physFootprint)
 
     case .denoiseStepStart(
       let variant, let stepIndex, let totalSteps, let t, let latentShape, let latentDtype):
@@ -118,12 +123,13 @@ public struct Flux2EventCodable: Encodable {
 
     // MARK: - VAE decode
 
-    case .vaeDecodeComplete(let pixelStat, let outputDims, let durationSeconds):
+    case .vaeDecodeComplete(let pixelStat, let outputDims, let durationSeconds, let physFootprint):
       try container.encode("vaeDecodeComplete", forKey: .case)
       // TuberiaTensorStat is Codable — encode verbatim.
       try container.encode(pixelStat, forKey: .pixelStat)
       try container.encode(outputDims, forKey: .outputDims)
       try container.encode(durationSeconds, forKey: .durationSeconds)
+      try container.encodeIfPresent(physFootprint, forKey: .physFootprint)
 
     // MARK: - Anomaly side-channel
 
@@ -159,6 +165,10 @@ public struct Flux2EventCodable: Encodable {
     case component
     case paramCount
     case durationSeconds
+    // Per-phase resident-memory footprint added in Flux2Core 3.4.0 to the
+    // weightLoadComplete / textEncodeComplete / denoiseLoopEnd / vaeDecodeComplete
+    // boundary events. Optional — encoded only when the pipeline reported it.
+    case physFootprint
     case encoderName
     case finalPromptLength
     case embeddingStat

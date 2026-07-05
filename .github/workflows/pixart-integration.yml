@@ -77,7 +77,7 @@ jobs:
 
       - name: Compute model cache key (PixArt CDN manifests)
         run: |
-          BASE="https://pub-8e049ed02be340cbb18f921765fd24f3.r2.dev/models"
+          BASE="${{ vars.CDN_BASE_URL }}/models"
           : > pixart-manifests.lock
           for slug in \
             intrusive-memory_t5-xxl-int4-mlx \
