@@ -283,6 +283,27 @@ struct Flux2EngineTests {
         == "lmstudio-community/Qwen3-8B-MLX-8bit")
   }
 
+  @Test("Klein 4B modelComponents gates on the int4 transformer generation loads")
+  func klein4BComponentsUseInt4Transformer() {
+    let components = Flux2Engine.modelComponents(for: .klein4B)
+    // Generation loads `.klein4B_4bit` (int4) via the `.ultraMinimal` config;
+    // availability/download must target that variant, NOT the bf16 repo.
+    let hasInt4Transformer = components.contains {
+      if case .transformer(.klein4B_4bit) = $0 { return true }
+      return false
+    }
+    let hasBf16Transformer = components.contains {
+      if case .transformer(.klein4B_bf16) = $0 { return true }
+      return false
+    }
+    #expect(hasInt4Transformer)
+    #expect(!hasBf16Transformer)
+    // And that variant must resolve to the community int4 repo.
+    #expect(
+      Flux2Engine.acervoRepoId(for: .transformer(.klein4B_4bit))
+        == "themindstudio/flux2-klein-4b-mlx-4bit")
+  }
+
   @Test("Text encoder repo ids never route through the Mistral source")
   func textEncoderNeverRoutesToMistral() {
     for encoder in Flux2Component.TextEncoder.allCases {

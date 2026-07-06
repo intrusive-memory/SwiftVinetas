@@ -659,13 +659,21 @@ public actor Flux2Engine: ImageGenerationEngine {
   nonisolated static func modelComponents(
     for descriptor: Flux2ModelDescriptor
   ) -> [Flux2Component] {
+    // Resolve the transformer variant the pipeline will ACTUALLY load at
+    // generation time (via `Flux2Pipeline.loadTransformer()`), rather than
+    // hardcoding the bf16 variant. Availability/download/delete/diskSize all
+    // key off this set, so it must match the variant generation loads — e.g.
+    // Klein 4B's `.ultraMinimal` config resolves to `.klein4B_4bit` (int4),
+    // NOT `.klein4B_bf16`. Klein 9B always resolves to bf16.
+    let transformerVariant = ModelRegistry.TransformerVariant.variant(
+      for: descriptor.flux2Model,
+      quantization: descriptor.quantizationConfig.transformer
+    )
     switch descriptor.id {
-    case Flux2ModelDescriptor.klein4B.id:
-      return [.transformer(.klein4B_bf16), .textEncoder(.klein4B), .vae(.standard)]
     case Flux2ModelDescriptor.klein9B.id:
-      return [.transformer(.klein9B_bf16), .textEncoder(.klein9B), .vae(.standard)]
+      return [.transformer(transformerVariant), .textEncoder(.klein9B), .vae(.standard)]
     default:
-      return [.transformer(.klein4B_bf16), .textEncoder(.klein4B), .vae(.standard)]
+      return [.transformer(transformerVariant), .textEncoder(.klein4B), .vae(.standard)]
     }
   }
 
