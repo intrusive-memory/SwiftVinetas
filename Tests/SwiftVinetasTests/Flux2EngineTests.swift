@@ -283,25 +283,28 @@ struct Flux2EngineTests {
         == "lmstudio-community/Qwen3-8B-MLX-8bit")
   }
 
-  @Test("Klein 4B modelComponents gates on the int4 transformer generation loads")
-  func klein4BComponentsUseInt4Transformer() {
+  @Test("Klein 4B modelComponents resolves to the bf16 transformer generation loads")
+  func klein4BComponentsUseBf16Transformer() {
     let components = Flux2Engine.modelComponents(for: .klein4B)
-    // Generation loads `.klein4B_4bit` (int4) via the `.ultraMinimal` config;
-    // availability/download must target that variant, NOT the bf16 repo.
-    let hasInt4Transformer = components.contains {
-      if case .transformer(.klein4B_4bit) = $0 { return true }
-      return false
-    }
+    // As of flux-2-swift-mlx 3.4.2, `(klein4B, .int4)` resolves to
+    // `.klein4B_bf16`, NOT `.klein4B_4bit`: the mflux direct int4 load produced
+    // noise, so Klein 4B now loads the bf16 weights and quantizes on-the-fly
+    // (the same proven path Klein 9B uses). Availability/download therefore
+    // target the bf16 repo, not the community int4 repo.
     let hasBf16Transformer = components.contains {
       if case .transformer(.klein4B_bf16) = $0 { return true }
       return false
     }
-    #expect(hasInt4Transformer)
-    #expect(!hasBf16Transformer)
-    // And that variant must resolve to the community int4 repo.
+    let hasInt4Transformer = components.contains {
+      if case .transformer(.klein4B_4bit) = $0 { return true }
+      return false
+    }
+    #expect(hasBf16Transformer)
+    #expect(!hasInt4Transformer)
+    // And that variant must resolve to the black-forest-labs bf16 repo.
     #expect(
-      Flux2Engine.acervoRepoId(for: .transformer(.klein4B_4bit))
-        == "themindstudio/flux2-klein-4b-mlx-4bit")
+      Flux2Engine.acervoRepoId(for: .transformer(.klein4B_bf16))
+        == "black-forest-labs/FLUX.2-klein-4B")
   }
 
   @Test("Text encoder repo ids never route through the Mistral source")

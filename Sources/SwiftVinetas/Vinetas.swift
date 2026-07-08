@@ -45,7 +45,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.16.3"
+  public static let version = "0.16.4"
 
   /// Configures a CDN base URL for model downloads.
   ///
@@ -110,22 +110,20 @@ public final class VinetasClient: Sendable {
     _telemetryLock.withLock { $0 }
   }
 
-  /// Default initializer that registers engines based on runtime memory detection.
+  /// Default initializer that registers every engine unconditionally.
   ///
-  /// ``PixArtEngine`` is always registered (requires 8 GB, matches all iPads and most Macs).
-  /// ``Flux2Engine`` is registered only when the device has 16+ GB of memory (macOS high-memory
-  /// configurations). This eliminates compile-time platform gates in favour of runtime checks,
-  /// so both engines compile on every platform and only registration is conditional.
+  /// Both ``PixArtEngine`` and ``Flux2Engine`` are always registered on every
+  /// platform and every device. Registration no longer depends on physical
+  /// memory: withholding an engine on low-RAM devices produced a confusing
+  /// "No engine registered with ID 'flux2'" download failure on sub-16 GB
+  /// iPads that still list FLUX.2 in their catalog. Memory suitability is now
+  /// surfaced per-model, advisory-only, via ``validateMemory(for:)`` at load
+  /// time — the engine is always present so the model can be downloaded and
+  /// the app decides what to do with a `.warning`/`.insufficient` verdict.
   public init() {
     let totalMemoryGB = DeviceCapability.current.totalMemoryGB
     let deviceArch = DeviceCapability.current.chipGeneration.rawValue
-    var engines: [any ImageGenerationEngine] = [PixArtEngine()]
-    // Telemetry: emit registration outcomes. PixArt is always registered.
-    let pixartRegistered = true
-    let flux2Eligible = totalMemoryGB >= 16
-    if flux2Eligible {
-      engines.append(Flux2Engine())
-    }
+    let engines: [any ImageGenerationEngine] = [PixArtEngine(), Flux2Engine()]
     self.router = EngineRouter(engines: engines)
 
     // Emit telemetry events for client init + engine registration. The reporter
@@ -137,21 +135,10 @@ public final class VinetasClient: Sendable {
     let registeredIDs = engines.map { $0.engineID }
     if let reporter = self._telemetryLock.withLock({ $0 }) {
       Task { [reporter] in
-        if pixartRegistered {
-          await reporter.capture(
-            .engineRegistered(engineID: "pixart-sigma", reason: "always-registered"))
-        }
-        if flux2Eligible {
-          await reporter.capture(
-            .engineRegistered(
-              engineID: "flux2",
-              reason: "memory>=16GB (have \(totalMemoryGB)GB)"))
-        } else {
-          await reporter.capture(
-            .engineSkipped(
-              engineID: "flux2",
-              reason: "memory<16GB (have \(totalMemoryGB)GB)"))
-        }
+        await reporter.capture(
+          .engineRegistered(engineID: "pixart-sigma", reason: "always-registered"))
+        await reporter.capture(
+          .engineRegistered(engineID: "flux2", reason: "always-registered"))
         await reporter.capture(
           .clientInitialized(
             version: VinetasClient.version,
@@ -953,7 +940,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.16.3"
+  public static let version = "0.16.4"
 
   // MARK: - Generation
 

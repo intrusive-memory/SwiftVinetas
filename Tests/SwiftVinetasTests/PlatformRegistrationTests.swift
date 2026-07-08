@@ -3,29 +3,33 @@ import Testing
 
 @testable import SwiftVinetas
 
-/// Tests for memory-gated engine registration logic.
+/// Tests for engine-registration → router configuration.
 ///
-/// ``VinetasClient.init()`` uses runtime memory detection via
-/// ``DeviceCapability/current`` to decide which engines to register:
-/// - ``PixArtEngine`` is always registered (requires 8 GB minimum).
-/// - ``Flux2Engine`` is registered only when the device has >=16 GB.
+/// ``VinetasClient.init()`` registers **every** engine unconditionally
+/// (both ``PixArtEngine`` and ``Flux2Engine``) on every device — registration
+/// is no longer memory-gated. Memory suitability is advisory-only, surfaced
+/// per model via ``VinetasClient/validateMemory(for:)`` at load time.
 ///
-/// All tests use ``VinetasClient/init(router:)`` with controlled routers to
-/// avoid real model loading. Platform-conditional tests verify that the
-/// ``EngineRouter`` correctly reflects single-engine vs. dual-engine configurations.
+/// All tests here use ``VinetasClient/init(router:)`` with controlled routers
+/// to avoid real model loading; they verify that the ``EngineRouter`` reflects
+/// whatever engine set it was given (single-engine vs. dual-engine), independent
+/// of the device's physical memory.
 @Suite("Platform Registration Tests")
 struct PlatformRegistrationTests {
 
   // MARK: - Helpers
 
-  /// Creates a VinetasClient backed by only PixArtEngine (simulates iPad or low-memory Mac).
+  /// Creates a VinetasClient backed by only PixArtEngine (a single-engine
+  /// router fixture — not a device profile; the default `init()` registers
+  /// both engines regardless of RAM).
   private func clientWithPixArtOnly() -> VinetasClient {
     let pixart = PixArtEngine()
     let router = EngineRouter(engines: [pixart])
     return VinetasClient(router: router)
   }
 
-  /// Creates a VinetasClient backed by both engines (simulates high-memory Mac).
+  /// Creates a VinetasClient backed by both engines (the configuration the
+  /// default `init()` now produces on every device).
   private func clientWithBothEngines() -> VinetasClient {
     let pixart = PixArtEngine()
     let flux2 = Flux2Engine()

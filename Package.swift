@@ -38,8 +38,8 @@ let package = Package(
     // Keep this as upToNextMajor so a future flux that adopts a fixed mlx is
     // picked up automatically — the mlx-version guarantee lives in flux itself.
     .package(
-      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
-      .upToNextMajor(from: "3.4.1")),
+      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.4.2")
+    ),
 
     // Shared model management (download, cache, discovery)
     // Floored at 0.23.0: 0.21.0 made the CDN base URL a per-consumer config value
@@ -48,22 +48,20 @@ let package = Package(
     // the integrity-checkpoint work. Consumers must supply ACERVO_CDN_BASE_URL
     // (CLI / tests / CI) or the AcervoCDNBaseURL Info.plist key (UI apps).
     .package(
-      url: "https://github.com/intrusive-memory/SwiftAcervo.git",
-      .upToNextMajor(from: "0.23.0")),
+      url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.23.0")),
 
     // Componentized diffusion pipeline (protocols + infrastructure).
     // Floored at 0.7.8 (mlx-swift pinned .exact("0.31.3")).
     .package(
-      url: "https://github.com/intrusive-memory/SwiftTuberia.git",
-      .upToNextMajor(from: "0.7.8")),
+      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.7.8")),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe).
     // Floored at 0.8.1: 0.8.0 landed the seam-free tiled VAE decode (#45/#83) —
     // PixArtRecipe sets decodeTileLatentSize so the macOS 4K decode transient is
     // bounded — and 0.8.1 is the current published patch.
     .package(
-      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
-      .upToNextMajor(from: "0.8.1")),
+      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.8.1")
+    ),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
