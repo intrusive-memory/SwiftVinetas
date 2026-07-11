@@ -52,8 +52,8 @@ struct PixArtMemoryProfileTests {
     let engine = try await VinetasClient.shared.router.engine(for: model)
     guard await engine.isAvailable(model) else {
       Issue.record(
-        "PixArt model '\(model.displayName)' not downloaded — cannot profile. "
-          + "On device, run generation once from the host app to fetch weights first.")
+        "PixArt model '\(model.displayName)' not downloaded — cannot profile. On device, run generation once from the host app to fetch weights first."
+      )
       return
     }
 
