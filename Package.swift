@@ -92,11 +92,12 @@ let package = Package(
       from: "0.23.0"),
 
     // Componentized diffusion pipeline (protocols + infrastructure).
-    // Floored at 0.7.8 (mlx-swift pinned .exact("0.31.3")).
+    // Floored at 0.7.9 (PixArt iOS OOM fix — phased text-encoder unload, REQ-MEM-01;
+    // mlx-swift pinned .exact("0.31.3")).
     sibling(
       "SwiftTuberia",
       remote: "https://github.com/intrusive-memory/SwiftTuberia.git",
-      from: "0.7.8"),
+      from: "0.7.9"),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe).
     // Floored at 0.8.1: 0.8.0 landed the seam-free tiled VAE decode (#45/#83) —
