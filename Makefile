@@ -65,7 +65,7 @@ INTEGRATION_SUITES = \
 	-only-testing:SwiftVinetasGPUTests/AllModelsExampleTests \
 	-only-testing:SwiftVinetasTests/TelemetryIntegrationTests
 
-.PHONY: build release test test-unit test-gpu test-integration test-fixtures test-pixart-repro test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help check-acervo-warnings test-telemetry-debug codesign-cli
+.PHONY: build release test test-unit test-gpu test-integration test-fixtures test-pixart-repro profile-pixart-memory test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help check-acervo-warnings test-telemetry-debug codesign-cli
 
 help: ## Show all available targets with descriptions
 	@echo "SwiftVinetas — Makefile targets"
@@ -238,6 +238,14 @@ test-pixart-repro: link-test-models ## Run PixArt 5× across seeds 42-46 to diag
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasGPUTests/PixArtGarbageReproTests
+
+profile-pixart-memory: link-test-models ## Profile PixArt resident-footprint by phase (macOS) — CSV to ~/Desktop/SwiftVinetasDebug/, log via os_log subsystem productions.intrusive-memory.vinetas
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) \
+	TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
+		-scheme $(SCHEME_PKG) \
+		-destination $(DESTINATION_MACOS) \
+		-derivedDataPath $(DERIVED_DATA) \
+		-only-testing:SwiftVinetasGPUTests/PixArtMemoryProfileTests
 
 test-ios: ## Run all iOS Simulator tests
 	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) xcodebuild test \
