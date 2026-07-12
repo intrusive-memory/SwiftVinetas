@@ -89,7 +89,7 @@ let package = Package(
     sibling(
       "SwiftAcervo",
       remote: "https://github.com/intrusive-memory/SwiftAcervo.git",
-      from: "0.24.0"),
+      from: "0.24.1"),
 
     // Componentized diffusion pipeline (protocols + infrastructure).
     // Floored at 0.7.9 (PixArt iOS OOM fix — phased text-encoder unload, REQ-MEM-01;
