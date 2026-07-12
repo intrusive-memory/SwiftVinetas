@@ -486,6 +486,14 @@ public actor Flux2Engine: ImageGenerationEngine {
         try await Acervo.enqueueBackgroundDownload(modelId: component.repoId)
       }
     }
+
+    /// FLUX.2 components are repo-addressed, so the repo ids are known directly.
+    public nonisolated func backgroundDownloadRepoIds(_ model: any ModelDescriptor) async
+      -> [String]
+    {
+      guard let descriptor = resolveDescriptor(model) else { return [] }
+      return Self.modelComponents(for: descriptor).map { $0.repoId }
+    }
   #endif
 
   public nonisolated func download(

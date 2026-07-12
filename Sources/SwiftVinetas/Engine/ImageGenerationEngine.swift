@@ -97,6 +97,14 @@ public protocol ImageGenerationEngine: Sendable {
     /// The engine is responsible for routing each component to the correct
     /// SwiftAcervo entry point (component- vs repo-addressed).
     func enqueueBackgroundDownload(_ model: any ModelDescriptor) async throws
+
+    /// The SwiftAcervo `repoId`s this model's background download spans.
+    ///
+    /// Resolved after enqueue (by which point components are hydrated), so
+    /// SwiftVinetas can aggregate the repo-keyed background events into a single
+    /// model-level progress/completion. A default returns `[]`; PixArt and FLUX.2
+    /// override. See `BackgroundDownloadHub`.
+    func backgroundDownloadRepoIds(_ model: any ModelDescriptor) async -> [String]
   #endif
 
   /// Check whether a model's weights are available on disk.
@@ -181,6 +189,11 @@ extension ImageGenerationEngine {
     /// (PixArt, FLUX.2) override this; others (and test mocks) inherit the throw.
     public func enqueueBackgroundDownload(_ model: any ModelDescriptor) async throws {
       throw VinetasError.modelNotSupported(modelID: model.id, engineID: "background-download")
+    }
+
+    /// Default: no known repos (background download unsupported).
+    public func backgroundDownloadRepoIds(_ model: any ModelDescriptor) async -> [String] {
+      []
     }
   }
 #endif

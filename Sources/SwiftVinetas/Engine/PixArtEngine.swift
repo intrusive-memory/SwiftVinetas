@@ -516,6 +516,13 @@ public actor PixArtEngine: ImageGenerationEngine {
         try await Acervo.enqueueBackgroundDownloadComponent(componentId)
       }
     }
+
+    /// PixArt's component ids resolve to Acervo repos via the registry (hydrated
+    /// by `enqueueBackgroundDownload`, so `Acervo.component(_:)` carries the repoId).
+    public func backgroundDownloadRepoIds(_ model: any ModelDescriptor) async -> [String] {
+      _ = PixArtComponents.registered
+      return model.componentIds.compactMap { Acervo.component($0)?.repoId }
+    }
   #endif
 
   public func download(
