@@ -467,6 +467,27 @@ public actor Flux2Engine: ImageGenerationEngine {
 
   // MARK: - Model Management
 
+  #if os(iOS)
+    /// Enqueue FLUX.2's component repos for iOS background download (#81).
+    ///
+    /// FLUX.2 is repo-addressed: each component exposes a `repoId`, so this
+    /// routes through `Acervo.enqueueBackgroundDownload(modelId:)`. Mirrors the
+    /// CDN-provisioning guard of ``download(_:progress:)`` but enqueues instead
+    /// of awaiting.
+    public nonisolated func enqueueBackgroundDownload(_ model: any ModelDescriptor) async throws {
+      guard let descriptor = resolveDescriptor(model) else {
+        throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
+      }
+      for component in Self.modelComponents(for: descriptor) {
+        if case .transformer(let variant) = component, !variant.isProvisionedOnCDN {
+          throw VinetasError.downloadFailed(
+            "Variant \(variant.rawValue) is not provisioned on the Acervo CDN.")
+        }
+        try await Acervo.enqueueBackgroundDownload(modelId: component.repoId)
+      }
+    }
+  #endif
+
   public nonisolated func download(
     _ model: any ModelDescriptor,
     progress: @Sendable (DownloadProgress) -> Void

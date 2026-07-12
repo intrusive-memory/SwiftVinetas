@@ -88,6 +88,17 @@ public protocol ImageGenerationEngine: Sendable {
     progress: @Sendable (DownloadProgress) -> Void
   ) async throws
 
+  #if os(iOS)
+    /// Enqueue every component of `model` for **iOS background download**
+    /// (SwiftAcervo #81), returning once the tasks are handed to the OS.
+    ///
+    /// A default implementation throws ``VinetasError/modelNotSupported`` — only
+    /// engines that support background downloads (PixArt, FLUX.2) override it.
+    /// The engine is responsible for routing each component to the correct
+    /// SwiftAcervo entry point (component- vs repo-addressed).
+    func enqueueBackgroundDownload(_ model: any ModelDescriptor) async throws
+  #endif
+
   /// Check whether a model's weights are available on disk.
   ///
   /// `async` because conforming engines defer to
@@ -163,3 +174,13 @@ extension ImageGenerationEngine {
     await isAvailable(model) ? .available : .notAvailable
   }
 }
+
+#if os(iOS)
+  extension ImageGenerationEngine {
+    /// Default: background download is unsupported. Engines that support it
+    /// (PixArt, FLUX.2) override this; others (and test mocks) inherit the throw.
+    public func enqueueBackgroundDownload(_ model: any ModelDescriptor) async throws {
+      throw VinetasError.modelNotSupported(modelID: model.id, engineID: "background-download")
+    }
+  }
+#endif

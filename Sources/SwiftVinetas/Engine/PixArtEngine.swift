@@ -491,6 +491,33 @@ public actor PixArtEngine: ImageGenerationEngine {
 
   // MARK: - Model Management
 
+  #if os(iOS)
+    /// Enqueue PixArt's components for iOS background download (#81).
+    ///
+    /// PixArt is component-addressed: each short `componentId` only resolves to a
+    /// repo + file list after SwiftAcervo registry hydration, so this routes
+    /// through `Acervo.enqueueBackgroundDownloadComponent(_:)`. Mirrors the
+    /// validation of ``download(_:progress:)`` but enqueues instead of awaiting.
+    public func enqueueBackgroundDownload(_ model: any ModelDescriptor) async throws {
+      guard model.engineID == engineID || model.id == PixArtModelDescriptor.sigmaXL.id else {
+        throw VinetasError.modelNotSupported(modelID: model.id, engineID: engineID)
+      }
+      _ = PixArtComponents.registered
+      let ids = model.componentIds
+      guard !ids.isEmpty else {
+        throw VinetasError.downloadFailed("No component IDs defined for model \(model.id).")
+      }
+      let registry = CatalogRegistration.shared
+      for componentId in ids {
+        guard registry.descriptor(for: componentId) != nil else {
+          throw VinetasError.downloadFailed(
+            "Component '\(componentId)' is not registered in CatalogRegistration.")
+        }
+        try await Acervo.enqueueBackgroundDownloadComponent(componentId)
+      }
+    }
+  #endif
+
   public func download(
     _ model: any ModelDescriptor,
     progress: @Sendable (DownloadProgress) -> Void
