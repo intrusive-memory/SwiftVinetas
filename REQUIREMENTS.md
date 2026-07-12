@@ -213,9 +213,10 @@ SwiftAcervo must additionally expose, for SwiftVinetas to consume:
 
 ## 9. Open questions
 
-- **OQ-1 (blocking):** On iOS, does `download(model:progress:)` bridge-and-resolve
-  when foregrounded, or become best-effort with SV-R2 authoritative? Determines
-  whether app call sites must change immediately or can migrate gradually.
+- **OQ-1 — RESOLVED (2026-07-11):** Keep `download(model:progress:)` `async throws`
+  resolving when the app stays foregrounded; the SV-R2 observation channel is
+  authoritative across backgrounding/relaunch. Additive — existing iOS call sites
+  keep compiling and migrate at the app's pace.
 - **OQ-2:** Event type shape for SV-R2 — reuse `VinetasDownloadProgress` in an
   `AsyncStream`, or a richer `VinetasDownloadEvent` enum (`.progress/.completed/
   .failed(repoId,error)`)? Prefer the enum for background failure attribution.
