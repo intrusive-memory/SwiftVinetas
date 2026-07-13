@@ -12,6 +12,7 @@ struct VinetasCLI: AsyncParsableCommand {
     subcommands: [
       Generate.self,
       Batch.self,
+      Storyboard.self,
       Download.self,
       ListModels.self,
       Info.self,

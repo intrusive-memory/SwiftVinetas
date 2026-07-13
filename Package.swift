@@ -108,6 +108,22 @@ let package = Package(
       remote: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
       from: "0.8.1"),
 
+    // GLOSA screenplay directive parser — provides the `<shot>` storyboard
+    // directives consumed by `vinetas storyboard`. Foundation-only leaf.
+    sibling(
+      "glosa-av",
+      remote: "https://github.com/intrusive-memory/glosa-av.git",
+      from: "0.7.1"),
+
+    // Screenplay file parsing (.fountain / .highland / .fdx) — turns a
+    // screenplay path into the `[[ ]]` note stream GlosaCore parses. Same
+    // parser glosa-tools uses, so the screenplay→notes extraction has one
+    // source of truth.
+    sibling(
+      "SwiftCompartido",
+      remote: "https://github.com/intrusive-memory/SwiftCompartido.git",
+      from: "7.2.2"),
+
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
 
@@ -147,6 +163,9 @@ let package = Package(
         .product(name: "Tuberia", package: "SwiftTuberia"),
         .product(name: "SwiftAcervo", package: "SwiftAcervo"),
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        // `vinetas storyboard`: screenplay → `<shot>` directives → panels.
+        .product(name: "GlosaCore", package: "glosa-av"),
+        .product(name: "SwiftCompartido", package: "SwiftCompartido"),
       ]
     ),
 
