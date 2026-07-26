@@ -137,6 +137,14 @@ let package = Package(
     .package(
       url: "https://github.com/DePasqualeOrg/swift-tokenizers.git",
       .upToNextMinor(from: "0.7.1")),
+
+    // Verifying the App Store entitlement the CLI is gated on. The stored
+    // `Transaction.jwsRepresentation` is an Apple-signed JWS whose x5c chain
+    // must be validated against a pinned Apple root — swift-certificates does
+    // the X.509 work, swift-crypto the ES256 signature check.
+    .package(url: "https://github.com/apple/swift-certificates.git", from: "1.0.0"),
+    .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0"),
+    .package(url: "https://github.com/apple/swift-asn1.git", from: "1.0.0"),
   ],
   targets: [
     // Main library - storyboard/comic panel generation
@@ -166,6 +174,9 @@ let package = Package(
         // `vinetas storyboard`: screenplay → `<shot>` directives → panels.
         .product(name: "GlosaCore", package: "glosa-av"),
         .product(name: "SwiftCompartido", package: "SwiftCompartido"),
+        // Pro entitlement gate on the FLUX.2 models.
+        .product(name: "X509", package: "swift-certificates"),
+        .product(name: "Crypto", package: "swift-crypto"),
       ]
     ),
 
@@ -184,6 +195,11 @@ let package = Package(
       dependencies: [
         "SwiftVinetas",
         "VinetasCLICore",
+        // ProGateTests mints a throwaway CA + leaf so entitlement verification
+        // can be exercised hermetically, without a real App Store transaction.
+        .product(name: "X509", package: "swift-certificates"),
+        .product(name: "SwiftASN1", package: "swift-asn1"),
+        .product(name: "Crypto", package: "swift-crypto"),
       ]
     ),
 

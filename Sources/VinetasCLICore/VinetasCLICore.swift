@@ -125,6 +125,7 @@ public struct Generate: AsyncParsableCommand {
       let valid = VinetasModel.allCases.map(\.rawValue).joined(separator: ", ")
       throw ValidationError("Unknown model '\(model)'. Valid models: \(valid)")
     }
+    try await ProGate.requireAccess(to: vinetasModel)
 
     // --preview is a FLUX-only fast path (forces Klein 4B at 4 steps, 512×512).
     // Combining it with a non-Klein-4B model would silently ignore --model.
@@ -283,6 +284,7 @@ public struct Batch: AsyncParsableCommand {
     defer { Task { await bootstrap?.finish() } }
 
     let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
+    try await ProGate.requireAccess(to: vinetasModel)
     let promptURL = URL(fileURLWithPath: promptsFile)
     let outputDirURL = URL(fileURLWithPath: outputDir)
 
@@ -359,6 +361,7 @@ public struct Download: AsyncParsableCommand {
 
   public func run() async throws {
     let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
+    try await ProGate.requireAccess(to: vinetasModel)
 
     stderrPrint("[vinetas] Downloading model: \(vinetasModel.rawValue)")
     stderrPrint("[vinetas] Repo: \(vinetasModel.repoId)")
@@ -392,6 +395,11 @@ public struct ListModels: AsyncParsableCommand {
       let isoFormatter = ISO8601DateFormatter()
       isoFormatter.formatOptions = [.withInternetDateTime]
 
+      // Report the Pro gate alongside the cache state so a tool driving the CLI
+      // can tell "you have not downloaded this" apart from "you cannot use
+      // this", which are very different problems with very different fixes.
+      let isUnlocked = await ProGate.status().isUnlocked
+
       let jsonModels: [[String: Any]] = models.map { info in
         var entry: [String: Any] = [
           "name": info.name,
@@ -399,6 +407,14 @@ public struct ListModels: AsyncParsableCommand {
           "formattedSize": info.formattedSize,
           "isDownloaded": info.isDownloaded,
         ]
+        if let model = VinetasModel.allCases.first(where: {
+          $0.descriptor.displayName == info.name
+        }) {
+          entry["model"] = model.rawValue
+          let requiresPro = ProGate.requiresPro(model)
+          entry["requiresPro"] = requiresPro
+          if requiresPro { entry["isUnlocked"] = isUnlocked }
+        }
         if let date = info.downloadDate {
           entry["downloadDate"] = isoFormatter.string(from: date)
         }
@@ -459,7 +475,6 @@ public struct Info: AsyncParsableCommand {
     print("HuggingFace Repo:   \(vinetasModel.repoId)")
     print("Quantization:       \(vinetasModel.quantization)")
     print("Min. Memory (GB):   \(vinetasModel.minimumMemoryGB) GB")
-    print("Est. Time/Image:    ~\(vinetasModel.estimatedSecondsPerImage)s (M3/M4 Pro)")
 
     // Show cache status
     let allModels = await Vinetas.listModels()
@@ -516,6 +531,10 @@ public struct Preview: AsyncParsableCommand {
     defer { Task { await bootstrap?.finish() } }
 
     let outputURL = URL(fileURLWithPath: output)
+
+    // Preview is hardwired to Klein 4B, which is a FLUX.2 model — so it is
+    // Pro-gated even though it takes no --model.
+    try await ProGate.requireAccess(to: .klein4b)
 
     stderrPrint("[vinetas] Generating preview (Klein 4B, 4 steps, 512x512)...")
 
@@ -751,6 +770,7 @@ public struct CharacterCommand: AsyncParsableCommand {
     public func run() async throws {
       let character = try Vinetas.loadCharacter(slug: slug)
       let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
+      try await ProGate.requireAccess(to: vinetasModel)
 
       let viewNames = views.split(separator: ",").map {
         String($0).trimmingCharacters(in: .whitespaces)
@@ -848,6 +868,7 @@ public struct CharacterCommand: AsyncParsableCommand {
     public func run() async throws {
       let character = try Vinetas.loadCharacter(slug: slug)
       let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
+      try await ProGate.requireAccess(to: vinetasModel)
       let config = TrainingConfig(rank: rank, steps: steps)
 
       stderrPrint("[vinetas] Training LoRA for '\(character.name)'...")

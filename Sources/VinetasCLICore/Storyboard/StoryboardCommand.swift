@@ -100,7 +100,12 @@ public struct Storyboard: AsyncParsableCommand {
     stderrPrint("[vinetas] Panels: \(plan.count)")
 
     // 5. Download every model the plan needs, up front (union), mirroring batch.
+    //    Check the Pro gate for the whole union first: a board that is half
+    //    FLUX.2 should fail before panel 1, not twenty panels in.
     let neededModels = Set(plan.map(\.model))
+    for needed in neededModels {
+      try await ProGate.requireAccess(to: needed)
+    }
     for needed in neededModels {
       stderrPrint("[vinetas] Checking model cache: \(needed.rawValue)...")
       try await Vinetas.download(model: needed) { progress in
