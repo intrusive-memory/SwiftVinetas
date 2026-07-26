@@ -27,6 +27,16 @@ struct SignedTransaction: Sendable {
   let bundleID: String
   /// Set when Apple has revoked the purchase (refund, family sharing removal).
   let revocationDate: Date?
+  /// `Production`, `Sandbox`, or `Xcode` for a local StoreKit test transaction.
+  let environment: String?
+
+  /// Transactions minted by Xcode's local StoreKit testing.
+  ///
+  /// These are signed by a per-machine Xcode test root, not by Apple, so they
+  /// can never pass real chain validation — see `ProGate` for the DEBUG-only
+  /// carve-out that keeps the unlocked path testable without weakening release
+  /// builds.
+  static let xcodeTestEnvironment = "Xcode"
 
   enum VerificationError: Error, CustomStringConvertible {
     case malformedJWS(String)
@@ -154,7 +164,37 @@ struct SignedTransaction: Sendable {
     return SignedTransaction(
       productID: productID,
       bundleID: bundleID,
-      revocationDate: revocationDate
+      revocationDate: revocationDate,
+      environment: payload["environment"] as? String
+    )
+  }
+
+  /// Decode the payload **without verifying anything**.
+  ///
+  /// The only legitimate caller is the DEBUG-only local-StoreKit carve-out in
+  /// `ProGate`: an Xcode test transaction is signed by a per-machine test root
+  /// and therefore fails chain validation before the payload is ever read, so
+  /// recognising it requires looking first and trusting nothing.
+  ///
+  /// Never use this to make an access decision in a release build.
+  static func parseUnverifiedPayload(jws: String) -> SignedTransaction? {
+    let parts = jws.split(separator: ".", omittingEmptySubsequences: false)
+    guard parts.count == 3,
+      let payloadData = base64URLDecode(String(parts[1])),
+      let payload = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any],
+      let productID = payload["productId"] as? String,
+      let bundleID = payload["bundleId"] as? String
+    else { return nil }
+
+    var revocationDate: Date?
+    if let millis = payload["revocationDate"] as? Double {
+      revocationDate = Date(timeIntervalSince1970: millis / 1000)
+    }
+    return SignedTransaction(
+      productID: productID,
+      bundleID: bundleID,
+      revocationDate: revocationDate,
+      environment: payload["environment"] as? String
     )
   }
 

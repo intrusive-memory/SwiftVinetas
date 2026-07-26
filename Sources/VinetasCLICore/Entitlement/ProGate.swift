@@ -71,7 +71,11 @@ public enum ProGate {
     do {
       transaction = try await SignedTransaction.verify(jws: trimmed, now: now)
     } catch let error as SignedTransaction.VerificationError {
-      return .locked("the stored Vinetas Pro entitlement is not valid — \(error)")
+      if let local = localTestingTransaction(jws: trimmed) {
+        transaction = local
+      } else {
+        return .locked("the stored Vinetas Pro entitlement is not valid — \(error)")
+      }
     } catch {
       return .locked("the stored Vinetas Pro entitlement could not be verified")
     }
@@ -86,6 +90,37 @@ public enum ProGate {
       return .locked("the Vinetas Pro purchase was refunded or revoked")
     }
     return .unlocked
+  }
+
+  /// Accept an Xcode local-StoreKit transaction — **DEBUG builds only**.
+  ///
+  /// Transactions minted by Xcode's StoreKit testing are signed by a
+  /// per-machine test root, so they cannot pass validation against Apple's
+  /// root. Without this carve-out the unlocked path would be untestable
+  /// anywhere except a real purchase, and the predictable "fix" for that is
+  /// someone quietly loosening the production check.
+  ///
+  /// In a release build this function does not exist: the `#if DEBUG` compiles
+  /// the body away and it always returns `nil`. The CLI that ships inside
+  /// Vinetas.app is a release build, so shipping users get chain validation and
+  /// nothing else.
+  private static func localTestingTransaction(jws: String) -> SignedTransaction? {
+    #if DEBUG
+      guard let candidate = SignedTransaction.parseUnverifiedPayload(jws: jws),
+        candidate.environment == SignedTransaction.xcodeTestEnvironment
+      else { return nil }
+      FileHandle.standardError.write(
+        Data(
+          """
+          [vinetas] WARNING: honouring an UNVERIFIED Xcode StoreKit test \
+          entitlement. This only happens in a debug build; release builds \
+          require a transaction signed by Apple.
+
+          """.utf8))
+      return candidate
+    #else
+      return nil
+    #endif
   }
 
   /// Throw unless `model` may be used on this machine.

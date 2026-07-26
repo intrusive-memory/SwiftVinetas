@@ -229,6 +229,60 @@ struct SignedTransactionTests {
     }
   }
 
+  // MARK: The local-StoreKit carve-out
+
+  @Test("Environment is carried through verification")
+  func environmentParsed() async throws {
+    let chain = try Self.makeChain()
+    var payload = Self.validPayload()
+    payload["environment"] = "Production"
+    let jws = try Self.makeJWS(chain: chain, payload: payload)
+
+    let transaction = try await SignedTransaction.verify(jws: jws, rootDER: chain.rootDER)
+
+    #expect(transaction.environment == "Production")
+  }
+
+  @Test("Unverified parsing exposes the environment so Xcode tokens are recognisable")
+  func unverifiedParseReadsEnvironment() throws {
+    // Xcode's StoreKit testing signs with a per-machine root, so such a token
+    // can only ever be identified by reading it without verifying — which is
+    // why the carve-out that consumes this is DEBUG-only.
+    let chain = try Self.makeChain()
+    var payload = Self.validPayload()
+    payload["environment"] = SignedTransaction.xcodeTestEnvironment
+    let jws = try Self.makeJWS(chain: chain, payload: payload, sign: false)
+
+    let parsed = try #require(SignedTransaction.parseUnverifiedPayload(jws: jws))
+
+    #expect(parsed.environment == SignedTransaction.xcodeTestEnvironment)
+    #expect(parsed.productID == ProGate.proProductID)
+  }
+
+  @Test("Unverified parsing rejects malformed input rather than inventing a transaction")
+  func unverifiedParseRejectsGarbage() {
+    #expect(SignedTransaction.parseUnverifiedPayload(jws: "not-a-jws") == nil)
+    #expect(SignedTransaction.parseUnverifiedPayload(jws: "a.b.c") == nil)
+    // Structurally fine, but missing the fields an access decision needs.
+    let payload = Self.b64url(Data(#"{"environment":"Xcode"}"#.utf8))
+    #expect(SignedTransaction.parseUnverifiedPayload(jws: "x.\(payload).y") == nil)
+  }
+
+  @Test("Unverified parsing never claims a token is trustworthy")
+  func unverifiedParseIsNotVerification() async throws {
+    // The same token that parses must still fail real verification — the two
+    // paths must not be confusable.
+    let chain = try Self.makeChain()
+    var payload = Self.validPayload()
+    payload["environment"] = SignedTransaction.xcodeTestEnvironment
+    let jws = try Self.makeJWS(chain: chain, payload: payload, sign: false)
+
+    #expect(SignedTransaction.parseUnverifiedPayload(jws: jws) != nil)
+    await #expect(throws: SignedTransaction.VerificationError.self) {
+      try await SignedTransaction.verify(jws: jws, rootDER: chain.rootDER)
+    }
+  }
+
   @Test("The pinned Apple root is a parseable certificate")
   func pinnedRootParses() throws {
     let root = try Certificate(derEncoded: AppleRootCA.g3DER)
