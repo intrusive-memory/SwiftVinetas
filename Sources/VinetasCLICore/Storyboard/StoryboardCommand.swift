@@ -246,9 +246,15 @@ public struct Storyboard: AsyncParsableCommand {
   /// resolved under the output dir), otherwise auto-name `panel-NNN.png`.
   func outputURL(for item: PanelPlan, in outputDir: URL) -> URL {
     if let output = item.output, !output.isEmpty {
-      let url = URL(fileURLWithPath: output)
-      return url.path.hasPrefix("/")
-        ? url : outputDir.appendingPathComponent(output)
+      // Test the raw string, not `URL(fileURLWithPath:).path`. That initializer
+      // resolves a relative path against the process's current directory, so the
+      // resulting URL is *always* absolute — which made the old check always
+      // true and silently sent `<shot output="panel.png"/>` to the CWD instead
+      // of `--output-dir`. Under the sandboxed CLI shipped in Vinetas.app that
+      // is not merely wrong, it is unwritable.
+      return output.hasPrefix("/")
+        ? URL(fileURLWithPath: output)
+        : outputDir.appendingPathComponent(output)
     }
     return outputDir.appendingPathComponent(String(format: "panel-%03d.png", item.panelNumber))
   }

@@ -236,22 +236,22 @@ struct LoRAIncompatibleFallbackTests {
     return (client, engine)
   }
 
+  // These three exercise `LoRAMetadata.isCompatible(with:)` — the production
+  // rule — rather than re-deriving it. They previously inlined the same
+  // `isEmpty ? true : contains(engineID)` branch and asserted against that
+  // local copy, which meant the real implementation had no coverage: inverting
+  // it would not have failed a single test.
+
   @Test("LoRA with empty compatibleEngines is treated as compatible (no restriction)")
   func emptyCompatibleEnginesAlwaysCompatible() {
     let lora = LoRAMetadata(
       path: "lora/test.safetensors",
       compatibleEngines: []
     )
-    // Simulate the isLoRACompatible logic from VinetasClient:
-    // If compatibleEngines is empty, assume compatible
-    let engineID = "flux2"
-    let compatible: Bool
-    if lora.compatibleEngines.isEmpty {
-      compatible = true
-    } else {
-      compatible = lora.compatibleEngines.contains(engineID)
-    }
-    #expect(compatible == true)
+    #expect(lora.isCompatible(with: "flux2"))
+    // A LoRA with no recorded restriction works with anything, including an
+    // engine that did not exist when it was trained.
+    #expect(lora.isCompatible(with: "some-future-engine"))
   }
 
   @Test("LoRA with matching engine is compatible")
@@ -260,14 +260,7 @@ struct LoRAIncompatibleFallbackTests {
       path: "lora/test.safetensors",
       compatibleEngines: ["flux2"]
     )
-    let engineID = "flux2"
-    let compatible: Bool
-    if lora.compatibleEngines.isEmpty {
-      compatible = true
-    } else {
-      compatible = lora.compatibleEngines.contains(engineID)
-    }
-    #expect(compatible == true)
+    #expect(lora.isCompatible(with: "flux2"))
   }
 
   @Test("LoRA with non-matching engine is incompatible")
@@ -276,14 +269,18 @@ struct LoRAIncompatibleFallbackTests {
       path: "lora/test.safetensors",
       compatibleEngines: ["flux2"]
     )
-    let engineID = "pixart-sigma"
-    let compatible: Bool
-    if lora.compatibleEngines.isEmpty {
-      compatible = true
-    } else {
-      compatible = lora.compatibleEngines.contains(engineID)
-    }
-    #expect(compatible == false)
+    #expect(!lora.isCompatible(with: "pixart-sigma"))
+  }
+
+  @Test("LoRA listing several engines is compatible with each of them")
+  func multiEngineLoRAIsCompatibleWithEach() {
+    let lora = LoRAMetadata(
+      path: "lora/test.safetensors",
+      compatibleEngines: ["flux2", "pixart-sigma"]
+    )
+    #expect(lora.isCompatible(with: "flux2"))
+    #expect(lora.isCompatible(with: "pixart-sigma"))
+    #expect(!lora.isCompatible(with: "unlisted-engine"))
   }
 
   @Test("VinetasClient generates without LoRA when engine is incompatible")

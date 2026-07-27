@@ -27,6 +27,22 @@ public struct LoRAMetadata: Sendable {
   /// `compatibleEngines: ["flux2"]`.
   public var compatibleEngines: [String]
 
+  /// Whether this LoRA may be used with the given engine.
+  ///
+  /// An empty `compatibleEngines` means no restriction was recorded, which is
+  /// treated as compatible with everything — LoRAs trained before the field
+  /// existed must keep working.
+  ///
+  /// This lives on the metadata rather than inside the client because it is the
+  /// single definition of the rule. It was previously a `private` method on
+  /// `Vinetas`, which its tests could not reach, so they re-implemented the
+  /// branch inline and asserted against their own copy — meaning the real rule
+  /// had no coverage and could have been inverted without failing anything.
+  public func isCompatible(with engineID: String) -> Bool {
+    guard !compatibleEngines.isEmpty else { return true }
+    return compatibleEngines.contains(engineID)
+  }
+
   public init(
     path: String,
     scale: Float = 0.8,
