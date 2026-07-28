@@ -6,6 +6,26 @@ import Testing
 @Suite("PixArtEngine Tests")
 struct PixArtEngineTests {
 
+  /// True when PixArt-Sigma XL is already present in the shared model cache.
+  ///
+  /// Two tests below assert the *not-downloaded* behaviour. They were blanket
+  /// `.disabled` because they fail on a developer machine that has the model —
+  /// which also meant they never ran in CI, where the model is absent and they
+  /// would give real signal. Gating on the actual precondition lets them run
+  /// exactly where they are meaningful.
+  static let modelIsDownloaded: Bool = {
+    let engine = PixArtEngine()
+    let semaphore = DispatchSemaphore(value: 0)
+    nonisolated(unsafe) var downloaded = false
+    Task {
+      downloaded = await engine.isAvailable(PixArtModelDescriptor.sigmaXL)
+      semaphore.signal()
+    }
+    // Bounded so a hang in availability checking cannot wedge the whole suite.
+    _ = semaphore.wait(timeout: .now() + 30)
+    return downloaded
+  }()
+
   // MARK: - PixArtModelDescriptor.sigmaXL Properties
 
   @Test("sigmaXL has correct id")
@@ -55,11 +75,6 @@ struct PixArtEngineTests {
   @Test("sigmaXL supports all aspect ratios")
   func sigmaXLAspectRatios() {
     #expect(PixArtModelDescriptor.sigmaXL.supportedAspectRatios == AspectRatio.allCases)
-  }
-
-  @Test("sigmaXL estimated time is 10 seconds")
-  func sigmaXLEstimatedTime() {
-    #expect(PixArtModelDescriptor.sigmaXL.estimatedSecondsPerImage == 10)
   }
 
   // MARK: - PixArtModelDescriptor Protocol Conformance
@@ -137,7 +152,9 @@ struct PixArtEngineTests {
 
   @Test(
     "PixArtEngine isAvailable returns false when not downloaded",
-    .disabled("Fails when model is already downloaded on dev machine"))
+    .disabled(
+      if: PixArtEngineTests.modelIsDownloaded,
+      "Model is present in the shared cache; this asserts the not-downloaded path"))
   func isAvailableReturnsFalse() async {
     let engine = PixArtEngine()
     // Components are not downloaded in the test environment, so isAvailable returns false.
@@ -292,7 +309,9 @@ struct PixArtEngineTests {
 
   @Test(
     "PixArtEngine delete does not throw for undownloaded model",
-    .disabled("Fails when model is already downloaded on dev machine"))
+    .disabled(
+      if: PixArtEngineTests.modelIsDownloaded,
+      "Model is present in the shared cache; this asserts the not-downloaded path"))
   func deleteDoesNotThrowWhenNotDownloaded() async throws {
     let engine = PixArtEngine()
     // The real implementation iterates componentIds and silently skips

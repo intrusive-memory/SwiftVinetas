@@ -1,11 +1,11 @@
 ---
 type: doc
-updated: 2026-06-29
+updated: 2026-07-28
 ---
 
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.16.5-dev
+**Version**: 0.19.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -121,14 +121,17 @@ Pinned floors (see [Package.swift](Package.swift) for the source of truth):
 
 | Package | Import | Min version | Purpose |
 |---------|--------|-------------|---------|
-| flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | 3.0.0 | FLUX.2 pipeline (MIT) |
-| SwiftTubería | `Tuberia`, `TuberiaCatalog` | 0.6.0 | Componentized diffusion pipeline protocols |
-| pixart-swift-mlx | `PixArtBackbone` | 0.5.0 | PixArt-Sigma DiT model plugin |
-| SwiftAcervo | `SwiftAcervo` | 0.17.0 | Model download/cache; 0.17 in-flight download registry |
+| flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | 3.4.2 | FLUX.2 pipeline (MIT) |
+| SwiftTubería | `Tuberia`, `TuberiaCatalog` | 0.7.9 | Componentized diffusion pipeline protocols |
+| pixart-swift-mlx | `PixArtBackbone` | 0.8.1 | PixArt-Sigma DiT model plugin |
+| SwiftAcervo | `SwiftAcervo` | 0.24.1 | Model download/cache; resharding + integrity verification |
+| glosa-av | `GlosaCore` | 0.8.0 | GLOSA `<shot>` directives for `vinetas storyboard` |
+| SwiftCompartido | `SwiftCompartido` | 7.2.4 | Screenplay parsing (.fountain/.highland/.fdx) |
 | Universal | `YAML`, `JSON` | 5.3.0 | Prompt file parsing |
 | swift-argument-parser | `ArgumentParser` | 1.7.1 | CLI (vinetas target only) |
+| swift-certificates / swift-crypto | `X509`, `Crypto` | 1.0.0 / 3.0.0 | Pro entitlement JWS verification |
 
-**Local sibling overrides**: `Package.swift` automatically prefers `../<package-name>` sibling checkouts when present and `CI != "true"`, falling back to the pinned remote otherwise. Lets in-flight upstream changes be exercised end-to-end without cutting a release. CI always uses the pinned remotes.
+**Local sibling overrides**: on `development`, `Package.swift` carries a `sibling(...)` helper that prefers a `../<package-name>` checkout when present and `CI != "true"`, falling back to the pinned remote otherwise. Lets in-flight upstream changes be exercised end-to-end without cutting a release. CI always uses the pinned remotes, and released tags ship a remote-only manifest with the helper stripped.
 
 **Rejected**: `mzbac/flux.swift` — GPL-3.0 license incompatible with Produciesta.
 
@@ -204,6 +207,10 @@ SwiftVinetas/
 │   ├── V1_REQUIREMENTS.md
 │   ├── GUI_REQUIREMENTS.md
 │   ├── ENGINE_ABSTRACTION_REQUIREMENTS.md
+│   ├── REQUIREMENTS-STORYBOARD-COMMAND.md   # `vinetas storyboard` spec
+│   ├── REQUIREMENTS-IOS-BACKGROUND-DOWNLOADS.md
+│   ├── REQUIREMENTS-PIXART-MEMORY.md
+│   ├── TEST_ANALYSIS.md
 │   ├── LEARNING.md
 │   ├── incomplete/                          # Active investigations + in-flight design notes
 │   ├── complete/                            # Shipped/landed plans (archived)

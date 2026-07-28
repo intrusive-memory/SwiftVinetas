@@ -45,7 +45,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.18.0"
+  public static let version = "0.19.0"
 
   /// Configures a CDN base URL for model downloads.
   ///
@@ -902,11 +902,7 @@ extension VinetasClient {
   /// If `compatibleEngines` is empty (no restriction recorded), assumes compatible.
   /// Otherwise, checks that the given `engineID` is listed in `compatibleEngines`.
   private func isLoRACompatible(lora: LoRAMetadata, engineID: String) -> Bool {
-    guard !lora.compatibleEngines.isEmpty else {
-      // No compatibility restriction recorded — assume compatible
-      return true
-    }
-    return lora.compatibleEngines.contains(engineID)
+    lora.isCompatible(with: engineID)
   }
 }
 
@@ -940,7 +936,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.18.0"
+  public static let version = "0.19.0"
 
   // MARK: - Generation
 
@@ -1619,17 +1615,6 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
     }
   }
 
-  /// Estimated generation time per image in seconds on M3/M4 Pro.
-  public var estimatedSecondsPerImage: Int {
-    switch self {
-    case .klein4b:
-      26
-    case .klein9b:
-      62
-    case .pixartSigma:
-      10
-    }
-  }
 }
 
 // MARK: - VerificationReport

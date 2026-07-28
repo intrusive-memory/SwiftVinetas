@@ -17,7 +17,6 @@ struct MockModelDescriptor: ModelDescriptor {
   let defaultSteps: Int
   let defaultGuidance: Float
   let supportedAspectRatios: [AspectRatio]
-  let estimatedSecondsPerImage: Int
   let componentIds: [String]
 
   /// A convenience initializer with sensible defaults for testing.
@@ -31,7 +30,6 @@ struct MockModelDescriptor: ModelDescriptor {
     defaultSteps: Int = 10,
     defaultGuidance: Float = 3.0,
     supportedAspectRatios: [AspectRatio] = AspectRatio.allCases,
-    estimatedSecondsPerImage: Int = 5,
     componentIds: [String] = []
   ) {
     self.id = id
@@ -43,7 +41,6 @@ struct MockModelDescriptor: ModelDescriptor {
     self.defaultSteps = defaultSteps
     self.defaultGuidance = defaultGuidance
     self.supportedAspectRatios = supportedAspectRatios
-    self.estimatedSecondsPerImage = estimatedSecondsPerImage
     self.componentIds = componentIds
   }
 }

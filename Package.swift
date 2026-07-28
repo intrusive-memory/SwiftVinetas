@@ -1,44 +1,6 @@
 // swift-tools-version: 6.2
 
-import Foundation
 import PackageDescription
-
-// In CI we always pin to released remotes. Locally, prefer a sibling checkout
-// at ../<name> if present so in-flight changes can be exercised end-to-end
-// without publishing a release. Falls back to the remote pin if the sibling
-// directory is missing, so fresh clones still build.
-//
-// When this manifest is evaluated as a transitive dependency inside Xcode's
-// `SourcePackages/checkouts/` or SwiftPM's `.build/checkouts/`, every other
-// dependency lives as a sibling in the same directory. Treating those as
-// in-development local paths produces conflicting package identities, so we
-// must skip the sibling shortcut in that context.
-let manifestDir = (#filePath as NSString).deletingLastPathComponent
-let isSPMCheckout =
-  manifestDir.contains("/SourcePackages/checkouts/")
-  || manifestDir.contains("/.build/checkouts/")
-let isCI = ProcessInfo.processInfo.environment["CI"] == "true"
-let useLocalSiblings = !isCI && !isSPMCheckout
-
-func sibling(_ name: String, remote: String, from version: Version) -> Package.Dependency {
-  let localPath = "../\(name)"
-  if useLocalSiblings && FileManager.default.fileExists(atPath: localPath) {
-    return .package(path: localPath)
-  }
-  return .package(url: remote, .upToNextMajor(from: version))
-}
-
-/// Same sibling-priority pattern as ``sibling(_:remote:from:)`` but pins to a
-/// remote branch when no local sibling exists. Use only when a temporary
-/// pre-release dependency on a feature branch is required; switch back to the
-/// version-pinned ``sibling(_:remote:from:)`` once the upstream tags a release.
-func sibling(_ name: String, remote: String, branch: String) -> Package.Dependency {
-  let localPath = "../\(name)"
-  if useLocalSiblings && FileManager.default.fileExists(atPath: localPath) {
-    return .package(path: localPath)
-  }
-  return .package(url: remote, branch: branch)
-}
 
 let package = Package(
   name: "SwiftVinetas",
@@ -75,10 +37,9 @@ let package = Package(
     // `config.json`/`model_index.json`) — the fix for Klein 4B int4 generation.
     // Keep this as upToNextMajor so a future flux that adopts a fixed mlx is
     // picked up automatically — the mlx-version guarantee lives in flux itself.
-    sibling(
-      "flux-2-swift-mlx",
-      remote: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
-      from: "3.4.2"),
+    .package(
+      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.4.2")
+    ),
 
     // Shared model management (download, cache, discovery)
     // Floored at 0.23.0: 0.21.0 made the CDN base URL a per-consumer config value
@@ -86,27 +47,34 @@ let package = Package(
     // adds lossless safetensors resharding + model-integrity verification used by
     // the integrity-checkpoint work. Consumers must supply ACERVO_CDN_BASE_URL
     // (CLI / tests / CI) or the AcervoCDNBaseURL Info.plist key (UI apps).
-    sibling(
-      "SwiftAcervo",
-      remote: "https://github.com/intrusive-memory/SwiftAcervo.git",
-      from: "0.24.1"),
+    .package(
+      url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.24.1")),
 
     // Componentized diffusion pipeline (protocols + infrastructure).
     // Floored at 0.7.9 (PixArt iOS OOM fix — phased text-encoder unload, REQ-MEM-01;
     // mlx-swift pinned .exact("0.31.3")).
-    sibling(
-      "SwiftTuberia",
-      remote: "https://github.com/intrusive-memory/SwiftTuberia.git",
-      from: "0.7.9"),
+    .package(
+      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.7.9")),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe).
     // Floored at 0.8.1: 0.8.0 landed the seam-free tiled VAE decode (#45/#83) —
     // PixArtRecipe sets decodeTileLatentSize so the macOS 4K decode transient is
     // bounded — and 0.8.1 is the current published patch.
-    sibling(
-      "pixart-swift-mlx",
-      remote: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
-      from: "0.8.1"),
+    .package(
+      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.8.1")
+    ),
+
+    // GLOSA screenplay directive parser — provides the `<shot>` storyboard
+    // directives consumed by `vinetas storyboard`. Foundation-only leaf.
+    .package(
+      url: "https://github.com/intrusive-memory/glosa-av.git", .upToNextMajor(from: "0.8.0")),
+
+    // Screenplay file parsing (.fountain / .highland / .fdx) — turns a
+    // screenplay path into the `[[ ]]` note stream GlosaCore parses. Same
+    // parser glosa-tools uses, so the screenplay→notes extraction has one
+    // source of truth.
+    .package(
+      url: "https://github.com/intrusive-memory/SwiftCompartido.git", .upToNextMajor(from: "7.2.4")),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
@@ -121,6 +89,14 @@ let package = Package(
     .package(
       url: "https://github.com/DePasqualeOrg/swift-tokenizers.git",
       .upToNextMinor(from: "0.7.1")),
+
+    // Verifying the App Store entitlement the CLI is gated on. The stored
+    // `Transaction.jwsRepresentation` is an Apple-signed JWS whose x5c chain
+    // must be validated against a pinned Apple root — swift-certificates does
+    // the X.509 work, swift-crypto the ES256 signature check.
+    .package(url: "https://github.com/apple/swift-certificates.git", from: "1.0.0"),
+    .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0"),
+    .package(url: "https://github.com/apple/swift-asn1.git", from: "1.0.0"),
   ],
   targets: [
     // Main library - storyboard/comic panel generation
@@ -147,6 +123,12 @@ let package = Package(
         .product(name: "Tuberia", package: "SwiftTuberia"),
         .product(name: "SwiftAcervo", package: "SwiftAcervo"),
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        // `vinetas storyboard`: screenplay → `<shot>` directives → panels.
+        .product(name: "GlosaCore", package: "glosa-av"),
+        .product(name: "SwiftCompartido", package: "SwiftCompartido"),
+        // Pro entitlement gate on the FLUX.2 models.
+        .product(name: "X509", package: "swift-certificates"),
+        .product(name: "Crypto", package: "swift-crypto"),
       ]
     ),
 
@@ -165,6 +147,11 @@ let package = Package(
       dependencies: [
         "SwiftVinetas",
         "VinetasCLICore",
+        // ProGateTests mints a throwaway CA + leaf so entitlement verification
+        // can be exercised hermetically, without a real App Store transaction.
+        .product(name: "X509", package: "swift-certificates"),
+        .product(name: "SwiftASN1", package: "swift-asn1"),
+        .product(name: "Crypto", package: "swift-crypto"),
       ]
     ),
 
