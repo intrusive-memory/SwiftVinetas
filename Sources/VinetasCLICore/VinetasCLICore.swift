@@ -459,7 +459,6 @@ public struct Info: AsyncParsableCommand {
     print("HuggingFace Repo:   \(vinetasModel.repoId)")
     print("Quantization:       \(vinetasModel.quantization)")
     print("Min. Memory (GB):   \(vinetasModel.minimumMemoryGB) GB")
-    print("Est. Time/Image:    ~\(vinetasModel.estimatedSecondsPerImage)s (M3/M4 Pro)")
 
     // Show cache status
     let allModels = await Vinetas.listModels()

@@ -18,7 +18,6 @@ public struct PixArtModelDescriptor: ModelDescriptor {
   public let defaultSteps: Int
   public let defaultGuidance: Float
   public let supportedAspectRatios: [AspectRatio]
-  public let estimatedSecondsPerImage: Int
 
   /// Acervo component IDs for this model's downloadable weights.
   ///
@@ -37,7 +36,6 @@ public struct PixArtModelDescriptor: ModelDescriptor {
   /// - Download: ~3.6 GB
   /// - Steps: 20 (default)
   /// - Guidance: 4.5 (default)
-  /// - Estimated time: ~10 sec on M2 Max
   public static let sigmaXL = PixArtModelDescriptor(
     id: "pixart-sigma-xl",
     displayName: "PixArt-Sigma XL",
@@ -48,7 +46,6 @@ public struct PixArtModelDescriptor: ModelDescriptor {
     defaultSteps: 20,
     defaultGuidance: 4.5,
     supportedAspectRatios: AspectRatio.allCases,
-    estimatedSecondsPerImage: 10,
     componentIds: PixArtRecipe().allComponentIds
   )
 }

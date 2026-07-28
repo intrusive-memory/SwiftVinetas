@@ -57,11 +57,6 @@ struct PixArtEngineTests {
     #expect(PixArtModelDescriptor.sigmaXL.supportedAspectRatios == AspectRatio.allCases)
   }
 
-  @Test("sigmaXL estimated time is 10 seconds")
-  func sigmaXLEstimatedTime() {
-    #expect(PixArtModelDescriptor.sigmaXL.estimatedSecondsPerImage == 10)
-  }
-
   // MARK: - PixArtModelDescriptor Protocol Conformance
 
   @Test("PixArtModelDescriptor conforms to ModelDescriptor")
