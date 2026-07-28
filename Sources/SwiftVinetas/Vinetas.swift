@@ -902,11 +902,7 @@ extension VinetasClient {
   /// If `compatibleEngines` is empty (no restriction recorded), assumes compatible.
   /// Otherwise, checks that the given `engineID` is listed in `compatibleEngines`.
   private func isLoRACompatible(lora: LoRAMetadata, engineID: String) -> Bool {
-    guard !lora.compatibleEngines.isEmpty else {
-      // No compatibility restriction recorded — assume compatible
-      return true
-    }
-    return lora.compatibleEngines.contains(engineID)
+    lora.isCompatible(with: engineID)
   }
 }
 
