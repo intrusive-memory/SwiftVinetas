@@ -1,6 +1,6 @@
 ---
 type: doc
-updated: 2026-06-29
+updated: 2026-07-28
 ---
 
 # SwiftVinetas
@@ -39,7 +39,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.16.2")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.19.0")
 ]
 ```
 
@@ -90,6 +90,11 @@ vinetas generate "A detective in a rain-soaked alley" --output panel.png
 
 # Batch generate from prompt file
 vinetas batch scene.yaml --output-dir ./panels/
+
+# Storyboard a screenplay from its GLOSA <shot> directives
+vinetas storyboard script.fountain --output-dir ./storyboard/
+vinetas storyboard script.highland --dry-run          # print resolved prompts, generate nothing
+vinetas storyboard script.fdx --model pixart-sigma --continue-on-error
 
 # With LoRA style
 vinetas generate "A detective" --lora comic-style.safetensors --lora-scale 0.8
@@ -179,8 +184,16 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [V1 Library Requirements](docs/V1_REQUIREMENTS.md) — Prioritized library feature requirements
 - [GUI Requirements](docs/GUI_REQUIREMENTS.md) — Host-app/GUI requirements
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
+- [Storyboard Command Requirements](docs/REQUIREMENTS-STORYBOARD-COMMAND.md) — `vinetas storyboard`: screenplay → `<shot>` → panels
+- [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.19.0** — Storyboard command + Pro entitlement gate: new `vinetas storyboard` turns a screenplay (`.fountain` / `.highland` / `.fdx`) into a panel sequence by resolving the GLOSA `<shot>` directives embedded in it, via glosa-av's `GlosaCore` and SwiftCompartido's screenplay parser. Character definitions gain storyboard-facing metadata so an actor stays consistent across panels. FLUX.2 backends are now gated behind a verified App Store Pro entitlement — the stored `Transaction.jwsRepresentation` is validated as an Apple-signed JWS against a pinned Apple root using swift-certificates/swift-crypto. Drops the unused `estimatedSecondsPerImage` field from `ModelDescriptor` and the engines (breaking for anyone reading it), and corrects the FLUX.2 Klein default step count from 20 to 8. Adds `ScreenplayShotsTests`, `ShotResolverTests`, `StoryboardPlanTests`, and `ProGateTests`.
+
+**v0.18.0** — Model-level background download progress + stream multiplexer (SV-R5): per-model progress reporting for background downloads, multiplexed so several observers can consume one download's event stream.
+
+**v0.17.0** — iOS background downloads, SwiftVinetas layer: the library-side surface for URLSession background model downloads on iOS, layered over SwiftAcervo's download registry.
 
 **v0.16.2** — Dependency floor bump: FLUX.2 pipeline floored at flux-2-swift-mlx 3.4.0, which adds iPad memory-tier support (device-RAM-aware defaults, direct pre-quantized int4 load, VAE-tiled decode) while keeping the exact 0.31.3 mlx-swift pin that guards against the upstream #410 deadlock. Also floors SwiftTuberia at 0.7.8 and pixart-swift-mlx at 0.8.1.
 
