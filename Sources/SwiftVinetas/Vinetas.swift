@@ -1619,17 +1619,6 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
     }
   }
 
-  /// Estimated generation time per image in seconds on M3/M4 Pro.
-  public var estimatedSecondsPerImage: Int {
-    switch self {
-    case .klein4b:
-      26
-    case .klein9b:
-      62
-    case .pixartSigma:
-      10
-    }
-  }
 }
 
 // MARK: - VerificationReport
