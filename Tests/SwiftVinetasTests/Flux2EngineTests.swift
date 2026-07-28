@@ -67,24 +67,14 @@ struct Flux2EngineTests {
     }
   }
 
-  @Test("Klein 4B estimated time is 26 seconds")
-  func klein4BEstimatedTime() {
-    #expect(Flux2ModelDescriptor.klein4B.estimatedSecondsPerImage == 26)
-  }
-
-  @Test("Klein 9B estimated time is 62 seconds")
-  func klein9BEstimatedTime() {
-    #expect(Flux2ModelDescriptor.klein9B.estimatedSecondsPerImage == 62)
-  }
-
-  @Test("Klein 4B has 20 default steps")
+  @Test("Klein 4B has 8 default steps")
   func klein4BDefaultSteps() {
-    #expect(Flux2ModelDescriptor.klein4B.defaultSteps == 20)
+    #expect(Flux2ModelDescriptor.klein4B.defaultSteps == 8)
   }
 
-  @Test("Klein 9B has 20 default steps")
+  @Test("Klein 9B has 8 default steps")
   func klein9BDefaultSteps() {
-    #expect(Flux2ModelDescriptor.klein9B.defaultSteps == 20)
+    #expect(Flux2ModelDescriptor.klein9B.defaultSteps == 8)
   }
 
   @Test("Klein 4B has 3.5 default guidance")

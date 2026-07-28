@@ -38,9 +38,6 @@ public protocol ModelDescriptor: Sendable, Identifiable where ID == String {
   /// Aspect ratios this model supports for generation.
   var supportedAspectRatios: [AspectRatio] { get }
 
-  /// Estimated wall-clock seconds per image on a typical Apple Silicon device.
-  var estimatedSecondsPerImage: Int { get }
-
   /// Acervo component IDs required by this model.
   ///
   /// These are the Acervo-internal identifiers (e.g., "t5-xxl-encoder-int4") used

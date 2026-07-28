@@ -21,7 +21,6 @@ public struct Flux2ModelDescriptor: ModelDescriptor {
   public let defaultSteps: Int
   public let defaultGuidance: Float
   public let supportedAspectRatios: [AspectRatio]
-  public let estimatedSecondsPerImage: Int
 
   // MARK: - Engine-Internal Metadata
 
@@ -40,10 +39,9 @@ public struct Flux2ModelDescriptor: ModelDescriptor {
     license: .nonCommercial(details: "FLUX.2 Community License"),
     minimumMemoryGB: 16,
     approximateDownloadSize: "~11 GB",
-    defaultSteps: 20,
+    defaultSteps: 8,
     defaultGuidance: 3.5,
     supportedAspectRatios: AspectRatio.allCases,
-    estimatedSecondsPerImage: 26,
     flux2Model: .klein4B,
     quantizationConfig: .ultraMinimal
   )
@@ -55,10 +53,9 @@ public struct Flux2ModelDescriptor: ModelDescriptor {
     license: .nonCommercial(details: "FLUX.2 Community License"),
     minimumMemoryGB: 24,
     approximateDownloadSize: "~18 GB",
-    defaultSteps: 20,
+    defaultSteps: 8,
     defaultGuidance: 3.5,
     supportedAspectRatios: AspectRatio.allCases,
-    estimatedSecondsPerImage: 62,
     flux2Model: .klein9B,
     quantizationConfig: .balanced
   )

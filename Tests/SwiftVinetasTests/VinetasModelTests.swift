@@ -68,18 +68,6 @@ struct VinetasModelTests {
     #expect(VinetasModel.klein9b.quantization == "qint8")
   }
 
-  // MARK: - Estimated Time
-
-  @Test("Klein 4B estimated time is 26 seconds")
-  func klein4bTime() {
-    #expect(VinetasModel.klein4b.estimatedSecondsPerImage == 26)
-  }
-
-  @Test("Klein 9B estimated time is 62 seconds")
-  func klein9bTime() {
-    #expect(VinetasModel.klein9b.estimatedSecondsPerImage == 62)
-  }
-
   // MARK: - Sendable
 
   @Test("VinetasModel is Sendable")
@@ -100,11 +88,6 @@ struct VinetasModelTests {
   @Test("PixArt Sigma minimum memory is 8 GB")
   func pixartSigmaMemory() {
     #expect(VinetasModel.pixartSigma.minimumMemoryGB == 8)
-  }
-
-  @Test("PixArt Sigma estimated time is 10 seconds")
-  func pixartSigmaTime() {
-    #expect(VinetasModel.pixartSigma.estimatedSecondsPerImage == 10)
   }
 
   @Test("PixArt Sigma quantization is int4")
@@ -166,16 +149,4 @@ struct VinetasModelTests {
     #expect(descriptor.minimumMemoryGB == VinetasModel.klein9b.minimumMemoryGB)
   }
 
-  @Test("Descriptor estimatedSecondsPerImage matches VinetasModel for Klein 4B")
-  func klein4bDescriptorTimeMatches() {
-    let descriptor = VinetasModel.klein4b.descriptor
-    #expect(descriptor.estimatedSecondsPerImage == VinetasModel.klein4b.estimatedSecondsPerImage)
-  }
-
-  @Test("Descriptor estimatedSecondsPerImage matches VinetasModel for PixArt Sigma")
-  func pixartSigmaDescriptorTimeMatches() {
-    let descriptor = VinetasModel.pixartSigma.descriptor
-    #expect(
-      descriptor.estimatedSecondsPerImage == VinetasModel.pixartSigma.estimatedSecondsPerImage)
-  }
 }
