@@ -89,7 +89,7 @@ let package = Package(
     sibling(
       "SwiftAcervo",
       remote: "https://github.com/intrusive-memory/SwiftAcervo.git",
-      from: "0.24.1"),
+      from: "0.25.0"),
 
     // Componentized diffusion pipeline (protocols + infrastructure).
     // Floored at 0.7.9 (PixArt iOS OOM fix — phased text-encoder unload, REQ-MEM-01;
@@ -186,6 +186,9 @@ let package = Package(
       dependencies: [
         "VinetasCLICore",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        // Root command's --help renders Acervo.environmentHelp() so the model
+        // storage variables are documented here, not restated by hand.
+        .product(name: "SwiftAcervo", package: "SwiftAcervo"),
       ]
     ),
 
