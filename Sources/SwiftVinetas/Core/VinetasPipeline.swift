@@ -60,7 +60,7 @@ internal enum VinetasPipeline {
 
   /// Generates a single panel image from a text prompt.
   ///
-  /// Creates a `Flux2Pipeline`, validates memory, loads models, composes the prompt
+  /// Creates a `Flux2Pipeline`, loads models, composes the prompt
   /// from style and panel prompts, generates the image, and returns a `PanelOutput`
   /// with full metadata.
   ///
@@ -69,21 +69,15 @@ internal enum VinetasPipeline {
   ///   - style: Style configuration (steps, guidance, seed, dimensions, style/negative prompts).
   ///   - model: The FLUX.2 model variant to use.
   /// - Returns: A `PanelOutput` containing the generated image and metadata.
-  /// - Throws: `VinetasError.insufficientMemory` if the system lacks sufficient RAM,
-  ///           `VinetasError.generationFailed` if image generation fails.
+  /// - Throws: `VinetasError.generationFailed` if image generation fails.
   internal static func generatePanel(
     prompt: String,
     style: StyleConfig,
     model: VinetasModel
   ) async throws -> PanelOutput {
-    // 1. Validate memory
-    let memoryOK = VinetasMemory.validate(for: model)
-    if !memoryOK {
-      throw VinetasError.insufficientMemory(
-        required: VinetasMemory.requiredMemoryBytes(for: model),
-        available: VinetasMemory.systemMemoryBytes
-      )
-    }
+    // 1. No pre-flight memory gate. Total physical RAM vs. a static
+    //    `minimumMemoryGB` is not a reliable predictor of whether a generation
+    //    will fit; let the load/generate path surface real allocation failures.
 
     // 2. Log loading strategy
     let strategy = VinetasMemory.loadingStrategy()
@@ -186,8 +180,7 @@ internal enum VinetasPipeline {
   ///   - style: Style configuration (steps, guidance, seed, dimensions, style/negative prompts).
   ///   - model: The FLUX.2 model variant to use.
   /// - Returns: A `PanelOutput` containing the generated image and metadata.
-  /// - Throws: `VinetasError.insufficientMemory` if the system lacks sufficient RAM,
-  ///           `VinetasError.generationFailed` if image generation fails,
+  /// - Throws: `VinetasError.generationFailed` if image generation fails,
   ///           `VinetasError.modelNotFound` if the character's LoRA file does not exist.
   internal static func generatePanelWithCharacter(
     prompt: String,
@@ -195,14 +188,9 @@ internal enum VinetasPipeline {
     style: StyleConfig,
     model: VinetasModel
   ) async throws -> PanelOutput {
-    // 1. Validate memory
-    let memoryOK = VinetasMemory.validate(for: model)
-    if !memoryOK {
-      throw VinetasError.insufficientMemory(
-        required: VinetasMemory.requiredMemoryBytes(for: model),
-        available: VinetasMemory.systemMemoryBytes
-      )
-    }
+    // 1. No pre-flight memory gate. Total physical RAM vs. a static
+    //    `minimumMemoryGB` is not a reliable predictor of whether a generation
+    //    will fit; let the load/generate path surface real allocation failures.
 
     // 2. Log loading strategy
     let strategy = VinetasMemory.loadingStrategy()
@@ -377,14 +365,9 @@ internal enum VinetasPipeline {
   ) async throws -> [PanelOutput] {
     guard !prompts.isEmpty else { return [] }
 
-    // 1. Validate memory
-    let memoryOK = VinetasMemory.validate(for: model)
-    if !memoryOK {
-      throw VinetasError.insufficientMemory(
-        required: VinetasMemory.requiredMemoryBytes(for: model),
-        available: VinetasMemory.systemMemoryBytes
-      )
-    }
+    // 1. No pre-flight memory gate. Total physical RAM vs. a static
+    //    `minimumMemoryGB` is not a reliable predictor of whether a generation
+    //    will fit; let the load/generate path surface real allocation failures.
 
     // 2. Log loading strategy
     let strategy = VinetasMemory.loadingStrategy()
@@ -538,14 +521,9 @@ internal enum VinetasPipeline {
   ) async throws -> [PanelOutput] {
     guard !promptFile.panels.isEmpty else { return [] }
 
-    // 1. Validate memory
-    let memoryOK = VinetasMemory.validate(for: model)
-    if !memoryOK {
-      throw VinetasError.insufficientMemory(
-        required: VinetasMemory.requiredMemoryBytes(for: model),
-        available: VinetasMemory.systemMemoryBytes
-      )
-    }
+    // 1. No pre-flight memory gate. Total physical RAM vs. a static
+    //    `minimumMemoryGB` is not a reliable predictor of whether a generation
+    //    will fit; let the load/generate path surface real allocation failures.
 
     // 2. Log loading strategy
     let strategy = VinetasMemory.loadingStrategy()

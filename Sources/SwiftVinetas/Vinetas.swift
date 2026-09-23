@@ -1406,8 +1406,7 @@ public enum Vinetas: Sendable {
   ///   - progress: Optional callback reporting `(currentView, totalViews)`.
   /// - Returns: Array of generated CGImages, one per requested view.
   /// - Throws: `VinetasError.generationFailed` if the character has no source photos or
-  ///           the photo cannot be loaded, `VinetasError.insufficientMemory` if system
-  ///           RAM is too low for the selected model.
+  ///           the photo cannot be loaded.
   public static func generateReferenceSheets(
     for character: Character,
     views: [ReferenceView] = ReferenceView.allCases.map { $0 },
