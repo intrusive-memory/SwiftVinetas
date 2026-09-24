@@ -1,15 +1,15 @@
-# Graph Report - .  (2026-07-28)
+# Graph Report - .  (2026-09-23)
 
 ## Corpus Check
 - cluster-only mode — file stats not available
 
 ## Summary
-- 2799 nodes · 4545 edges · 146 communities (115 shown, 31 thin omitted)
-- Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 299 edges (avg confidence: 0.8)
+- 2840 nodes · 4643 edges · 153 communities (120 shown, 33 thin omitted)
+- Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 314 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `9aad1829`
+- Built from commit: `47a024a1`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -160,6 +160,13 @@
 - [[_COMMUNITY_Community 143|Community 143]]
 - [[_COMMUNITY_Community 144|Community 144]]
 - [[_COMMUNITY_Community 145|Community 145]]
+- [[_COMMUNITY_Community 146|Community 146]]
+- [[_COMMUNITY_Community 147|Community 147]]
+- [[_COMMUNITY_Community 148|Community 148]]
+- [[_COMMUNITY_Community 149|Community 149]]
+- [[_COMMUNITY_Community 150|Community 150]]
+- [[_COMMUNITY_Community 151|Community 151]]
+- [[_COMMUNITY_Community 152|Community 152]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `CodingKeys` - 76 edges
@@ -174,6 +181,8 @@
 10. `VinetasClient` - 36 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `Work Unit D: LoRAManager Sequencing Tests` --references--> `VinetasLoRAManager`  [EXTRACTED]
+  docs/complete/sentinel-canvas-execution-plan.md → Sources/SwiftVinetas/Core/LoRAManager.swift
 - `Work Unit F: GPU Determinism & Memory Tests` --references--> `Flux2Engine`  [EXTRACTED]
   docs/complete/sentinel-canvas-execution-plan.md → Sources/SwiftVinetas/Engine/Flux2Engine.swift
 - `Tuberia is PixArt-only architectural truth` --references--> `PixArtEngine`  [EXTRACTED]
@@ -182,29 +191,27 @@
   docs/complete/sentinel-canvas-execution-plan.md → Sources/SwiftVinetas/Vinetas.swift
 - `VinetasPipeline (dead path)` --references--> `Flux2Core (flux-2-swift-mlx)`  [AMBIGUOUS]
   docs/REQUIREMENTS-VINETASCLIENT-MIGRATION.md → AGENTS.md
-- `SwiftVinetas Instrumentation Requirements` --references--> `TelemetryJSONLSink + TelemetryEnvelope`  [EXTRACTED]
-  docs/complete/wiretap-darkroom/REQUIREMENTS-instrumentation.md → Sources/VinetasCLICore/Telemetry/TelemetryJSONLSink.swift
 
 ## Import Cycles
 - None detected.
 
-## Communities (146 total, 31 thin omitted)
+## Communities (153 total, 33 thin omitted)
 
 ### Community 0 - "Telemetry Test Mocks"
-Cohesion: 0.07
-Nodes (53): CGImage, Character, Character, LoRAMetadata, Classification, Double, LoRAMetadata, PanelOutput (+45 more)
+Cohesion: 0.06
+Nodes (60): Bool, CGImage, Character, Character, LoRAMetadata, Classification, Double, GenerationRequest (+52 more)
 
 ### Community 1 - "Model Config & CodingKeys"
 Cohesion: 0.03
 Nodes (74): CodingKeys, activationKeyword, adapterParamCount, backboneQuantization, backboneType, branch, `case`, check (+66 more)
 
 ### Community 2 - "CLI Telemetry Bootstrap"
-Cohesion: 0.06
-Nodes (40): AsyncStream, BackgroundDownloadEvent, CharacterRef, Panel, Project, PromptFile, PromptFileStyle, VinetasModelInfo (+32 more)
+Cohesion: 0.07
+Nodes (39): AcervoTelemetryCLIAdapter, Report, Sample, State, VinetasMemoryProfiler, VinetasMemoryProfiler.Report, DispatchSourceMemoryPressure, FileHandle (+31 more)
 
 ### Community 3 - "Character LoRA Training"
-Cohesion: 0.07
-Nodes (14): Any, TuberiaEventEncodingTests, TuberiaTelemetryEvent, TelemetryJSONLSink, TuberiaTelemetryEvent, TuberiaEventCodable, TuberiaTelemetryCLIAdapter, Any (+6 more)
+Cohesion: 0.06
+Nodes (40): AsyncStream, BackgroundDownloadEvent, CharacterRef, Panel, Project, PromptFile, PromptFileStyle, VinetasModelInfo (+32 more)
 
 ### Community 4 - "Image Output & Metadata"
 Cohesion: 0.06
@@ -214,93 +221,93 @@ Nodes (21): CharacterTrainer, TrainingConfig, Bool, Character, Float, Int, Model
 Cohesion: 0.07
 Nodes (40): Codable, Comparable, ImageOutput, LoRAEntry, PanelMetadata, StyleConfig, LoRAEntry, CGImage (+32 more)
 
-### Community 7 - "Acervo Telemetry Encoding"
-Cohesion: 0.05
-Nodes (10): async, PixArtEngine, PixArtPipeline, async, MemoryValidation, ModelAvailability, String, VinetasTelemetryReporter (+2 more)
-
-### Community 8 - "Vinetas Event Encoding"
+### Community 6 - "Telemetry Event Fields"
 Cohesion: 0.07
 Nodes (18): CLITelemetryBootstrapSmokeTest, CLITelemetryBootstrapTests, Encodable, P, Date, Encoder, String, T (+10 more)
 
-### Community 9 - "Tuberia Event Encoding"
+### Community 7 - "Acervo Telemetry Encoding"
 Cohesion: 0.08
 Nodes (31): ContinuousClock, VinetasPipeline, DiffusionGenerationRequest, MemoryOptimizationConfig, PromptFile, CGImage, Character, Flux2Model (+23 more)
 
+### Community 8 - "Vinetas Event Encoding"
+Cohesion: 0.09
+Nodes (9): Any, TuberiaEventEncodingTests, Any, Int, JSONEncoder, String, TuberiaTelemetryEvent, TuberiaTensorStat (+1 more)
+
+### Community 9 - "Tuberia Event Encoding"
+Cohesion: 0.06
+Nodes (7): async, PixArtEngine, PixArtPipeline, async, VinetasTelemetryReporter, PixArtEngineTests, Bool
+
 ### Community 10 - "Flux2 Engine"
-Cohesion: 0.04
-Nodes (42): Encoder, Flux2TelemetryReporter, Encoder, Flux2TelemetryEvent, Flux2TelemetryEvent, TelemetryJSONLSink, Encoder, CodingKeys (+34 more)
-
-### Community 11 - "PixArt Engine"
-Cohesion: 0.04
-Nodes (48): ErrorPhase, classifierForward, clientInit, engineNotFound, engineRouting, featureExtraction, generationConcurrency, generationFailed (+40 more)
-
-### Community 12 - "Flux2 Event Encoding"
 Cohesion: 0.04
 Nodes (48): CodingKeys, actualSeed, available, availableMB, `case`, deviceArch, deviceMemoryGB, durationSeconds (+40 more)
 
+### Community 11 - "PixArt Engine"
+Cohesion: 0.07
+Nodes (12): VinetasEventEncodingTests, Encoder, VinetasTelemetryEvent, TelemetryJSONLSink, VinetasTelemetryEvent, VinetasEventCodable, VinetasTelemetryCLIAdapter, Any (+4 more)
+
+### Community 12 - "Flux2 Event Encoding"
+Cohesion: 0.08
+Nodes (15): Flux2EventEncodingTests, Encoder, Flux2TelemetryReporter, Encoder, Flux2TelemetryEvent, Flux2TelemetryEvent, TelemetryJSONLSink, Encoder (+7 more)
+
 ### Community 13 - "Engine Protocol & Concurrency Gate"
-Cohesion: 0.07
-Nodes (12): AcervoTelemetryReporter, AcervoEventEncodingTests, AcervoTelemetryEvent, Encoder, AcervoTelemetryEvent, TelemetryJSONLSink, AcervoEventCodable, AcervoTelemetryCLIAdapter (+4 more)
-
-### Community 14 - "Cache-State Telemetry"
-Cohesion: 0.07
-Nodes (13): VinetasEventEncodingTests, Encoder, VinetasTelemetryEvent, TelemetryJSONLSink, VinetasTelemetryEvent, VinetasEventCodable, VinetasTelemetryCLIAdapter, Any (+5 more)
-
-### Community 15 - "Image Preprocessing (DINOv2)"
 Cohesion: 0.05
 Nodes (39): CodingKeys, actualBytes, actualSHA, ageSeconds, baseDirectory, byteCount, cacheState, `case` (+31 more)
 
-### Community 16 - "Training Caption Generation"
+### Community 14 - "Cache-State Telemetry"
 Cohesion: 0.11
 Nodes (15): CGInterpolationQuality, CGImage, Float, Int, MLXArray, ImagePreprocessorTests, makeSolidColorImage(), CGImage (+7 more)
 
-### Community 17 - "Event Encoding Smoke Tests"
+### Community 15 - "Image Preprocessing (DINOv2)"
 Cohesion: 0.08
 Nodes (9): TrainingCaptionTests, TrainingPairTests, TrainingPreparationTests, TrainingResizeTests, VinetasTrainingDataAPITests, CGImage, Character, Int (+1 more)
 
-### Community 18 - "CLI Argument Parsing"
-Cohesion: 0.12
-Nodes (21): Report, Sample, State, VinetasMemoryProfiler, VinetasMemoryProfiler.Report, DispatchSourceMemoryPressure, FileHandle, Logger (+13 more)
+### Community 16 - "Training Caption Generation"
+Cohesion: 0.07
+Nodes (31): CharacterError, invalidFormat, missingField, VinetasError, downloadFailed, engineFeatureUnsupported, engineNotFound, generationFailed (+23 more)
 
-### Community 19 - "Reference Prompt Composition"
-Cohesion: 0.08
-Nodes (15): EventEncodingSmokeTests, PixArtEventEncodingTests, PixArtTelemetryReporter, Encoder, PixArtTelemetryEvent, PixArtTelemetryEvent, TelemetryJSONLSink, PixArtEventCodable (+7 more)
-
-### Community 20 - "Denoise-Step Telemetry"
+### Community 17 - "Event Encoding Smoke Tests"
 Cohesion: 0.06
 Nodes (7): BatchArgumentTests, CharacterArgumentTests, ClassifyArgumentTests, GenerateArgumentTests, ListModelsArgumentTests, PreviewArgumentTests, SimilarityArgumentTests
 
-### Community 21 - "Character Model & YAML"
+### Community 18 - "CLI Argument Parsing"
 Cohesion: 0.06
 Nodes (4): VinetasMemoryMacOSCacheLimitTests, VinetasMemoryMLXBudgetTests, VinetasMemoryTests, UInt64
 
-### Community 22 - "Integration / Example Generation"
+### Community 19 - "Reference Prompt Composition"
+Cohesion: 0.11
+Nodes (5): AcervoEventEncodingTests, AcervoTelemetryEvent, Any, JSONEncoder, String
+
+### Community 21 - "Character Model & YAML"
 Cohesion: 0.06
 Nodes (7): ReferenceDefaultStrengthTests, ReferencePromptCompositionTests, ReferenceViewTests, ReferenceViewTransferActor, VinetasReferenceSheetAPITests, Character, ReferenceView
 
-### Community 23 - "Cosine Similarity & Vision"
+### Community 22 - "Integration / Example Generation"
 Cohesion: 0.08
 Nodes (15): AllModelsExampleTests, Flux2IntegrationTests, renderToBytes(), assertImageNotGarbage(), assertModelDownloaded(), memoryGateAllowsExecution(), PixArtIntegrationTests, ModelDescriptor (+7 more)
 
+### Community 23 - "Cosine Similarity & Vision"
+Cohesion: 0.06
+Nodes (33): CodingKeys, bits, `case`, completedSteps, component, durationSeconds, embeddingStat, encoderName (+25 more)
+
 ### Community 24 - "LoRA Compatibility"
-Cohesion: 0.08
-Nodes (24): AspectRatio, Flux2ModelDescriptor, PixArtModelDescriptor, Flux2Model, Flux2QuantizationConfig, GenerationResult, LoRAConfig, ModelLicense (+16 more)
+Cohesion: 0.10
+Nodes (14): ModelDescriptor, Set, MemoryValidation, MockEngine, Bool, CGImage, EngineFeature, GenerationRequest (+6 more)
 
 ### Community 25 - "Memory Budget Strategy"
-Cohesion: 0.10
-Nodes (10): AsyncParsableCommand, Bool, VinetasCLI, Batch, Delete, Features, ListCharacters, ListModels (+2 more)
-
-### Community 26 - "Platform Engine Registration"
 Cohesion: 0.16
 Nodes (9): P256, ProGateModelTests, SignedTransactionTests, TestChain, Any, Bool, Data, String (+1 more)
 
-### Community 27 - "Vinetas Model Descriptors"
+### Community 26 - "Platform Engine Registration"
 Cohesion: 0.12
 Nodes (8): CGImage, Float, URL, VinetasTelemetryReporter, VisionTransformer, CosineSimilarityTests, cosineSimilarity(), FeatureExtractor
 
+### Community 27 - "Vinetas Model Descriptors"
+Cohesion: 0.11
+Nodes (28): CharacterTrainer, EngineRouter Dispatcher, Flux2Core (flux-2-swift-mlx), Flux2Engine, Flux2ModelDescriptor, Flux2Pipeline, GenerationRequest, GenerationResult (+20 more)
+
 ### Community 28 - "CLI Telemetry Flag Parsing"
-Cohesion: 0.13
-Nodes (7): Flux2EventEncodingTests, Any, Flux2TelemetryEvent, JSONEncoder, String, TuberiaTensorStat, TuberiaTensorStat
+Cohesion: 0.10
+Nodes (11): AsyncParsableCommand, Bool, VinetasCLI, Batch, CharacterCommand, Delete, Features, ListCharacters (+3 more)
 
 ### Community 30 - "PromptFile"
 Cohesion: 0.09
@@ -312,343 +319,363 @@ Nodes (3): AspectRatioTests, Int, UInt64
 
 ### Community 33 - "Flux2Engine"
 Cohesion: 0.09
-Nodes (17): Deprecation shim pattern (Vinetas enum + VinetasModel kept functional), Flux2Engine, Flux2 bypasses AcervoManager (static Acervo.ensureAvailable), Flux2Component, Flux2Pipeline, Int64, ModelDescriptor, ModelRegistry (+9 more)
+Nodes (8): Deprecation shim pattern (Vinetas enum + VinetasModel kept functional), Flux2Engine, Flux2 bypasses AcervoManager (static Acervo.ensureAvailable), Flux2Pipeline, async, Flux2Pipeline, VinetasTelemetryReporter, VinetasPipeline (deprecated)
 
 ### Community 34 - "Conv2d"
 Cohesion: 0.17
 Nodes (8): Storyboard, StoryboardPlanTests, Bool, Double, Int, Shot, String, UInt64
 
 ### Community 36 - "CGImage"
-Cohesion: 0.13
-Nodes (23): EngineRouter Dispatcher, Flux2Core (flux-2-swift-mlx), Flux2Engine, Flux2ModelDescriptor, Flux2Pipeline, GenerationRequest, GenerationResult, ImageGenerationEngine Protocol (+15 more)
+Cohesion: 0.09
+Nodes (24): App Group Model Cache (group.intrusive-memory.models), Git workflow: development → PR → main, SwiftVinetasGPUTests (local-only), MLX (Apple Silicon), Never use swift build / swift test (Metal shaders), Local sibling overrides in Package.swift, swift-argument-parser, vinetas CLI (+16 more)
+
+### Community 37 - "VinetasClientTests"
+Cohesion: 0.08
+Nodes (24): VinetasTelemetryEvent, classifierForwardComplete, classifierForwardStart, clientInitialized, concurrencyGateRejected, engineFeatureNegotiated, engineNotFound, engineRegistered (+16 more)
 
 ### Community 38 - "ModelDescriptor"
-Cohesion: 0.16
-Nodes (18): AcervoTelemetryCLIAdapter, Flux2TelemetryCLIAdapter, Instrumentation Pattern Doc, Dual-Seam Telemetry Pattern, Instance-Bound Telemetry Seam, TelemetryJSONLSink + Envelope, Process-Wide Telemetry Seam, PixArtTelemetryCLIAdapter (+10 more)
+Cohesion: 0.13
+Nodes (23): AcervoManager telemetry contract, swift-argument-parser, docs/TELEMETRY.md, Acervo.ensureComponentReady Telemetry Contract, FeatureExtractor, ImageClassifier, SwiftVinetas AI Agent Instructions, PixArtIntegrationTests (+15 more)
 
-### Community 39 - "CharacterPromptTests"
+### Community 40 - "TelemetryJSONLSinkSmokeTest"
 Cohesion: 0.14
 Nodes (16): Conv2d, EncoderBlock, GELU, Module, MultiHeadAttention, Int, LayerNorm, Linear (+8 more)
 
-### Community 40 - "TelemetryJSONLSinkSmokeTest"
+### Community 41 - "VinetasTelemetryEvent"
 Cohesion: 0.13
 Nodes (11): ImageGenerationEngine, ConcurrencyGateMockEngine, Bool, EngineFeature, Float, Int64, MemoryValidation, ModelDescriptor (+3 more)
 
-### Community 41 - "VinetasTelemetryEvent"
+### Community 42 - "PromptCompositionTests"
 Cohesion: 0.16
 Nodes (7): MockVinetasReporter, VinetasTelemetryEngineRoutingTests, Int, VinetasTelemetryEvent, EngineRouter, ImageGenerationEngine, VinetasClient
 
-### Community 42 - "PromptCompositionTests"
+### Community 43 - "ReferenceSheetGenerator"
 Cohesion: 0.21
 Nodes (8): PanelProgressCollector, StepProgressCollector, VinetasClientGenerateSequenceTests, VinetasClientTests, Int, MockEngine, MockModelDescriptor, VinetasClient
 
-### Community 43 - "ReferenceSheetGenerator"
-Cohesion: 0.11
-Nodes (18): CharacterError, invalidFormat, missingField, VinetasError, downloadFailed, engineFeatureUnsupported, engineNotFound, generationFailed (+10 more)
-
 ### Community 44 - "VinetasMemory"
-Cohesion: 0.14
-Nodes (12): VinetasMemory, Flux2ModelDescriptor (klein4B/klein9B), Memory, ModelDescriptor protocol, PixArtModelDescriptor (sigmaXL), Bool, Double, Int (+4 more)
+Cohesion: 0.13
+Nodes (19): xcodebuild/Makefile Build System, Graphify Codemap (graphify-out/), docs/ARCHITECTURE.md, docs/ENGINE_ABSTRACTION_REQUIREMENTS.md, GlosaCore (glosa-av), Queryable graphify codemap, swift-certificates / swift-crypto, SwiftCompartido (+11 more)
 
 ### Community 45 - "SwiftVinetas v1.0 Requirements"
-Cohesion: 0.11
-Nodes (3): CharacterTriggerWordInjectionTests, PromptFileV2Tests, VinetasCharacterAwareAPITests
+Cohesion: 0.19
+Nodes (6): PixArtEventEncodingTests, Any, JSONEncoder, PixArtTelemetryEvent, String, TuberiaTensorStat
 
 ### Community 46 - "ContinuousClock"
 Cohesion: 0.14
-Nodes (18): AcervoManager telemetry contract, FeatureExtractor, ImageClassifier, Vinetas (deprecated enum), CharacterTrainer, generateFromFile, ReferenceSheetGenerator, StoryboardCommand (+10 more)
+Nodes (12): VinetasMemory, Flux2ModelDescriptor (klein4B/klein9B), Memory, ModelDescriptor protocol, PixArtModelDescriptor (sigmaXL), Bool, Double, Int (+4 more)
 
 ### Community 47 - "Engine Abstraction Layer (protocol-based"
+Cohesion: 0.11
+Nodes (3): CharacterTriggerWordInjectionTests, PromptFileV2Tests, VinetasCharacterAwareAPITests
+
+### Community 48 - "Fixture Test Cache Warmer design"
 Cohesion: 0.12
 Nodes (18): App Group Model Container, link-test-models Makefile Target, AD-1: MLX via flux-2-swift-mlx not Core ML, mzbac/flux.swift (Rejected GPL-3.0), Character Manager Screen, App Sandbox + Model Cache Constraint, Character Consistency Techniques, SwiftVinetas Learning Document (+10 more)
 
-### Community 48 - "Fixture Test Cache Warmer design"
+### Community 49 - "EngineRouterTests"
 Cohesion: 0.14
 Nodes (18): PixArtBackbone (pixart-swift-mlx), PixArtEngine, SwiftTuberia Pipeline, SwiftTubería (Tuberia), PixArtIntegrationTests, PixArt-Sigma XL Model, ModelDescriptor componentIds Bridge to Acervo, DiffusionPipeline (Tuberia) (+10 more)
 
-### Community 49 - "EngineRouterTests"
+### Community 50 - "ImageOutputTests"
+Cohesion: 0.12
+Nodes (16): CaseIterable, Flux2Component, textEncoder, transformer, vae, Flux2ModelDescriptor, TextEncoder, klein4B (+8 more)
+
+### Community 51 - "AcervoTelemetryCLIAdapter"
 Cohesion: 0.28
 Nodes (6): TelemetryJSONLSinkSmokeTests, Ping, TelemetryJSONLSinkTests, Data, String, URL
 
-### Community 50 - "ImageOutputTests"
+### Community 52 - "EngineRouter Dispatcher"
 Cohesion: 0.16
 Nodes (11): Engine Abstraction Layer (protocol-based), EngineRouter, engineSelected ordering bug (emitted in router not VinetasClient), ImageGenerationEngine protocol, LoRAMetadata (compatibleEngines), ImageGenerationEngine, ModelDescriptor, String (+3 more)
 
-### Community 51 - "AcervoTelemetryCLIAdapter"
-Cohesion: 0.15
-Nodes (7): Set, MockEngine, Bool, EngineFeature, Int, Int64, MemoryValidation
-
 ### Community 53 - "EngineFeature"
+Cohesion: 0.22
+Nodes (5): Flux2Component, ModelRegistry, Int64, MemoryValidation, ModelAvailability
+
+### Community 55 - "ErrorPhase"
 Cohesion: 0.20
 Nodes (9): VinetasTelemetryConcurrencyTests, GenerationRequest, GenerationResult, Int, MockModelDescriptor, TimeInterval, VinetasClient, VinetasTelemetryReporter (+1 more)
 
-### Community 54 - "RequestTranslationTests"
+### Community 56 - "CharacterManager"
 Cohesion: 0.16
 Nodes (18): AutoTokenizer (Type), EmbeddingExtractor, flux-2-swift-mlx (Direct Consumer), FluxTextEncoders (Module), KleinEmbeddingExtractor, MistralGenerator, pixart-swift-mlx (Constraint-Only Pin), swift-tokenizers 0.5.0 → 0.7.1 Upgrade Plan (+10 more)
 
-### Community 55 - "ErrorPhase"
-Cohesion: 0.18
-Nodes (13): ReferenceSheetGenerator, ReferenceView, back, front, left, right, CGImage, Character (+5 more)
-
-### Community 56 - "CharacterManager"
-Cohesion: 0.20
-Nodes (13): CustomStringConvertible, SignedTransaction, VerificationError, badSignature, malformedJWS, malformedPayload, missingCertificateChain, unsupportedAlgorithm (+5 more)
-
 ### Community 57 - "CodingKey"
-Cohesion: 0.16
-Nodes (16): xcodebuild/Makefile Build System, Graphify Codemap (graphify-out/), GlosaCore (glosa-av), StyleConfig, SwiftCompartido, SwiftVinetas Product, Claude-Specific Agent Instructions, XcodeBuildMCP Tooling (+8 more)
+Cohesion: 0.17
+Nodes (16): docs/complete/SWIFTACERVO_MANIFEST_MIGRATION.md, Flux2Core (flux-2-swift-mlx), PixArtBackbone (pixart-swift-mlx), PixArtEngine, SwiftAcervo, SwiftTubería, SwiftVinetas Library, Universal (YAML/JSON) (+8 more)
+
+### Community 58 - "DiffusionGenerationRequest"
+Cohesion: 0.15
+Nodes (16): Vinetas (deprecated enum), GlosaParser, CharacterTrainer, generateFromFile, ReferenceSheetGenerator, StoryboardCommand, VinetasPipeline (dead path), ImagePreprocessor (+8 more)
 
 ### Community 59 - "Mission / Sortie / Work Unit pattern"
+Cohesion: 0.17
+Nodes (12): ReferenceSheetGenerator, ReferenceView, back, front, left, right, CGImage, Character (+4 more)
+
+### Community 61 - "PromptFileTests"
 Cohesion: 0.25
 Nodes (5): ImageOutputTests, makeMiniRedImage(), makePanelOutput(), CGImage, PanelOutput
 
-### Community 60 - "String"
+### Community 62 - "Flux2Core (flux-2-swift-mlx)"
 Cohesion: 0.23
 Nodes (5): VinetasTelemetryHandoffTests, MockEngine, MockModelDescriptor, String, VinetasClient
 
-### Community 61 - "PromptFileTests"
+### Community 63 - "TrainingDataPreparer"
 Cohesion: 0.19
 Nodes (6): VinetasTelemetryMemoryValidationTests, MemoryValidation, MockEngine, MockModelDescriptor, String, VinetasClient
 
-### Community 62 - "Flux2Core (flux-2-swift-mlx)"
-Cohesion: 0.16
-Nodes (15): swift-argument-parser, vinetas CLI, vinetas CLI, VinetasCLICore Library, VinetasCLICore, Bug: CLI table commands SIGSEGV (%s vs %@), Bug: diskSize wrong path / formattedSize, Known Bugs Doc (+7 more)
-
-### Community 63 - "TrainingDataPreparer"
-Cohesion: 0.15
-Nodes (14): CLITelemetryBootstrap + five CLI adapters, Dual-seam process-wide telemetry pattern, Per-engine actions/cache fixture warmer with self-healing re-run, Flux2Core (flux-2-swift-mlx), MACF bypass / canEnumerateDirectory guard bug, PixArtBackbone (pixart-swift-mlx), PixArt DiT weight key-format mismatch (MLX vs HF diffusers), SwiftAcervo (AcervoManager, AcervoTelemetryReporter) (+6 more)
-
 ### Community 64 - "CharacterManager"
+Cohesion: 0.15
+Nodes (15): Memory constraints / pre-flight gate removal, ReferenceSheetGenerator, StyleConfig, Vinetas (deprecated static enum), VinetasClient (Public API), VinetasError, VinetasPipeline, YNTSWYD Chapter 1 Fixture (+7 more)
+
+### Community 65 - "PixArt Aspect-Ratio Repro Matrix"
 Cohesion: 0.19
 Nodes (10): ProGate, Status, locked, unlocked, SignedTransaction, Bool, Date, String (+2 more)
 
-### Community 65 - "PixArt Aspect-Ratio Repro Matrix"
+### Community 66 - "Task.yield() scheduler-drain test idiom"
+Cohesion: 0.14
+Nodes (15): Fixture Test Cache Warmer design, Per-engine actions/cache fixture warmer with self-healing re-run, FixtureGenerationTests, MACF bypass / canEnumerateDirectory guard bug, make test-fixtures (seed-42 cross-engine fixtures), PixArt timestep/position embedding bugs (denominator, sin/cos, baseSize), OPERATION PIXART TRIAGE Supervisor State, PixArt resolution mismatch (needs native 1024x1024) (+7 more)
+
+### Community 67 - "Int32"
+Cohesion: 0.14
+Nodes (14): Package, sibling(), String, String, GenerationModeTag, imageToImage, preview, textToImage (+6 more)
+
+### Community 68 - "CGImage"
 Cohesion: 0.24
 Nodes (10): Bool, Int, Shot, String, StyleConfig, URL, VinetasModel, PanelPlan (+2 more)
 
-### Community 66 - "Task.yield() scheduler-drain test idiom"
-Cohesion: 0.17
-Nodes (6): MockModelDescriptor, AspectRatio, Float, ModelLicense, String, URL
-
 ### Community 69 - "MockEngine"
+Cohesion: 0.15
+Nodes (7): CGImage, String, CharacterInfo, Create, Download, loadCGImage(), Similarity
+
+### Community 72 - "LoRAMetadata"
+Cohesion: 0.13
+Nodes (15): ErrorPhase, classifierForward, clientInit, engineNotFound, engineRouting, featureExtraction, generationConcurrency, generationFailed (+7 more)
+
+### Community 73 - "Sendable"
 Cohesion: 0.16
 Nodes (14): SwiftVinetas v1.0 Requirements, Aspect Ratio Presets, Batch Generation from Prompt File, FLUX.2 Klein, flux-2-swift-mlx, GPL-3.0 License Rejection of mzbac/flux.swift, Single Panel Generation, Style LoRA Support (+6 more)
 
-### Community 70 - "AvailabilityAggregation"
+### Community 74 - "AspectRatioTests"
 Cohesion: 0.33
 Nodes (5): CharacterManager, CGImage, Character, String, URL
 
-### Community 71 - "LoRAManager"
+### Community 75 - "ClassificationTests"
 Cohesion: 0.14
 Nodes (14): CodingKey, CodingKeys, `case`, check, checksPassed, component, durationSeconds, errorDescription (+6 more)
 
-### Community 72 - "LoRAMetadata"
+### Community 76 - "VinetasCLICore Library"
+Cohesion: 0.18
+Nodes (14): make test-unit (CI-safe unit tests), Mission / Sortie / Work Unit pattern, MockEngine (test double), OPERATION SENTINEL CANVAS Execution Plan, Work Unit G: CI unit-tests Status Check, Work Unit E: Concurrent Client Stress Test, Work Unit F: GPU Determinism & Memory Tests, Work Unit D: LoRAManager Sequencing Tests (+6 more)
+
+### Community 77 - "CLITelemetryBootstrap + five CLI adapter"
 Cohesion: 0.21
 Nodes (5): MockEngine, LoRAIncompatibleFallbackTests, MockEngine, String, VinetasClient
 
-### Community 74 - "AspectRatioTests"
-Cohesion: 0.22
-Nodes (13): Flux2Core (flux-2-swift-mlx), PixArtBackbone (pixart-swift-mlx), PixArtEngine, SwiftAcervo, SwiftTubería, SwiftVinetas Library, Universal (YAML/JSON), DePasqualeOrg/swift-tokenizers (+5 more)
-
-### Community 75 - "ClassificationTests"
+### Community 79 - "CGImage"
 Cohesion: 0.26
 Nodes (8): TrainingDataPreparer, TrainingPair, Bool, CGImage, Character, ReferenceView, String, URL
 
-### Community 76 - "VinetasCLICore Library"
+### Community 80 - "Float"
 Cohesion: 0.27
 Nodes (3): CharacterManager, CharacterManagerDirectoryTests, URL
 
-### Community 77 - "CLITelemetryBootstrap + five CLI adapter"
+### Community 81 - "VerificationTests"
 Cohesion: 0.19
 Nodes (13): PixArt Aspect-Ratio Repro Matrix, PixArt Fail-Fast Request Validation, PixArtGarbageReproTests, PixArtModelDescriptor.sigmaXL, PixArt Storyboard Failure Triage and Hardening, IntegrationTestHelpers (assertImageNotGarbage), EXECUTION_PLAN OPERATION PLATOON INSIGNIA, Test Plan Reorganization Mission (+5 more)
 
-### Community 78 - "AspectRatio"
+### Community 82 - "VinetasErrorTests"
+Cohesion: 0.17
+Nodes (9): GenerationResult, Double, Float, GenerationRequest, GenerationResult, Int, TimeInterval, URL (+1 more)
+
+### Community 83 - "VinetasClient (Public API)"
 Cohesion: 0.24
 Nodes (13): swift-vinetas-instrumentation Execution Plan (library-only, incomplete), setTelemetry seam + propagation (OSAllocatedUnfairLock), Task.yield() scheduler-drain test idiom, Five event-encoding Encodable shims, --telemetry CLI flag (per-subcommand), VinetasTelemetryEvent enum, VinetasTelemetryReporter protocol + NoopVinetasTelemetryReporter, OPERATION WIRETAP DARKROOM Iteration 01 Brief (+5 more)
 
-### Community 79 - "CGImage"
+### Community 84 - "Memory-Aware Pipeline"
 Cohesion: 0.26
 Nodes (11): Int32, meanOf(), SafetensorsDtype, float32, int32, stdOf(), T5DiffuserComparisonDumpTests, writeSafetensors() (+3 more)
 
-### Community 80 - "Float"
+### Community 85 - "SwiftAcervo Manifest-Driven Migration Re"
 Cohesion: 0.15
 Nodes (7): JSONEncoder, ReferenceView, Float, UInt64, Generate, Reference, Verify
 
-### Community 81 - "VerificationTests"
-Cohesion: 0.19
-Nodes (13): make test-unit (CI-safe unit tests), Mission / Sortie / Work Unit pattern, MockEngine (test double), OPERATION SENTINEL CANVAS Execution Plan, Work Unit G: CI unit-tests Status Check, Work Unit E: Concurrent Client Stress Test, Work Unit F: GPU Determinism & Memory Tests, Work Unit A: VinetasClient Unit Tests (+5 more)
-
-### Community 82 - "VinetasErrorTests"
+### Community 86 - "Bool"
 Cohesion: 0.23
 Nodes (7): CGImage, Classification, Int, URL, VinetasTelemetryReporter, VisionTransformer, ImageClassifier
 
-### Community 83 - "VinetasClient (Public API)"
-Cohesion: 0.15
-Nodes (8): CGImage, String, CharacterCommand, CharacterInfo, Create, Download, loadCGImage(), Similarity
+### Community 87 - "CharacterYAMLTests"
+Cohesion: 0.21
+Nodes (6): MockModelDescriptor, AspectRatio, Float, Int, ModelLicense, URL
 
-### Community 84 - "Memory-Aware Pipeline"
-Cohesion: 0.15
-Nodes (12): MethodCall, delete, diskSize, download, generate, isAvailable, loadLoRA, loadModel (+4 more)
-
-### Community 85 - "SwiftAcervo Manifest-Driven Migration Re"
+### Community 88 - "MockModelDescriptor"
 Cohesion: 0.19
 Nodes (3): ResolutionClampTests, Int, UInt64
 
-### Community 86 - "Bool"
+### Community 89 - "VinetasTelemetryEvent"
 Cohesion: 0.24
 Nodes (4): AvailabilityAggregation, AvailabilityAggregationTests, ModelAvailability, String
 
-### Community 87 - "CharacterYAMLTests"
-Cohesion: 0.24
-Nodes (7): VinetasLoRAManager, Work Unit D: LoRAManager Sequencing Tests, Float, Flux2Pipeline, ImageGenerationEngine, String, StyleConfig
+### Community 90 - "AsyncParsableCommand"
+Cohesion: 0.18
+Nodes (11): CLITelemetryBootstrap + five CLI adapters, Dual-seam process-wide telemetry pattern, Flux2Core (flux-2-swift-mlx), PixArtBackbone (pixart-swift-mlx), PixArt DiT weight key-format mismatch (MLX vs HF diffusers), TelemetryIntegrationTests (runnable debug harness), TelemetryJSONLSink + TelemetryEnvelope, SwiftTuberia (Tuberia, DiffusionPipeline, TuberiaTensorStat) (+3 more)
 
-### Community 88 - "MockModelDescriptor"
+### Community 91 - "One commit per sortie discipline"
+Cohesion: 0.24
+Nodes (7): VinetasLoRAManager, LoRAConfig, Float, Flux2Pipeline, ImageGenerationEngine, String, StyleConfig
+
+### Community 92 - "PanelOutput"
 Cohesion: 0.32
 Nodes (7): DownloadProgress, GenerationResult, LoadProgress, CGImage, Double, String, UInt64
 
-### Community 89 - "VinetasTelemetryEvent"
-Cohesion: 0.17
-Nodes (12): Fixture Test Cache Warmer design, FixtureGenerationTests, make test-fixtures (seed-42 cross-engine fixtures), PixArt timestep/position embedding bugs (denominator, sin/cos, baseSize), OPERATION PIXART TRIAGE Supervisor State, PixArt resolution mismatch (needs native 1024x1024), OPERATION PIXART TRIAGE (garbage output bug), Work Unit C: CLI Argument Parsing Tests (+4 more)
-
-### Community 90 - "AsyncParsableCommand"
+### Community 93 - "Character Manager Screen"
 Cohesion: 0.27
 Nodes (3): ClassificationTests, TransferActor, Classification
 
-### Community 91 - "One commit per sortie discipline"
+### Community 94 - "CharacterTests"
+Cohesion: 0.17
+Nodes (12): MethodCall, delete, diskSize, download, generate, isAvailable, loadLoRA, loadModel (+4 more)
+
+### Community 95 - "ImageNetLabelsTests"
 Cohesion: 0.26
 Nodes (4): VinetasTelemetryPropagationTests, MockEngine, String, VinetasClient
 
-### Community 92 - "PanelOutput"
-Cohesion: 0.22
-Nodes (11): App Group Model Cache (group.intrusive-memory.models), Acervo.ensureComponentReady Telemetry Contract, PixArtIntegrationTests, SwiftAcervo (Model Cache), PixArt CDN Model Cache Key, vinetas CLI, PixArt Integration Workflow, Acervo.ensureComponentReady (+3 more)
-
-### Community 93 - "Character Manager Screen"
+### Community 96 - "CaseIterable"
 Cohesion: 0.18
-Nodes (11): FLUX.2 Klein 4B Model, SwiftVinetas AI Agent Instructions, Universal YAML/JSON Parser, AD-2: FLUX.2 Klein 4B as Primary Model, AD-3: LoRA-Based Style System, AD-4: YAML Prompt File via Universal, AD-5: Wrapping Flux2Pipeline, AD-6: Model Management via SwiftAcervo (+3 more)
+Nodes (8): AspectRatio, PixArtModelDescriptor, ModelLicense, AspectRatio, Float, ModelLicense, String, URL
 
-### Community 94 - "CharacterTests"
+### Community 97 - "Completed Work — SwiftVinetas"
 Cohesion: 0.18
 Nodes (9): AspectRatio, panel, portrait, square, strip, ultrawide, wide, Int (+1 more)
 
-### Community 96 - "CaseIterable"
+### Community 98 - "PixArtEngine"
+Cohesion: 0.22
+Nodes (6): TuberiaTelemetryEvent, TelemetryJSONLSink, TuberiaTelemetryEvent, TuberiaEventCodable, TuberiaTelemetryCLIAdapter, TuberiaTelemetryReporter
+
+### Community 100 - "App Group Model Container"
 Cohesion: 0.24
 Nodes (10): Memory-Aware Pipeline, iOS MLX Memory Throttle Plan, MLX Memory Back-Pressure Throttle, configureMLXBudgetForCurrentProcess, increased-memory-limit Entitlement, Jetsam OOM Kill, MLX.Memory, os_proc_available_memory (+2 more)
 
-### Community 97 - "Completed Work — SwiftVinetas"
+### Community 101 - "SwiftVinetas Product"
+Cohesion: 0.22
+Nodes (5): EventEncodingSmokeTests, AcervoTelemetryEvent, Encoder, AcervoEventCodable, JSONEncoder
+
+### Community 102 - "SwiftVinetas Brand Illustration Asset"
 Cohesion: 0.24
 Nodes (10): SwiftAcervo Manifest-Driven Migration Requirements, Acervo.ensureComponentReady, Manifest-Driven Registry Contract, No Hardcoded Filenames Rule, PixArtEngine, Re-registration Stderr Warning Canary, Ship ViT Models to CDN (acervo-download-ship), EXECUTION_PLAN OPERATION MANIFEST DESTINY (+2 more)
 
-### Community 98 - "PixArtEngine"
+### Community 103 - "Vinetas Brand Identity"
 Cohesion: 0.24
 Nodes (5): ImageGenerationEngine, ModelAvailability, ModelDescriptor, String, VinetasTelemetryReporter
 
-### Community 101 - "SwiftVinetas Product"
+### Community 106 - "TelemetryJSONLSink"
 Cohesion: 0.31
 Nodes (3): VinetasTelemetryClientInitTests, MockEngine, VinetasClient
 
-### Community 102 - "SwiftVinetas Brand Illustration Asset"
-Cohesion: 0.22
-Nodes (8): CaseIterable, Flux2Component, textEncoder, transformer, vae, TextEncoder, klein4B, klein9B
-
-### Community 103 - "Vinetas Brand Identity"
+### Community 107 - "Int"
 Cohesion: 0.25
 Nodes (8): One commit per sortie discipline, Incomplete EXECUTION_PLAN (SWITCHBOARD TRANSMISSION duplicate), Complexity-score model selection (haiku/sonnet/opus thresholds), OPERATION SWITCHBOARD TRANSMISSION Iteration 02 Brief, SWITCHBOARD TRANSMISSION 02 Completion Log, SWITCHBOARD TRANSMISSION 02 Execution Plan, SWITCHBOARD TRANSMISSION 02 Supervisor State, OPERATION SWITCHBOARD TRANSMISSION (engine abstraction mission)
 
-### Community 104 - "R8 Acceptance Report Manifest Migration"
+### Community 108 - "BatchIntegrationTests"
 Cohesion: 0.39
 Nodes (7): PanelOutput, CGImage, Double, Int, String, UInt64, VinetasModel
 
-### Community 105 - "ImageGenerationEngine"
+### Community 109 - "SlugDerivationTests"
 Cohesion: 0.22
 Nodes (8): ModelDescriptor, ModelLicense, apache2, custom, nonCommercial, Hashable, Identifiable, String
 
-### Community 110 - "ConcurrentClientTests"
+### Community 114 - "Bool"
+Cohesion: 0.25
+Nodes (8): FLUX.2 Klein 4B Model, AD-2: FLUX.2 Klein 4B as Primary Model, AD-3: LoRA-Based Style System, AD-5: Wrapping Flux2Pipeline, AD-6: Model Management via SwiftAcervo, SwiftVinetas Architecture Planning Doc, Architecture Doc (Duplicate Snapshot 2026-05-15), Flux2Pipeline
+
+### Community 115 - "Bright blue sky with wispy clouds"
 Cohesion: 0.32
 Nodes (8): Completed Work — SwiftVinetas, Mission/Sortie/Work Unit Model, Iteration 01 Brief OPERATION SKETCH FORGE, Per-Sortie Atomic Commit Discipline, MLXArray.zeros API Mismatch, FLUX.2 Klein StyleConfig Defaults (steps 20, guidance 3.5), SUPERVISOR_STATE OPERATION SKETCH FORGE, Pre-Flight Smoke Test on Starting Commit
 
-### Community 111 - "CGImage"
+### Community 116 - "Iteration 01 Brief Operation Portion Con"
 Cohesion: 0.25
 Nodes (7): GenerationMode, imageToImage, textToImage, MemoryValidation, insufficient, ok, warning
 
-### Community 112 - "SwiftVinetas x SwiftAcervo 0.16 Upgrade "
+### Community 117 - "Encoder"
 Cohesion: 0.25
-Nodes (5): EngineFeature, Bool, EngineFeature, Bool, EngineFeature
+Nodes (4): EngineFeature, Bool, EngineFeature, ModelAvailability
 
-### Community 113 - "AvailabilityAggregation"
+### Community 118 - "CharacterInitializationTests"
 Cohesion: 0.36
 Nodes (5): GlosaDiagnostic, GuionParsedElementCollection, Shot, String, ScreenplayShots
 
-### Community 114 - "Bool"
+### Community 119 - "LoRAMetadataTests"
 Cohesion: 0.25
 Nodes (4): Int, TrainingConfig, Classify, Train
 
-### Community 116 - "Iteration 01 Brief Operation Portion Con"
-Cohesion: 0.25
-Nodes (5): CGImage, GenerationRequest, GenerationResult, TimeInterval, Void
-
-### Community 117 - "Encoder"
+### Community 121 - "Clear blue sky"
 Cohesion: 0.33
-Nodes (7): VinetasClient (Public API), VinetasError, iOS Background Downloads Requirements (SwiftVinetas layer), SV-R1 Background Download Enqueue API, SV-R2 Escaping Observation Channel, SV-R5 Relaunch-Survivable Progress, VinetasDownloadProgress
+Nodes (4): AcervoTelemetryReporter, AcervoTelemetryEvent, TelemetryJSONLSink, AcervoTelemetryCLIAdapter
 
-### Community 118 - "CharacterInitializationTests"
+### Community 122 - "FeatureExtractor"
 Cohesion: 0.38
 Nodes (7): SwiftVinetas Brand Illustration Asset, Dialogue Panels with Speech and Arrows, Isolated No-Background Wooden Mannequin Holding Storyboard, Scene 4: Chase Panel, Comic Storyboard Panel Sequence, Transparent (No) Background, Articulated Wooden Artist Mannequin
 
-### Community 119 - "LoRAMetadataTests"
+### Community 123 - "Package"
 Cohesion: 0.38
 Nodes (7): Vinetas Brand Identity, Comic Panels / Vinetas (sequential frames), Dialogue / Scene Annotation (AMBIGUOUS text), Vinetas App Icon (with background), Mid-Century Retro Background Pattern, Storyboard Panel (Scene 4: Chase), Wooden Artist Mannequin (mascot figure)
 
-### Community 120 - "LoRAManagerTests"
+### Community 124 - "StyleConfigTests"
 Cohesion: 0.38
 Nodes (7): R8 Acceptance Report Manifest Migration, App Group Container EPERM in xctest, Component nil-guard Re-registration Regression, Iteration 01 Brief OPERATION MANIFEST DESTINY, Idempotent Register Still Warns on Attribute Drift, Serialize Source-Modifying Agents on Same Branch, TEST_RUNNER_ Env Var Propagation
 
-### Community 121 - "Clear blue sky"
+### Community 125 - "VisionActorManifestTests"
 Cohesion: 0.57
 Nodes (3): ResolutionClamp, Int, UInt64
 
-### Community 122 - "FeatureExtractor"
+### Community 126 - "Self"
+Cohesion: 0.33
+Nodes (4): PixArtTelemetryReporter, PixArtTelemetryEvent, TelemetryJSONLSink, PixArtTelemetryCLIAdapter
+
+### Community 127 - "String"
 Cohesion: 0.48
 Nodes (3): Bool, Shot, ShotResolver
 
-### Community 125 - "VisionActorManifestTests"
+### Community 130 - "Community 130"
 Cohesion: 0.38
 Nodes (3): ConcurrentClientTests, MockEngine, VinetasClient
 
-### Community 126 - "Self"
+### Community 131 - "Community 131"
 Cohesion: 0.33
 Nodes (6): SwiftVinetas x SwiftAcervo 0.16 Upgrade TODO, Filesystem-Discovery Anti-Pattern, Kill VinetasModelManager Facade, ModelAvailability .partial Case, VinetasClient, VinetasModelManager
 
-### Community 127 - "String"
+### Community 132 - "Community 132"
 Cohesion: 0.47
 Nodes (4): AvailabilityAggregation, Entry, ModelAvailability, String
 
-### Community 128 - "Community 128"
+### Community 133 - "Community 133"
 Cohesion: 0.33
 Nodes (6): EngineFeature, imageToImage, loraInference, loraTraining, promptUpsampling, textToImage
 
-### Community 130 - "Community 130"
+### Community 135 - "Community 135"
 Cohesion: 0.40
 Nodes (6): Bright blue sky with wispy clouds, FLUX.2 image-generation engine, Cross-engine golden reference fixture, FLUX.2 seed-42 generated image fixture (sunflower field), Deterministic generation seed 42, Sunflower field depiction
 
-### Community 131 - "Community 131"
+### Community 136 - "Community 136"
 Cohesion: 0.47
 Nodes (6): Iteration 01 Brief Operation Portion Control, MLX Memory Setters Crash on iOS Simulator, Extract Budget Arithmetic into Pure Function, SUPERVISOR_STATE OPERATION PORTION CONTROL, Test Cleanup Report OPERATION PORTION CONTROL, Device-Only Clamp Test Coverage Gap
 
-### Community 135 - "Community 135"
+### Community 137 - "Community 137"
+Cohesion: 0.40
+Nodes (3): Encoder, PixArtTelemetryEvent, PixArtEventCodable
+
+### Community 141 - "Community 141"
 Cohesion: 0.70
 Nodes (4): GenerationRequest, GenerationMode, Float, Int
 
-### Community 136 - "Community 136"
+### Community 142 - "Community 142"
 Cohesion: 0.50
 Nodes (5): Clear blue sky, PixArt seed-42 generation: sunflower field, PixArt generation engine (seed 42), Shallow depth of field / bokeh, Field of sunflowers
 
-### Community 137 - "Community 137"
+### Community 143 - "Community 143"
 Cohesion: 0.50
 Nodes (4): FeatureExtractor, ImageClassifier, withComponentAccess, withComponentAccess Sendable Return Constraint
-
-### Community 138 - "Community 138"
-Cohesion: 0.50
-Nodes (4): Package, sibling(), String, Version
 
 ## Ambiguous Edges - Review These
 - `Flux2Core (flux-2-swift-mlx)` → `VinetasPipeline (dead path)`  [AMBIGUOUS]
@@ -657,9 +684,9 @@ Nodes (4): Package, sibling(), String, Version
   assets/vinetas-icon-w-background.png · relation: references
 
 ## Knowledge Gaps
-- **623 isolated node(s):** `Package`, `String`, `Version`, `VinetasModel`, `invalidFormat` (+618 more)
+- **629 isolated node(s):** `Package`, `String`, `Version`, `VinetasModel`, `invalidFormat` (+624 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **31 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **33 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -668,12 +695,12 @@ _Questions this graph is uniquely positioned to answer:_
   _Edge tagged AMBIGUOUS (relation: references) - confidence is low._
 - **What is the exact relationship between `Storyboard Panel (Scene 4: Chase)` and `Dialogue / Scene Annotation (AMBIGUOUS text)`?**
   _Edge tagged AMBIGUOUS (relation: references) - confidence is low._
-- **Why does `Flux2Engine` connect `Flux2Engine` to `Telemetry Test Mocks`, `VinetasTelemetryEvent`, `PixArtEngine`, `Task.yield() scheduler-drain test idiom`, `VinetasClientTests`, `SwiftVinetas Brand Illustration Asset`, `Acervo Telemetry Encoding`, `TelemetryJSONLSinkSmokeTest`, `Telemetry Event Fields`, `VinetasMemory`, `SwiftVinetas x SwiftAcervo 0.16 Upgrade `, `VerificationTests`, `ImageOutputTests`, `LoRA Compatibility`, `DiffusionGenerationRequest`?**
-  _High betweenness centrality (0.088) - this node is a cross-community bridge._
-- **Why does `VinetasCLICore Library` connect `Flux2Core (flux-2-swift-mlx)` to `Encoder`, `ModelDescriptor`?**
+- **Why does `VinetasCLICore Library` connect `CGImage` to `CharacterManager`, `CLI Telemetry Bootstrap`, `ModelDescriptor`?**
+  _High betweenness centrality (0.091) - this node is a cross-community bridge._
+- **Why does `Flux2Engine` connect `Flux2Engine` to `Telemetry Test Mocks`, `VinetasTelemetryEvent`, `Vinetas Brand Identity`, `CharacterPromptTests`, `Tuberia Event Encoding`, `VinetasTelemetryEvent`, `VinetasCLICore Library`, `ContinuousClock`, `ImageOutputTests`, `VinetasErrorTests`, `EngineRouter Dispatcher`, `EngineFeature`, `Denoise-Step Telemetry`, `Community 152`, `LoRA Compatibility`, `String`?**
   _High betweenness centrality (0.079) - this node is a cross-community bridge._
-- **Why does `CLITelemetryBootstrap` connect `ModelDescriptor` to `Telemetry Test Mocks`?**
-  _High betweenness centrality (0.065) - this node is a cross-community bridge._
+- **Why does `CLITelemetryBootstrap` connect `CLI Telemetry Bootstrap` to `Telemetry Test Mocks`?**
+  _High betweenness centrality (0.072) - this node is a cross-community bridge._
 - **Are the 32 inferred relationships involving `PixArtEngine` (e.g. with `.init()` and `.routerResolvesFlux2()`) actually correct?**
   _`PixArtEngine` has 32 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 24 inferred relationships involving `Flux2Engine` (e.g. with `.init()` and `.routerResolvesFlux2()`) actually correct?**

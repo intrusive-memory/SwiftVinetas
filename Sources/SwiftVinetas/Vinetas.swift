@@ -45,7 +45,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.19.0"
+  public static let version = "0.20.0"
 
   /// Configures a CDN base URL for model downloads.
   ///
@@ -936,7 +936,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.19.0"
+  public static let version = "0.20.0"
 
   // MARK: - Generation
 
@@ -1406,8 +1406,7 @@ public enum Vinetas: Sendable {
   ///   - progress: Optional callback reporting `(currentView, totalViews)`.
   /// - Returns: Array of generated CGImages, one per requested view.
   /// - Throws: `VinetasError.generationFailed` if the character has no source photos or
-  ///           the photo cannot be loaded, `VinetasError.insufficientMemory` if system
-  ///           RAM is too low for the selected model.
+  ///           the photo cannot be loaded.
   public static func generateReferenceSheets(
     for character: Character,
     views: [ReferenceView] = ReferenceView.allCases.map { $0 },

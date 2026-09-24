@@ -86,7 +86,7 @@ internal struct ReferenceSheetGenerator: Sendable {
   ///   - model: The model descriptor to use (default: ``VinetasClient/defaultModel``).
   ///   - progress: Optional callback reporting `(currentView, totalViews)`.
   /// - Returns: Array of generated CGImages, one per requested view.
-  /// - Throws: `VinetasError.insufficientMemory`, `VinetasError.generationFailed`.
+  /// - Throws: `VinetasError.generationFailed`.
   static func generate(
     for character: Character,
     views: [ReferenceView],
@@ -97,13 +97,9 @@ internal struct ReferenceSheetGenerator: Sendable {
   ) async throws -> [CGImage] {
     guard !views.isEmpty else { return [] }
 
-    // 1. Resolve engine and validate memory
+    // 1. Resolve engine (no pre-flight memory gate — see VinetasPipeline)
     let router = VinetasClient.shared.router
     let engine = try await router.engine(for: model)
-    let memoryValidation = engine.validateMemory(for: model)
-    if case .insufficient(let required, let available) = memoryValidation {
-      throw VinetasError.insufficientMemory(required: required, available: available)
-    }
 
     // 2. Load model
     log("Loading models for reference sheet generation (\(model.displayName))...")
