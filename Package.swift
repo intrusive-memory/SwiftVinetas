@@ -51,10 +51,11 @@ let package = Package(
       url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.25.0")),
 
     // Componentized diffusion pipeline (protocols + infrastructure).
-    // Floored at 0.7.9 (PixArt iOS OOM fix — phased text-encoder unload, REQ-MEM-01;
-    // mlx-swift pinned .exact("0.31.3")).
+    // Floored at 0.9.0: removes the DiffusionPipeline.loadModels pre-flight memory
+    // gate (the downstream half of the SwiftVinetas gate removal). 0.8.0 and
+    // earlier still refuse loads that would have succeeded.
     .package(
-      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.8.0")),
+      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.9.0")),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe).
     // Floored at 0.8.1: 0.8.0 landed the seam-free tiled VAE decode (#45/#83) —

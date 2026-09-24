@@ -255,7 +255,7 @@ SwiftVinetas/
 
 - **Pre-flight memory gate removed** — `VinetasPipeline` and `ReferenceSheetGenerator` no longer throw `insufficientMemory` based on total physical RAM vs. `minimumMemoryGB`; allocation failures surface from the load/generate path instead. `VinetasMemory.validate` and the `validateMemory(for:)` entry points remain advisory; `CharacterTrainer` still validates before training.
 - **Acervo env-var help** — `vinetas --help` interpolates `Acervo.environmentHelp()` (SwiftAcervo 0.25.0) so `ACERVO_MODELS_DIR` / `ACERVO_APP_GROUP_ID` are documented in one place.
-- **Dependency floor** — SwiftTuberia floored at 0.8.0.
+- **Dependency floor** — SwiftTuberia floored at 0.9.0 (removes the matching load-time memory gate in `DiffusionPipeline.loadModels`).
 - **Release workflow** — dead Homebrew `formula-update` dispatch removed from `release.yml`; the tap reconciles formulas on its own schedule.
 
 ### v0.10.1
