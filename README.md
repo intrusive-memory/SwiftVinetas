@@ -1,6 +1,6 @@
 ---
 type: doc
-updated: 2026-07-28
+updated: 2026-09-23
 ---
 
 # SwiftVinetas
@@ -39,7 +39,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.19.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.20.0")
 ]
 ```
 
@@ -188,6 +188,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.20.0** — Pre-flight memory gate removed + Acervo env-var help: `VinetasPipeline` (`generatePanel`, `generatePanelWithCharacter`, `generateSequence`, `generateFromPromptFile`) and `ReferenceSheetGenerator.generate` no longer refuse to run when total physical RAM is below the model's static `minimumMemoryGB`; that comparison never predicted whether a given generation would fit and blocked runs that succeed. Generation proceeds unconditionally and real allocation failures surface from the load/generate path. `VinetasMemory.validate`, `VinetasClient.validateMemory(for:)`, and `Vinetas.validateMemory(for:)` remain as advisory APIs, and `CharacterTrainer` still validates before training. `vinetas --help` now interpolates SwiftAcervo's `Acervo.environmentHelp()` so `ACERVO_MODELS_DIR` / `ACERVO_APP_GROUP_ID` are discoverable. Floors SwiftTuberia at 0.8.0. The dead Homebrew `formula-update` dispatch is removed from `release.yml` (the tap now reconciles on its own cron).
 
 **v0.19.0** — Storyboard command + Pro entitlement gate: new `vinetas storyboard` turns a screenplay (`.fountain` / `.highland` / `.fdx`) into a panel sequence by resolving the GLOSA `<shot>` directives embedded in it, via glosa-av's `GlosaCore` and SwiftCompartido's screenplay parser. Character definitions gain storyboard-facing metadata so an actor stays consistent across panels. FLUX.2 backends are now gated behind a verified App Store Pro entitlement — the stored `Transaction.jwsRepresentation` is validated as an Apple-signed JWS against a pinned Apple root using swift-certificates/swift-crypto. Drops the unused `estimatedSecondsPerImage` field from `ModelDescriptor` and the engines (breaking for anyone reading it), and corrects the FLUX.2 Klein default step count from 20 to 8. Adds `ScreenplayShotsTests`, `ShotResolverTests`, `StoryboardPlanTests`, and `ProGateTests`.
 
