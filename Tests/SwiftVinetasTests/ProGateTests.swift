@@ -23,10 +23,9 @@ import X509
 @Suite("ProGate — which models need the unlock")
 struct ProGateModelTests {
 
-  @Test("FLUX.2 models require Pro")
+  @Test("FLUX.2 Klein 4B requires Pro")
   func fluxRequiresPro() {
     #expect(ProGate.requiresPro(.klein4b))
-    #expect(ProGate.requiresPro(.klein9b))
   }
 
   @Test("PixArt is free")

@@ -178,8 +178,8 @@ struct EngineRouterTests {
     let pixart = PixArtEngine()
     let router = EngineRouter(engines: [flux2, pixart])
     let models = await router.allModels
-    // Flux2 has 2 models (klein4B, klein9B), PixArt has 1 (sigmaXL)
-    #expect(models.count == 3)
+    // Flux2 has 1 model (klein4B), PixArt has 1 (sigmaXL)
+    #expect(models.count == 2)
 
     // Verify models are sorted by displayName
     let names = models.map { $0.displayName }

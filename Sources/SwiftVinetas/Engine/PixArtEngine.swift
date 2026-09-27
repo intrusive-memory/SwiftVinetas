@@ -163,9 +163,19 @@ public actor PixArtEngine: ImageGenerationEngine {
       return true
     case .loraInference:
       return true
+    case .negativePrompt:
+      // `translateRequest` forwards `request.negativePrompt` into
+      // `DiffusionGenerationRequest`, which Tuberia encodes as the CFG
+      // unconditional text.
+      return true
     case .imageToImage, .loraTraining, .promptUpsampling:
       return false
     }
+  }
+
+  /// PixArt has no image-to-image path: always `0`.
+  public nonisolated func maxReferenceImages(for model: any ModelDescriptor) -> Int {
+    0
   }
 
   // MARK: - Lifecycle

@@ -68,10 +68,9 @@ After downloading and successfully generating with `klein4b`, `vinetas list` sho
 
 ```
 FLUX.2 Klein 4B  320 bytes  -  cached
-FLUX.2 Klein 9B  Not downloaded  -  cached
 ```
 
-Klein 4B reports `320 bytes` (a multi-GB model). Klein 9B shows `"Not downloaded"` in the Size column while Status correctly says `cached`.
+Klein 4B reports `320 bytes` (a multi-GB model). When the size cannot be measured at all, a cached model shows `"Not downloaded"` in the Size column while Status correctly says `cached`.
 
 ### Root Cause
 

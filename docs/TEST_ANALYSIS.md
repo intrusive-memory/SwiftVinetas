@@ -43,7 +43,7 @@ Unlike the sibling Vinetas repo, coverage **works here**, so Pass 3 has real num
 
 ### False positive, recorded so it is not re-flagged
 
-`CLIArgumentTests.swift:35` and `:83` share the title *"--model klein9b sets model to klein9b"*, but they live in different suites and parse different subcommands (`Generate` vs `Batch`). Legitimate; only the display title is ambiguous.
+`CLIArgumentTests.swift:35` and `:83` share the title *"--model pixart-sigma sets model to pixart-sigma"*, but they live in different suites and parse different subcommands (`Generate` vs `Batch`). Legitimate; only the display title is ambiguous.
 
 ---
 

@@ -109,7 +109,6 @@ protocol ModelDescriptor: Sendable, Identifiable where ID == String {
 |---|---|---|
 | `PixArtModelDescriptor.sigmaXL` | `["pixart-sigma-xl-dit-int4", "t5-xxl-encoder-int4", "sdxl-vae-decoder-fp16"]` | PixArtEngine |
 | `Flux2ModelDescriptor.klein4B` | `[]` (default — uses Flux2Pipeline's own download) | Flux2Engine |
-| `Flux2ModelDescriptor.klein9B` | `[]` | Flux2Engine |
 
 ---
 

@@ -146,6 +146,7 @@ struct PixArtEngineTests {
   func doesNotSupportPromptUpsampling() {
     let engine = PixArtEngine()
     #expect(engine.supports(.promptUpsampling) == false)
+    #expect(engine.supports(.negativePrompt) == true)
   }
 
   // MARK: - Availability and Memory

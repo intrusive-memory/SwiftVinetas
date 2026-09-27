@@ -2,13 +2,19 @@ import ArgumentParser
 import CoreGraphics
 import Foundation
 import ImageIO
+import SwiftAcervo
 import SwiftVinetas
 
 // MARK: - Helpers
 
+/// Write one line of diagnostics to ``CLIEnvironment/stderrDescriptor``
+/// (stderr in production).
+///
+/// Uses a raw `write(2)` loop rather than `FileHandle.standardError.write(_:)`,
+/// which raises an uncatchable Objective-C exception on any write error (a
+/// closed stderr, `EPIPE`, …). A diagnostic line is never worth a crash.
 func stderrPrint(_ message: String) {
-  let data = (message + "\n").data(using: .utf8) ?? Data()
-  FileHandle.standardError.write(data)
+  writeAll(Data((message + "\n").utf8), to: CLIEnvironment.stderrDescriptor)
 }
 
 /// Load a CGImage from a file path using ImageIO.
@@ -16,6 +22,19 @@ func loadCGImage(from path: String) -> CGImage? {
   let url = URL(fileURLWithPath: path)
   guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
   return CGImageSourceCreateImageAtIndex(source, 0, nil)
+}
+
+/// One `note: ...` line per reference whose engine-side conditioning size
+/// (``ReferenceImage/effectiveSize``) differs from what was decoded
+/// (``ReferenceImage/originalSize``). Pure and synchronous so it's testable
+/// without touching stdio; `Generate.run()` just prints whatever it returns.
+func downscaleNoteLines(for references: [ReferenceImage]) -> [String] {
+  references.enumerated().compactMap { index, reference in
+    guard reference.originalSize != reference.effectiveSize else { return nil }
+    return "note: reference \(index + 1) (\(reference.source)) downscaled "
+      + "\(reference.originalSize.width)×\(reference.originalSize.height) → "
+      + "\(reference.effectiveSize.width)×\(reference.effectiveSize.height)"
+  }
 }
 
 // MARK: - Generate a single panel
@@ -33,12 +52,15 @@ public struct Generate: AsyncParsableCommand {
   @Option(name: .shortAndLong, help: "Style prompt for consistent look (e.g., 'noir comic').")
   public var style: String?
 
-  @Option(name: .shortAndLong, help: "Output file path.")
+  @Option(
+    name: .shortAndLong,
+    help: "Output PNG path, or - to write the PNG (with embedded metadata, no sidecar) to stdout."
+  )
   public var output: String = "panel.png"
 
   @Option(
     name: .long,
-    help: "Model variant: klein4b (default, fast), klein9b (quality), or pixart-sigma."
+    help: "Model variant: klein4b (default) or pixart-sigma."
   )
   public var model: String = "klein4b"
 
@@ -72,6 +94,12 @@ public struct Generate: AsyncParsableCommand {
 
   @Flag(name: .long, help: "Fast preview mode (4 steps, 512x512, Klein 4B).")
   public var preview: Bool = false
+
+  @Option(
+    name: [.customShort("r"), .customLong("reference")],
+    help: "Reference (conditioning) image path, or - to read one from stdin. Repeatable, 1-3."
+  )
+  public var references: [String] = []
 
   @Flag(
     name: .long,
@@ -116,7 +144,19 @@ public struct Generate: AsyncParsableCommand {
   )
   public var telemetry: Bool = false
 
+  public mutating func validate() throws {
+    let stdinReferenceCount = references.filter { $0 == "-" }.count
+    guard stdinReferenceCount <= 1 else {
+      throw ValidationError("only one --reference may read from stdin")
+    }
+  }
+
   public func run() async throws {
+    // `-o -` streams the PNG to stdout. Guard fd 1 before anything else runs
+    // so library `print(` output lands on stderr, never in the PNG stream.
+    if output == "-" { StdoutGuard.begin() }
+    defer { if output == "-" { StdoutGuard.end() } }
+
     let bootstrap: CLITelemetryBootstrap? =
       telemetry ? try await CLITelemetryBootstrap.enable(mode: .full) : nil
     defer { Task { await bootstrap?.finish() } }
@@ -140,6 +180,28 @@ public struct Generate: AsyncParsableCommand {
     // recommended guidance (4.5) and steps don't get overridden by FLUX-tuned
     // defaults. User-supplied --steps / --guidance still take precedence.
     let descriptor = vinetasModel.descriptor
+
+    // Load and validate reference images BEFORE any download or engine call
+    // (RI-1 – RI-5): a bad path, an unsupported engine, or too many
+    // references all fail fast, with no download and no model load.
+    var loadedReferences: [ReferenceImage] = []
+    for reference in references {
+      if reference == "-" {
+        let data = CLIEnvironment.stdinReferenceData()
+        loadedReferences.append(try ReferenceImage.load(data: data, source: .stdin))
+      } else {
+        loadedReferences.append(try ReferenceImage.load(path: reference))
+      }
+    }
+    if !loadedReferences.isEmpty {
+      let engine = try await CLIEnvironment.client.router.engine(for: descriptor)
+      try ReferenceValidator.validate(
+        referenceCount: loadedReferences.count, engine: engine, model: descriptor)
+    }
+    for line in downscaleNoteLines(for: loadedReferences) {
+      stderrPrint(line)
+    }
+
     var styleConfig = StyleConfig(
       steps: descriptor.defaultSteps,
       guidanceScale: descriptor.defaultGuidance
@@ -172,52 +234,42 @@ public struct Generate: AsyncParsableCommand {
       styleConfig.height = 512
     }
 
-    let outputURL = URL(fileURLWithPath: output)
-
     stderrPrint("[vinetas] Generating panel...")
     stderrPrint("[vinetas] Model: \(vinetasModel.rawValue)")
     stderrPrint("[vinetas] Dimensions: \(styleConfig.width)x\(styleConfig.height)")
     stderrPrint("[vinetas] Steps: \(styleConfig.steps)")
 
     // Download model if not already cached (zero-config first run)
-    stderrPrint("[vinetas] Checking model cache...")
-    try await Vinetas.download(model: vinetasModel) { progress in
-      stderrPrint(
-        "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+    if !CLIEnvironment.skipDownload {
+      stderrPrint("[vinetas] Checking model cache...")
+      try await Vinetas.download(model: vinetasModel) { progress in
+        stderrPrint(
+          "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+      }
     }
 
-    let image: CGImage
-    if preview {
-      image = try await Vinetas.preview(prompt: prompt)
-    } else {
-      image = try await Vinetas.generate(prompt: prompt, style: styleConfig, model: vinetasModel)
+    // --preview goes through the same PanelRequest path (its Klein 4B /
+    // 4-step / 512×512 overrides are already applied to styleConfig above), so
+    // it records real provenance metadata like any other panel.
+    let panel = try await CLIEnvironment.client.generate(
+      PanelRequest(
+        prompt: prompt, style: styleConfig, model: descriptor, references: loadedReferences))
+
+    if negative != nil, panel.metadata.negativeApplied == false {
+      let engineName = panel.metadata.engine ?? descriptor.engineID
+      stderrPrint("warning: \(engineName) does not apply negative prompts; --negative ignored")
     }
 
-    try ImageOutput.writePNG(image: image, to: outputURL)
+    if output == "-" {
+      // Embedded metadata only: no sidecar, and no file named "-".
+      try StdoutGuard.write(ImageOutput.pngData(image: panel.image, metadata: panel.metadata))
+      stderrPrint("[vinetas] Done. Output: stdout")
+      return
+    }
 
-    // Write metadata sidecar
-    let isoFormatter = ISO8601DateFormatter()
-    isoFormatter.formatOptions = [.withInternetDateTime]
-    let meta = ImageOutput.PanelMetadata(
-      prompt: prompt,
-      model: vinetasModel.rawValue,
-      seed: styleConfig.seed ?? 0,
-      steps: styleConfig.steps,
-      guidance: styleConfig.guidanceScale,
-      width: styleConfig.width,
-      height: styleConfig.height,
-      durationSeconds: 0,
-      loras: styleConfig.loraPath.map {
-        [ImageOutput.LoRAEntry(path: $0, scale: styleConfig.loraScale ?? 1.0)]
-      },
-      generatedAt: isoFormatter.string(from: Date())
-    )
+    let outputURL = URL(fileURLWithPath: output)
+    try ImageOutput.writePanel(image: panel.image, metadata: panel.metadata, to: outputURL)
     let sidecarURL = outputURL.deletingPathExtension().appendingPathExtension("json")
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-    let metaData = try encoder.encode(meta)
-    try metaData.write(to: sidecarURL, options: .atomic)
-
     stderrPrint("[vinetas] Done. Output: \(outputURL.path)")
     stderrPrint("[vinetas] Metadata: \(sidecarURL.path)")
   }
@@ -240,7 +292,7 @@ public struct Batch: AsyncParsableCommand {
 
   @Option(
     name: .long,
-    help: "Model variant: klein4b (default), klein9b, or pixart-sigma."
+    help: "Model variant: klein4b (default) or pixart-sigma."
   )
   public var model: String = "klein4b"
 
@@ -311,36 +363,68 @@ public struct Batch: AsyncParsableCommand {
     }
 
     // Download model if not cached (zero-config first run)
-    stderrPrint("[vinetas] Checking model cache...")
-    try await Vinetas.download(model: vinetasModel) { progress in
-      stderrPrint(
-        "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+    if !CLIEnvironment.skipDownload {
+      stderrPrint("[vinetas] Checking model cache...")
+      try await Vinetas.download(model: vinetasModel) { progress in
+        stderrPrint(
+          "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+      }
     }
 
-    let outputs = try await Vinetas.generateFromFile(
-      promptURL,
-      model: vinetasModel,
+    let panels = try await Self.generatePanels(
+      from: promptURL,
+      descriptor: vinetasModel.descriptor,
+      client: CLIEnvironment.client,
       progress: { current, total in
         stderrPrint("[vinetas] Panel \(current)/\(total)...")
-      },
-      stepProgress: { currentStep, totalSteps, elapsed in
-        stderrPrint(
-          "[vinetas] Step \(currentStep)/\(totalSteps), elapsed: \(String(format: "%.1f", elapsed))s"
-        )
       }
     )
 
-    for (index, output) in outputs.enumerated() {
+    for (index, panel) in panels.enumerated() {
       let panelNumber = index + 1
       let filename = String(format: "panel-%03d.png", panelNumber)
       let panelURL = outputDirURL.appendingPathComponent(filename)
-      let style = StyleConfig(width: output.width, height: output.height)
-      try ImageOutput.writePanel(output, to: panelURL, style: style)
-      stderrPrint("[vinetas] Wrote \(filename) (seed: \(output.seed))")
+      try ImageOutput.writePanel(image: panel.image, metadata: panel.metadata, to: panelURL)
+      stderrPrint("[vinetas] Wrote \(filename) (seed: \(panel.metadata.seed))")
     }
 
     stderrPrint(
-      "[vinetas] Batch complete. \(outputs.count) panel(s) written to \(outputDirURL.path)")
+      "[vinetas] Batch complete. \(panels.count) panel(s) written to \(outputDirURL.path)")
+  }
+
+  /// Generate every panel of a YAML prompt file through `client`.
+  ///
+  /// Mirrors the deprecated static prompt-file loop (project style as
+  /// defaults with per-panel overrides, seed resolved up front so the recorded
+  /// seed is accurate) but dispatches through the injected client and never
+  /// downloads — `run()` owns the download. Uses
+  /// ``VinetasClient/generate(_:)`` (rather than the plain-`CGImage`
+  /// overload) so each returned ``GeneratedPanel/metadata`` records exactly
+  /// what was used for that item (RI-13): actual seed, steps, guidance, etc.
+  static func generatePanels(
+    from url: URL,
+    descriptor: any ModelDescriptor,
+    client: VinetasClient,
+    progress: (Int, Int) -> Void
+  ) async throws -> [GeneratedPanel] {
+    let promptFile = try PromptFile.parse(url: url)
+    let total = promptFile.panels.count
+    var outputs: [GeneratedPanel] = []
+    outputs.reserveCapacity(total)
+
+    for index in 0..<total {
+      progress(index + 1, total)
+
+      let panel = promptFile.panels[index]
+      var panelStyle = promptFile.resolvedStyle(for: index)
+      let resolvedSeed = panelStyle.seed ?? UInt64.random(in: 0...UInt64.max)
+      panelStyle.seed = resolvedSeed
+
+      let generated = try await client.generate(
+        PanelRequest(prompt: panel.prompt, style: panelStyle, model: descriptor))
+      outputs.append(generated)
+    }
+    return outputs
   }
 }
 
@@ -355,7 +439,7 @@ public struct Download: AsyncParsableCommand {
 
   @Option(
     name: .shortAndLong,
-    help: "Model to download: klein4b, klein9b, or pixart-sigma."
+    help: "Model to download: klein4b or pixart-sigma."
   )
   public var model: String = "klein4b"
 
@@ -464,11 +548,36 @@ public struct Info: AsyncParsableCommand {
 
   @Option(
     name: .shortAndLong,
-    help: "Model variant: klein4b, klein9b, or pixart-sigma."
+    help: "Model variant: klein4b or pixart-sigma."
   )
   public var model: String = "klein4b"
 
+  @Flag(
+    name: .long,
+    help: ArgumentHelp(
+      "Print the absolute path of the CLI's I/O staging directory and exit.",
+      discussion: """
+        Resolves `<App Group container>/vinetas-io/` — a sibling of Acervo's
+        `SharedModels` cache inside the same App Group container, not the
+        models directory itself — creates it if it doesn't already exist, and
+        prints only that absolute path to stdout. The rest of `info`'s output
+        is skipped.
+
+        The signed CLI has no Downloads-folder entitlement, so this directory
+        is the sandbox-safe place to stage reference images and generated
+        panels when a stream (`-r -` / `-o -`) isn't a better fit. See
+        README.md § "Reference images and streams".
+        """
+    )
+  )
+  public var printIODir: Bool = false
+
   public func run() async throws {
+    if printIODir {
+      print(try Self.resolveIODirectory().path)
+      return
+    }
+
     let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
 
     print("Model:              \(vinetasModel.rawValue)")
@@ -485,6 +594,36 @@ public struct Info: AsyncParsableCommand {
         : "Not downloaded"
       print("Cache Status:       \(cacheStatus)")
     }
+  }
+
+  /// The name of the CLI's staging subdirectory, a sibling of Acervo's
+  /// `SharedModels` cache inside the App Group container.
+  static let ioDirectoryName = "vinetas-io"
+
+  /// Resolves and creates `<App Group container>/vinetas-io/`.
+  ///
+  /// `Acervo.resolvedSharedModelsDirectory` (when configured) is the
+  /// container's `SharedModels` subdirectory
+  /// (`Acervo+PathResolution.swift:153, 249-251`); this walks up one level to
+  /// the container **root** — the directory the App Group itself resolves
+  /// to — so `vinetas-io` sits alongside `SharedModels` rather than inside
+  /// it. Factored out from `run()` so tests can assert on the computed path
+  /// without touching stdio.
+  ///
+  /// - Throws: `ValidationError` if no App Group / override is configured
+  ///   (see `Acervo.environmentHelp()`), or any `FileManager` directory
+  ///   creation error.
+  static func resolveIODirectory(fileManager: FileManager = .default) throws -> URL {
+    guard let sharedModelsDirectory = Acervo.resolvedSharedModelsDirectory else {
+      throw ValidationError(
+        "Could not resolve the App Group container. Configure ACERVO_APP_GROUP_ID "
+          + "or ACERVO_MODELS_DIR — see `vinetas --help` for details."
+      )
+    }
+    let containerRoot = sharedModelsDirectory.deletingLastPathComponent()
+    let ioDirectory = containerRoot.appendingPathComponent(ioDirectoryName, isDirectory: true)
+    try fileManager.createDirectory(at: ioDirectory, withIntermediateDirectories: true)
+    return ioDirectory
   }
 }
 
@@ -761,16 +900,39 @@ public struct CharacterCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Comma-separated views to generate: front,left,right,back.")
     public var views: String = "front,left,right,back"
 
-    @Option(name: .long, help: "Img2img deviation strength (0.0-1.0).")
-    public var strength: Float = 0.65
+    @Option(
+      name: .long,
+      help: ArgumentHelp(
+        "Deprecated: img2img deviation strength. FLUX.2 reference conditioning has no "
+          + "strength control, so this has no effect and will be removed in the next minor release."
+      )
+    )
+    public var strength: Float?
 
-    @Option(name: .long, help: "Model variant: klein4b (default) or klein9b.")
+    @Option(name: .long, help: "Model variant: klein4b (default).")
     public var model: String = "klein4b"
 
     public func run() async throws {
-      let character = try Vinetas.loadCharacter(slug: slug)
-      let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
+      guard let vinetasModel = VinetasModel(rawValue: model) else {
+        throw ValidationError("Unknown model '\(model)'. Valid: klein4b")
+      }
+
+      if strength != nil {
+        stderrPrint(
+          "warning: --strength has no effect and will be removed in the next minor release")
+      }
+
       try await ProGate.requireAccess(to: vinetasModel)
+
+      // Resolve the engine and validate the reference count (character
+      // reference sheets always pass exactly one) BEFORE any download or
+      // model load (RI-5, RI-8): `--model pixart-sigma` fails here, since
+      // PixArt accepts no reference images.
+      let descriptor = vinetasModel.descriptor
+      let engine = try await CLIEnvironment.client.router.engine(for: descriptor)
+      try ReferenceValidator.validate(referenceCount: 1, engine: engine, model: descriptor)
+
+      let character = try Vinetas.loadCharacter(slug: slug)
 
       let viewNames = views.split(separator: ",").map {
         String($0).trimmingCharacters(in: .whitespaces)
@@ -786,21 +948,23 @@ public struct CharacterCommand: AsyncParsableCommand {
 
       stderrPrint("[vinetas] Generating reference sheets for '\(character.name)'...")
       stderrPrint("[vinetas] Views: \(referenceViews.map(\.rawValue).joined(separator: ", "))")
-      stderrPrint("[vinetas] Strength: \(strength)")
       stderrPrint("[vinetas] Model: \(vinetasModel.rawValue)")
 
       // Download model if not cached
-      stderrPrint("[vinetas] Checking model cache...")
-      try await Vinetas.download(model: vinetasModel) { progress in
-        stderrPrint(
-          "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+      if !CLIEnvironment.skipDownload {
+        stderrPrint("[vinetas] Checking model cache...")
+        try await CLIEnvironment.downloadModel(vinetasModel) { progress in
+          stderrPrint(
+            "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+        }
       }
 
-      let images = try await Vinetas.generateReferenceSheets(
+      // `strength` is not forwarded: FLUX.2 reference conditioning has no
+      // strength control (the library's `strength:` overload ignores it).
+      let images = try await CLIEnvironment.client.generateReferenceSheets(
         for: character,
         views: referenceViews,
-        strength: strength,
-        model: vinetasModel,
+        model: descriptor,
         progress: { current, total in
           stderrPrint("[vinetas] Reference \(current)/\(total)...")
         }
@@ -862,7 +1026,7 @@ public struct CharacterCommand: AsyncParsableCommand {
     @Option(name: .long, help: "LoRA rank (8-64).")
     public var rank: Int = 48
 
-    @Option(name: .long, help: "Model variant: klein4b (default) or klein9b.")
+    @Option(name: .long, help: "Model variant: klein4b (default).")
     public var model: String = "klein4b"
 
     public func run() async throws {

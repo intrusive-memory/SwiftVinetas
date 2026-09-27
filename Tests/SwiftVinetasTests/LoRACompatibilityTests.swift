@@ -86,8 +86,8 @@ struct LoRAYAMLMigrationTests {
     #expect(character.lora?.compatibleEngines == ["flux2"])
   }
 
-  @Test("Legacy model field klein9b migrates to compatibleEngines flux2")
-  func klein9bMigratestoFlux2() throws {
+  @Test("Legacy model field without the klein prefix records no engine restriction")
+  func nonKleinLegacyModelHasNoRestriction() throws {
     let yaml = """
       name: Vale
       slug: vale
@@ -99,10 +99,10 @@ struct LoRAYAMLMigrationTests {
         path: lora/vale-v1.safetensors
         scale: 0.8
         version: 1
-        model: klein9b
+        model: pixart-sigma
       """
     let character = try Character.from(yaml: yaml)
-    #expect(character.lora?.compatibleEngines == ["flux2"])
+    #expect(character.lora?.compatibleEngines == [])
   }
 
   @Test("Modern YAML with compatible_engines field parsed correctly")

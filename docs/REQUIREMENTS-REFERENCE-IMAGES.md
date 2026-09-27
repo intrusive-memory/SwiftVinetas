@@ -47,9 +47,9 @@ from `generate` uses it.
     its own time coordinate (:1353-1409, `encodeReferenceImages` :2172-2297).
     **There is no strength/denoise parameter** (Flux2App says so explicitly:
     `Sources/Flux2App/Views/ImageToImageView.swift:240`).
-  - It works the same way for Klein 4B, Klein 9B and Dev. There are GPU tests
-    and examples for Klein 4B/9B (`Tests/Flux2GPUTests/Flux2CoreGPUTests.swift:270-291`;
-    `docs/examples/flux2-klein-{4b,9b}/README.md`).
+  - It works the same way for every upstream Klein variant and Dev. There are
+    GPU tests and examples for Klein 4B (`Tests/Flux2GPUTests/Flux2CoreGPUTests.swift:270-291`;
+    `docs/examples/flux2-klein-4b/README.md`).
   - The public API enforces **1–3 references** (`Flux2Pipeline.swift:838, 962`).
     Model metadata says Klein can take 4 and Dev 6 (`Flux2Config.swift:165-170`).
     There's a device-tier cap (16 GB iPad = 2, 8 GB = 1; `Flux2Config.swift:178-191`),

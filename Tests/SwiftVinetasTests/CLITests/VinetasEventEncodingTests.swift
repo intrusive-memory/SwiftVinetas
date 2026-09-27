@@ -234,7 +234,7 @@ struct VinetasEventEncodingTests {
   func testMemoryValidationResultMarginal() throws {
     let dict = try roundTrip(
       .memoryValidationResult(
-        modelID: "klein9b", engineID: "flux2",
+        modelID: "klein4b", engineID: "flux2",
         verdict: .warningMarginal, requiredMB: 14000.0, availableMB: 15000.0
       )
     )

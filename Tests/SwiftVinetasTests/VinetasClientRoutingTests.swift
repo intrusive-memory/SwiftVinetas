@@ -162,11 +162,10 @@ struct VinetasClientRoutingTests {
     let client = VinetasClient(router: router)
     let models = await client.listModels()
 
-    #expect(models.count >= 3)
+    #expect(models.count >= 2)
 
     let names = models.map(\.name)
     #expect(names.contains(Flux2ModelDescriptor.klein4B.displayName))
-    #expect(names.contains(Flux2ModelDescriptor.klein9B.displayName))
     #expect(names.contains(PixArtModelDescriptor.sigmaXL.displayName))
   }
 
@@ -199,15 +198,6 @@ struct VinetasClientRoutingTests {
     let router = EngineRouter(engines: [Flux2Engine()])
     let client = VinetasClient(router: router)
     let model: any ModelDescriptor = Flux2ModelDescriptor.klein4B
-    let available = try await client.isAvailable(model)
-    #expect(type(of: available) == Bool.self)
-  }
-
-  @Test("isAvailable accepts any ModelDescriptor (Flux2 klein9B)")
-  func isAvailableAcceptsModelDescriptorKlein9B() async throws {
-    let router = EngineRouter(engines: [Flux2Engine()])
-    let client = VinetasClient(router: router)
-    let model: any ModelDescriptor = Flux2ModelDescriptor.klein9B
     let available = try await client.isAvailable(model)
     #expect(type(of: available) == Bool.self)
   }

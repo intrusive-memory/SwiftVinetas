@@ -44,6 +44,33 @@ internal struct VinetasLoRAManager: Sendable {
     await engine.unloadLoRA()
   }
 
+  /// Load a LoRA if configured in a `StyleConfig`, via the engine abstraction.
+  ///
+  /// If the style has a `loraPath`, this loads the corresponding adapter onto
+  /// the engine via ``ImageGenerationEngine/loadLoRA(at:scale:)``. Otherwise,
+  /// this is a no-op.
+  ///
+  /// - Parameters:
+  ///   - style: The style configuration to inspect for LoRA settings.
+  ///   - engine: The engine to load onto.
+  /// - Returns: An `ImageOutput.LoRAEntry` describing the applied adapter
+  ///   (with the same clamped scale that was passed to the engine), or `nil`
+  ///   if no LoRA was configured.
+  /// - Throws: Whatever `engine.loadLoRA(at:scale:)` throws (e.g.
+  ///   `VinetasError.modelNotFound` if the safetensors file does not exist).
+  @discardableResult
+  static func loadIfConfigured(
+    style: StyleConfig,
+    on engine: any ImageGenerationEngine
+  ) async throws -> ImageOutput.LoRAEntry? {
+    guard let loraPath = style.loraPath else {
+      return nil
+    }
+    let clampedScale = min(max(style.loraScale ?? 1.0, 0.0), 1.0)
+    try await load(path: loraPath, scale: clampedScale, on: engine)
+    return ImageOutput.LoRAEntry(path: loraPath, scale: clampedScale)
+  }
+
   // MARK: - Legacy Flux2Pipeline-based API (preserved for VinetasPipeline.swift)
 
   /// Load a LoRA adapter from a safetensors file onto the pipeline.

@@ -1,5 +1,4 @@
 import ArgumentParser
-import CoreGraphics
 import Foundation
 import GlosaCore
 import SwiftVinetas
@@ -28,7 +27,7 @@ public struct Storyboard: AsyncParsableCommand {
   @Option(
     name: .long,
     help:
-      "Fleet default model for shots that declare none: klein4b (default), klein9b, or pixart-sigma."
+      "Fleet default model for shots that declare none: klein4b (default) or pixart-sigma."
   )
   public var model: String = "klein4b"
 
@@ -106,7 +105,7 @@ public struct Storyboard: AsyncParsableCommand {
     for needed in neededModels {
       try await ProGate.requireAccess(to: needed)
     }
-    for needed in neededModels {
+    for needed in neededModels where !CLIEnvironment.skipDownload {
       stderrPrint("[vinetas] Checking model cache: \(needed.rawValue)...")
       try await Vinetas.download(model: needed) { progress in
         stderrPrint(
@@ -125,14 +124,15 @@ public struct Storyboard: AsyncParsableCommand {
         "[vinetas] Panel \(item.panelNumber)/\(plan.count) (\(item.model.rawValue)) → \(panelURL.lastPathComponent)"
       )
       do {
-        let image: CGImage
-        if item.usePreview {
-          image = try await Vinetas.preview(prompt: item.prompt)
-        } else {
-          image = try await Vinetas.generate(
-            prompt: item.prompt, style: item.style, model: item.model)
-        }
-        try ImageOutput.writePNG(image: image, to: panelURL)
+        // Always through the PanelRequest path — including preview panels,
+        // whose steps/width/height overrides are already folded into
+        // `item.style` by `resolvePlan` — so `writePanel` records what this
+        // panel actually used (RI-13). `VinetasClient.preview(prompt:)` would
+        // skip that: it returns a bare `CGImage` with no metadata.
+        let generated = try await CLIEnvironment.client.generate(
+          PanelRequest(prompt: item.prompt, style: item.style, model: item.model.descriptor))
+        try ImageOutput.writePanel(
+          image: generated.image, metadata: generated.metadata, to: panelURL)
         stderrPrint("[vinetas] Wrote \(panelURL.lastPathComponent)")
         succeeded += 1
       } catch {

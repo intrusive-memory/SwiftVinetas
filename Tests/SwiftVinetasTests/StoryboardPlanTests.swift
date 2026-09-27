@@ -69,8 +69,8 @@ struct StoryboardPlanTests {
   @Test("A shot's own model wins over the fleet default")
   func shotModelWins() {
     let plan = makeCommand().resolvePlan(
-      for: shot(model: "klein9b"), panelNumber: 1, fleetModel: .pixartSigma)
-    #expect(plan.model == .klein9b)
+      for: shot(model: "klein4b"), panelNumber: 1, fleetModel: .pixartSigma)
+    #expect(plan.model == .klein4b)
   }
 
   @Test("An unrecognised model falls back to the fleet default rather than aborting")

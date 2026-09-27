@@ -262,16 +262,13 @@ struct CLITelemetryBootstrapTests {
 
     let bootstrap = try await CLITelemetryBootstrap.enable(traceURL: url, mode: .partial)
 
-    // Capture stderr.
+    // Capture CLI stderr through the CLIEnvironment seam. Never dup2 over
+    // fd 2 in-process: it races other suites' FileHandle.standardError writes
+    // into an EBADF crash (see StdioCapture).
     let pipe = Pipe()
-    let savedStderr = dup(fileno(stderr))
-    dup2(pipe.fileHandleForWriting.fileDescriptor, fileno(stderr))
-
-    await bootstrap.finish()
-
-    fflush(stderr)
-    dup2(savedStderr, fileno(stderr))
-    close(savedStderr)
+    await CLIEnvironment.$stderrDescriptor.withValue(pipe.fileHandleForWriting.fileDescriptor) {
+      await bootstrap.finish()
+    }
     try? pipe.fileHandleForWriting.close()
 
     let capturedData = try pipe.fileHandleForReading.readToEnd() ?? Data()

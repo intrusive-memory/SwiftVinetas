@@ -17,7 +17,7 @@ Two deprecated symbols remain in production use:
 - `enum Vinetas` — `@available(*, deprecated, message: "Use VinetasClient.shared instead")`
   (`Vinetas.swift:939`). A stateless static façade over `VinetasClient.shared`.
 - `enum VinetasModel` — `@available(*, deprecated, message: "Use ModelDescriptor types directly (e.g., VinetasClient.klein4B)")`
-  (`Vinetas.swift:1564`). A `String`-raw enum (`klein4b`/`klein9b`/`pixart-sigma`)
+  (`Vinetas.swift:1564`). A `String`-raw enum (`klein4b`/`pixart-sigma`)
   with a `.descriptor` bridge to `any ModelDescriptor`.
 
 **Target:** no production code references `Vinetas.*` or `VinetasModel`; generation
@@ -93,7 +93,7 @@ public API. They must land before the call-site migration.
 The CLI's whole model interface is string-based (`--model klein4b`, `list`,
 `--help` valid-values, output-metadata `model` field). Today the only
 string→descriptor bridge is `VinetasModel(rawValue:).descriptor` — deprecated.
-`VinetasClient` exposes descriptors only as named statics (`.klein4B`, `.klein9B`,
+`VinetasClient` exposes descriptors only as named statics (`.klein4B`,
 `.pixartSigmaXL`, `.defaultModel`) with **no** lookup by id and **no** enumerable
 list of user-selectable models.
 
