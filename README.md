@@ -39,7 +39,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.20.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.20.1")
 ]
 ```
 
@@ -185,9 +185,12 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [GUI Requirements](docs/GUI_REQUIREMENTS.md) — Host-app/GUI requirements
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 - [Storyboard Command Requirements](docs/REQUIREMENTS-STORYBOARD-COMMAND.md) — `vinetas storyboard`: screenplay → `<shot>` → panels
+- [Reference Images Requirements](docs/REQUIREMENTS-REFERENCE-IMAGES.md) — reference images for `vinetas generate` (not yet implemented)
 - [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.20.1** — FLUX.2 memory gate gone via dependency floors: flux-2-swift-mlx is floored at 3.4.3, which removes the RAM-tier image-size gate — `generateWithResult` no longer throws `insufficientMemory` for oversized images, so generation runs at the requested size and genuine allocation failures surface from the generate path. 3.4.3 also quantizes incrementally (fixing a GPU watchdog timeout) and sends library logs to stderr. Also floors pixart-swift-mlx at 0.8.2, glosa-av at 0.8.1, and SwiftCompartido at 7.2.5 (SwiftTuberia 0.9.0 / SwiftAcervo 0.25.0 already latest). Adds requirements doc for reference images in `vinetas generate`.
 
 **v0.20.0** — Pre-flight memory gate removed + Acervo env-var help: `VinetasPipeline` (`generatePanel`, `generatePanelWithCharacter`, `generateSequence`, `generateFromPromptFile`) and `ReferenceSheetGenerator.generate` no longer refuse to run when total physical RAM is below the model's static `minimumMemoryGB`; that comparison never predicted whether a given generation would fit and blocked runs that succeed. Generation proceeds unconditionally and real allocation failures surface from the load/generate path. `VinetasMemory.validate`, `VinetasClient.validateMemory(for:)`, and `Vinetas.validateMemory(for:)` remain as advisory APIs, and `CharacterTrainer` still validates before training. `vinetas --help` now interpolates SwiftAcervo's `Acervo.environmentHelp()` so `ACERVO_MODELS_DIR` / `ACERVO_APP_GROUP_ID` are discoverable. Floors SwiftTuberia at 0.9.0, which removes the matching load-time memory gate in `DiffusionPipeline.loadModels`. The dead Homebrew `formula-update` dispatch is removed from `release.yml` (the tap now reconciles on its own cron).
 
