@@ -180,17 +180,21 @@ public struct Generate: AsyncParsableCommand {
     stderrPrint("[vinetas] Steps: \(styleConfig.steps)")
 
     // Download model if not already cached (zero-config first run)
-    stderrPrint("[vinetas] Checking model cache...")
-    try await Vinetas.download(model: vinetasModel) { progress in
-      stderrPrint(
-        "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+    if !CLIEnvironment.skipDownload {
+      stderrPrint("[vinetas] Checking model cache...")
+      try await Vinetas.download(model: vinetasModel) { progress in
+        stderrPrint(
+          "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+      }
     }
 
+    let client = CLIEnvironment.client
     let image: CGImage
     if preview {
-      image = try await Vinetas.preview(prompt: prompt)
+      image = try await client.preview(prompt: prompt)
     } else {
-      image = try await Vinetas.generate(prompt: prompt, style: styleConfig, model: vinetasModel)
+      image = try await client.generate(
+        prompt: prompt, style: styleConfig, model: vinetasModel.descriptor)
     }
 
     try ImageOutput.writePNG(image: image, to: outputURL)
@@ -311,22 +315,21 @@ public struct Batch: AsyncParsableCommand {
     }
 
     // Download model if not cached (zero-config first run)
-    stderrPrint("[vinetas] Checking model cache...")
-    try await Vinetas.download(model: vinetasModel) { progress in
-      stderrPrint(
-        "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+    if !CLIEnvironment.skipDownload {
+      stderrPrint("[vinetas] Checking model cache...")
+      try await Vinetas.download(model: vinetasModel) { progress in
+        stderrPrint(
+          "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+      }
     }
 
-    let outputs = try await Vinetas.generateFromFile(
-      promptURL,
-      model: vinetasModel,
+    let outputs = try await Self.generatePanels(
+      from: promptURL,
+      modelID: vinetasModel.rawValue,
+      descriptor: vinetasModel.descriptor,
+      client: CLIEnvironment.client,
       progress: { current, total in
         stderrPrint("[vinetas] Panel \(current)/\(total)...")
-      },
-      stepProgress: { currentStep, totalSteps, elapsed in
-        stderrPrint(
-          "[vinetas] Step \(currentStep)/\(totalSteps), elapsed: \(String(format: "%.1f", elapsed))s"
-        )
       }
     )
 
@@ -341,6 +344,56 @@ public struct Batch: AsyncParsableCommand {
 
     stderrPrint(
       "[vinetas] Batch complete. \(outputs.count) panel(s) written to \(outputDirURL.path)")
+  }
+
+  /// Generate every panel of a YAML prompt file through `client`.
+  ///
+  /// Mirrors the deprecated static prompt-file loop (project style as
+  /// defaults with per-panel overrides, seed resolved up front so the recorded
+  /// seed is accurate) but dispatches through the injected client and never
+  /// downloads — `run()` owns the download.
+  static func generatePanels(
+    from url: URL,
+    modelID: String,
+    descriptor: any ModelDescriptor,
+    client: VinetasClient,
+    progress: (Int, Int) -> Void
+  ) async throws -> [PanelOutput] {
+    let promptFile = try PromptFile.parse(url: url)
+    let total = promptFile.panels.count
+    var outputs: [PanelOutput] = []
+    outputs.reserveCapacity(total)
+
+    for index in 0..<total {
+      progress(index + 1, total)
+
+      let panel = promptFile.panels[index]
+      var panelStyle = promptFile.resolvedStyle(for: index)
+      let resolvedSeed = panelStyle.seed ?? UInt64.random(in: 0...UInt64.max)
+      panelStyle.seed = resolvedSeed
+
+      let clock = ContinuousClock()
+      let startTime = clock.now
+      let image = try await client.generate(
+        prompt: panel.prompt, style: panelStyle, model: descriptor)
+      let elapsed = clock.now - startTime
+      let durationSeconds =
+        Double(elapsed.components.seconds)
+        + Double(elapsed.components.attoseconds) / 1e18
+
+      outputs.append(
+        PanelOutput(
+          image: image,
+          prompt: panel.prompt,
+          seed: resolvedSeed,
+          durationSeconds: durationSeconds,
+          modelID: modelID,
+          width: panelStyle.width,
+          height: panelStyle.height
+        )
+      )
+    }
+    return outputs
   }
 }
 
@@ -790,17 +843,20 @@ public struct CharacterCommand: AsyncParsableCommand {
       stderrPrint("[vinetas] Model: \(vinetasModel.rawValue)")
 
       // Download model if not cached
-      stderrPrint("[vinetas] Checking model cache...")
-      try await Vinetas.download(model: vinetasModel) { progress in
-        stderrPrint(
-          "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+      if !CLIEnvironment.skipDownload {
+        stderrPrint("[vinetas] Checking model cache...")
+        try await Vinetas.download(model: vinetasModel) { progress in
+          stderrPrint(
+            "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
+        }
       }
 
-      let images = try await Vinetas.generateReferenceSheets(
+      // `strength` is not forwarded: FLUX.2 reference conditioning has no
+      // strength control (the library's `strength:` overload ignores it).
+      let images = try await CLIEnvironment.client.generateReferenceSheets(
         for: character,
         views: referenceViews,
-        strength: strength,
-        model: vinetasModel,
+        model: vinetasModel.descriptor,
         progress: { current, total in
           stderrPrint("[vinetas] Reference \(current)/\(total)...")
         }

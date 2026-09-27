@@ -1027,6 +1027,91 @@ extension VinetasClient {
   public static var pixartSigmaXL: any ModelDescriptor { PixArtModelDescriptor.sigmaXL }
 }
 
+// MARK: - Reference Sheets
+
+extension VinetasClient {
+
+  /// Generate pencil-sketch turnaround reference sheets for a character,
+  /// dispatching through this client's ``router``.
+  ///
+  /// Loads the first source photo from the character's directory (any format
+  /// ImageIO can decode — PNG, JPEG, HEIC, …), then uses FLUX.2 reference
+  /// conditioning to generate pencil-sketch reference views at each requested
+  /// angle. Generated images are saved to `characters/<slug>/references/<view>.png`.
+  ///
+  /// - Parameters:
+  ///   - character: The character to generate reference sheets for. Must have at least
+  ///     one entry in `sourcePhotos`.
+  ///   - views: The turnaround angles to render (default: all four canonical views).
+  ///   - model: The model descriptor to use (default: ``defaultModel``).
+  ///   - progress: Optional callback reporting `(currentView, totalViews)`.
+  /// - Returns: Array of generated CGImages, one per requested view.
+  /// - Throws: `VinetasError.generationFailed` if the character has no source photos;
+  ///   ``VinetasError/referenceNotFound(path:)``, ``VinetasError/referenceEmpty(source:)``
+  ///   or ``VinetasError/referenceUndecodable(source:)`` if the photo cannot be loaded;
+  ///   ``VinetasError/referencesUnsupported(engineID:)`` if the model accepts no
+  ///   reference images (e.g. PixArt).
+  public func generateReferenceSheets(
+    for character: Character,
+    views: [ReferenceView] = ReferenceView.allCases.map { $0 },
+    model: any ModelDescriptor = VinetasClient.defaultModel,
+    progress: ((Int, Int) -> Void)? = nil
+  ) async throws -> [CGImage] {
+    guard !character.sourcePhotos.isEmpty else {
+      await currentTelemetry()?.capture(
+        .errorThrown(
+          phase: .other,
+          errorDescription:
+            "generationFailed: Character '\(character.name)' has no source photos."))
+      throw VinetasError.generationFailed(
+        "Character '\(character.name)' has no source photos. "
+          + "Add a source photo with createCharacter(name:photo:)."
+      )
+    }
+
+    let source: ReferenceImage
+    do {
+      source = try Self.loadReferenceSheetSource(for: character)
+    } catch {
+      await currentTelemetry()?.capture(
+        .errorThrown(
+          phase: .other,
+          errorDescription: "\(error)"))
+      throw error
+    }
+
+    return try await ReferenceSheetGenerator.generate(
+      for: character,
+      views: views,
+      sourceImage: source.image,
+      model: model,
+      router: router,
+      progress: progress
+    )
+  }
+
+  /// Loads the first source photo of `character` from its directory under
+  /// `manager`, decoding any ImageIO-supported format via
+  /// ``ReferenceImage/load(path:)``.
+  ///
+  /// - Throws: `VinetasError.generationFailed` if the character has no source
+  ///   photos, or the ``ReferenceImage/load(path:)`` errors.
+  static func loadReferenceSheetSource(
+    for character: Character,
+    manager: CharacterManager = CharacterManager()
+  ) throws -> ReferenceImage {
+    guard let firstPhoto = character.sourcePhotos.first else {
+      throw VinetasError.generationFailed(
+        "Character '\(character.name)' has no source photos. "
+          + "Add a source photo with createCharacter(name:photo:)."
+      )
+    }
+    let photoURL = manager.characterDirectory(slug: character.slug)
+      .appendingPathComponent(firstPhoto)
+    return try ReferenceImage.load(path: photoURL.path)
+  }
+}
+
 // MARK: - Deprecated Vinetas Enum
 
 /// SwiftVinetas - Storyboard and comic panel generation from text prompts.
@@ -1522,33 +1607,9 @@ public enum Vinetas: Sendable {
     model: VinetasModel = .klein4b,
     progress: ((Int, Int) -> Void)? = nil
   ) async throws -> [CGImage] {
-    guard !character.sourcePhotos.isEmpty else {
-      await VinetasClient.shared.currentTelemetry()?.capture(
-        .errorThrown(
-          phase: .other,
-          errorDescription:
-            "generationFailed: Character '\(character.name)' has no source photos."))
-      throw VinetasError.generationFailed(
-        "Character '\(character.name)' has no source photos. "
-          + "Add a source photo with createCharacter(name:photo:)."
-      )
-    }
-
-    let source: ReferenceImage
-    do {
-      source = try loadReferenceSheetSource(for: character)
-    } catch {
-      await VinetasClient.shared.currentTelemetry()?.capture(
-        .errorThrown(
-          phase: .other,
-          errorDescription: "\(error)"))
-      throw error
-    }
-
-    return try await ReferenceSheetGenerator.generate(
+    try await VinetasClient.shared.generateReferenceSheets(
       for: character,
       views: views,
-      sourceImage: source.image,
       model: model.descriptor,
       progress: progress
     )
@@ -1588,15 +1649,7 @@ public enum Vinetas: Sendable {
     for character: Character,
     manager: CharacterManager = CharacterManager()
   ) throws -> ReferenceImage {
-    guard let firstPhoto = character.sourcePhotos.first else {
-      throw VinetasError.generationFailed(
-        "Character '\(character.name)' has no source photos. "
-          + "Add a source photo with createCharacter(name:photo:)."
-      )
-    }
-    let photoURL = manager.characterDirectory(slug: character.slug)
-      .appendingPathComponent(firstPhoto)
-    return try ReferenceImage.load(path: photoURL.path)
+    try VinetasClient.loadReferenceSheetSource(for: character, manager: manager)
   }
 
   // MARK: - LoRA Training

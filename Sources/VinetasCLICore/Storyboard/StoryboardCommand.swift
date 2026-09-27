@@ -106,7 +106,7 @@ public struct Storyboard: AsyncParsableCommand {
     for needed in neededModels {
       try await ProGate.requireAccess(to: needed)
     }
-    for needed in neededModels {
+    for needed in neededModels where !CLIEnvironment.skipDownload {
       stderrPrint("[vinetas] Checking model cache: \(needed.rawValue)...")
       try await Vinetas.download(model: needed) { progress in
         stderrPrint(
@@ -127,10 +127,10 @@ public struct Storyboard: AsyncParsableCommand {
       do {
         let image: CGImage
         if item.usePreview {
-          image = try await Vinetas.preview(prompt: item.prompt)
+          image = try await CLIEnvironment.client.preview(prompt: item.prompt)
         } else {
-          image = try await Vinetas.generate(
-            prompt: item.prompt, style: item.style, model: item.model)
+          image = try await CLIEnvironment.client.generate(
+            prompt: item.prompt, style: item.style, model: item.model.descriptor)
         }
         try ImageOutput.writePNG(image: image, to: panelURL)
         stderrPrint("[vinetas] Wrote \(panelURL.lastPathComponent)")
