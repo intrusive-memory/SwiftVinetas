@@ -90,7 +90,7 @@ struct CharacterReferenceHardeningTests {
         ["probe-slug", "--model", "bogus"], engine: engine, downloadCounter: counter)
       Issue.record("Expected ValidationError")
     } catch let error as ValidationError {
-      #expect(error.message == "Unknown model 'bogus'. Valid: klein4b, klein9b")
+      #expect(error.message == "Unknown model 'bogus'. Valid: klein4b")
     }
 
     #expect(await counter.count == 0)

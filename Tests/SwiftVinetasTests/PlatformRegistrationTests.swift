@@ -70,12 +70,12 @@ struct PlatformRegistrationTests {
 
   // MARK: - Dual-engine configuration (simulates macOS with 16+ GB)
 
-  @Test("VinetasClient with both engines has 3 models")
-  func bothEnginesHaveThreeModels() async {
+  @Test("VinetasClient with both engines has 2 models")
+  func bothEnginesHaveTwoModels() async {
     let client = clientWithBothEngines()
     let models = await client.router.allModels
-    // PixArt: sigmaXL (1), Flux2: klein4B + klein9B (2) = 3 total
-    #expect(models.count == 3)
+    // PixArt: sigmaXL (1), Flux2: klein4B (1) = 2 total
+    #expect(models.count == 2)
   }
 
   @Test("VinetasClient with both engines lists PixArt and Flux2 models")
@@ -85,7 +85,6 @@ struct PlatformRegistrationTests {
     let ids = Set(models.map { $0.id })
     #expect(ids.contains("pixart-sigma-xl"))
     #expect(ids.contains(Flux2ModelDescriptor.klein4B.id))
-    #expect(ids.contains(Flux2ModelDescriptor.klein9B.id))
   }
 
   @Test("VinetasClient with both engines resolves PixArtEngine for sigmaXL")
@@ -99,13 +98,6 @@ struct PlatformRegistrationTests {
   func bothEnginesResolvesFlux2ForKlein4B() async throws {
     let client = clientWithBothEngines()
     let engine = try await client.router.engine(for: Flux2ModelDescriptor.klein4B)
-    #expect(engine.engineID == "flux2")
-  }
-
-  @Test("VinetasClient with both engines resolves Flux2Engine for klein9B")
-  func bothEnginesResolvesFlux2ForKlein9B() async throws {
-    let client = clientWithBothEngines()
-    let engine = try await client.router.engine(for: Flux2ModelDescriptor.klein9B)
     #expect(engine.engineID == "flux2")
   }
 
@@ -156,11 +148,11 @@ struct PlatformRegistrationTests {
     #expect(modelInfos.count == 1)
   }
 
-  @Test("listModels() returns three entries in dual-engine configuration")
+  @Test("listModels() returns two entries in dual-engine configuration")
   func listModelsBothEngines() async {
     let client = clientWithBothEngines()
     let modelInfos = await client.listModels()
-    #expect(modelInfos.count == 3)
+    #expect(modelInfos.count == 2)
   }
 
   // MARK: - Empty router edge case
@@ -216,24 +208,18 @@ struct PlatformRegistrationTests {
       engineID: "flux2",
       minimumMemoryGB: 16
     )
-    let flux2Desc9B = MockModelDescriptor(
-      id: "flux2-klein-9b",
-      displayName: "FLUX.2 Klein 9B",
-      engineID: "flux2",
-      minimumMemoryGB: 16
-    )
     let mockPixArt = MockEngine(
       engineID: "pixart-sigma",
       supportedModels: [pixartDesc]
     )
     let mockFlux2 = MockEngine(
       engineID: "flux2",
-      supportedModels: [flux2Desc4B, flux2Desc9B]
+      supportedModels: [flux2Desc4B]
     )
     let router = EngineRouter(engines: [mockPixArt, mockFlux2])
     let client = VinetasClient(router: router)
     let models = await client.router.allModels
-    #expect(models.count == 3)
+    #expect(models.count == 2)
   }
 
   // MARK: - Memory threshold logic
@@ -246,11 +232,6 @@ struct PlatformRegistrationTests {
   @Test("Flux2ModelDescriptor klein4B minimumMemoryGB is 16")
   func flux2Klein4BMinimumMemory() {
     #expect(Flux2ModelDescriptor.klein4B.minimumMemoryGB == 16)
-  }
-
-  @Test("Flux2ModelDescriptor klein9B minimumMemoryGB is 24")
-  func flux2Klein9BMinimumMemory() {
-    #expect(Flux2ModelDescriptor.klein9B.minimumMemoryGB == 24)
   }
 
   @Test("PixArt 8GB threshold is below Flux2 16GB threshold")

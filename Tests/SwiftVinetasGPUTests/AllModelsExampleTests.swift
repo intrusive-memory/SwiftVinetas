@@ -12,7 +12,7 @@ import Testing
 ///
 /// **Prerequisites:**
 /// - Model weights must be downloaded first (`vinetas download <model-id>`)
-/// - Sufficient RAM: PixArt-Sigma XL (8 GB), Klein 4B (16 GB), Klein 9B (24 GB)
+/// - Sufficient RAM: PixArt-Sigma XL (8 GB), Klein 4B (16 GB)
 ///
 /// Run selectively with:
 ///   xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS' \
@@ -61,17 +61,6 @@ struct AllModelsExampleTests {
   )
   func generateFlux2Klein4B() async throws {
     try await generateFrame(model: Flux2ModelDescriptor.klein4B)
-  }
-
-  // MARK: - FLUX.2 Klein 9B
-
-  @Test(
-    "Generate storyboard frame with FLUX.2 Klein 9B",
-    .tags(.integration, .gpu, .flux2),
-    .timeLimit(.minutes(20))
-  )
-  func generateFlux2Klein9B() async throws {
-    try await generateFrame(model: Flux2ModelDescriptor.klein9B)
   }
 
   // MARK: - Open in Preview

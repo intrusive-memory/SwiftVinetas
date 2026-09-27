@@ -23,8 +23,8 @@ public struct LoRAMetadata: Sendable {
   /// The engine IDs this LoRA is compatible with (e.g., `["flux2"]`).
   ///
   /// Replaces the legacy `model: VinetasModel?` field. Old YAML files containing
-  /// `model: klein4b` or `model: klein9b` are migrated during deserialization to
-  /// `compatibleEngines: ["flux2"]`.
+  /// a legacy `model:` value beginning with `klein` (e.g. `model: klein4b`) are
+  /// migrated during deserialization to `compatibleEngines: ["flux2"]`.
   public var compatibleEngines: [String]
 
   /// Whether this LoRA may be used with the given engine.
@@ -62,7 +62,7 @@ public struct LoRAMetadata: Sendable {
   /// Deprecated initializer that accepted a `VinetasModel?` field.
   ///
   /// Use ``init(path:scale:version:trainedAt:trainingSteps:compatibleEngines:)`` instead.
-  /// Migrates `klein4b`/`klein9b` to `compatibleEngines: ["flux2"]`.
+  /// Migrates `klein4b` to `compatibleEngines: ["flux2"]`.
   @available(
     *, deprecated,
     message: "Use init(path:scale:version:trainedAt:trainingSteps:compatibleEngines:) instead"
@@ -82,7 +82,7 @@ public struct LoRAMetadata: Sendable {
     self.trainingSteps = trainingSteps
     // Migrate model to compatibleEngines
     switch model {
-    case .klein4b, .klein9b:
+    case .klein4b:
       self.compatibleEngines = ["flux2"]
     case .pixartSigma:
       self.compatibleEngines = ["pixart-sigma"]
@@ -275,19 +275,15 @@ extension Character {
       }
       let trainingSteps = loraNode["training_steps"]?.integer
 
-      // Migrate legacy `model` field: klein4b/klein9b → compatibleEngines: ["flux2"]
+      // Migrate legacy `model` field: any `klein*` value → compatibleEngines: ["flux2"]
       // New files write `compatible_engines` and never write `model`.
       var compatibleEngines: [String]
       if let enginesArray = loraNode["compatible_engines"]?.array {
         compatibleEngines = enginesArray.compactMap { $0.string }
       } else if let legacyModel = loraNode["model"]?.string {
-        // Legacy migration: any klein* model maps to "flux2"
-        switch legacyModel {
-        case "klein4b", "klein9b":
-          compatibleEngines = ["flux2"]
-        default:
-          compatibleEngines = []
-        }
+        // Legacy migration: any klein* model (every FLUX.2 Klein variant ever
+        // written by older builds) maps to "flux2".
+        compatibleEngines = legacyModel.hasPrefix("klein") ? ["flux2"] : []
       } else {
         compatibleEngines = []
       }

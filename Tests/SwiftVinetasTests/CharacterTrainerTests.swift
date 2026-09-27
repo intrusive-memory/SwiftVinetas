@@ -131,26 +131,6 @@ struct CharacterTrainerMemoryTests {
     #expect(result == false)
   }
 
-  @Test("Klein 9B also requires at least 8 GB for nf4 training")
-  func klein9BNf4MinimumMemory() {
-    let sevenGB: UInt64 = 7 * 1_073_741_824
-    let eightGB: UInt64 = 8 * 1_073_741_824
-    #expect(
-      CharacterTrainer.validateMemory(
-        for: Flux2ModelDescriptor.klein9B,
-        quantization: "nf4",
-        availableMemoryBytes: sevenGB
-      ) == false
-    )
-    #expect(
-      CharacterTrainer.validateMemory(
-        for: Flux2ModelDescriptor.klein9B,
-        quantization: "nf4",
-        availableMemoryBytes: eightGB
-      ) == true
-    )
-  }
-
   @Test("Minimum training memory constant is 8 GB")
   func minimumTrainingMemoryConstant() {
     #expect(CharacterTrainer.minimumTrainingMemoryGB == 8)

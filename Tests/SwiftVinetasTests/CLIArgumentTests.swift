@@ -32,10 +32,10 @@ struct GenerateArgumentTests {
     #expect(cmd.preview == false)
   }
 
-  @Test("--model klein9b sets model to klein9b")
+  @Test("--model pixart-sigma sets model to pixart-sigma")
   func generateModel() throws {
-    let cmd = try Generate.parse(["test prompt", "--model", "klein9b"])
-    #expect(cmd.model == "klein9b")
+    let cmd = try Generate.parse(["test prompt", "--model", "pixart-sigma"])
+    #expect(cmd.model == "pixart-sigma")
   }
 
   @Test("--output foo.png sets output to foo.png")
@@ -101,10 +101,10 @@ struct BatchArgumentTests {
     #expect(cmd.promptsFile == "prompts.yaml")
   }
 
-  @Test("--model klein9b sets model to klein9b")
+  @Test("--model pixart-sigma sets model to pixart-sigma")
   func batchModel() throws {
-    let cmd = try Batch.parse(["prompts.yaml", "--model", "klein9b"])
-    #expect(cmd.model == "klein9b")
+    let cmd = try Batch.parse(["prompts.yaml", "--model", "pixart-sigma"])
+    #expect(cmd.model == "pixart-sigma")
   }
 }
 

@@ -1020,9 +1020,6 @@ extension VinetasClient {
   /// FLUX.2 Klein 4B model descriptor.
   public static var klein4B: any ModelDescriptor { Flux2ModelDescriptor.klein4B }
 
-  /// FLUX.2 Klein 9B model descriptor.
-  public static var klein9B: any ModelDescriptor { Flux2ModelDescriptor.klein9B }
-
   /// PixArt-Sigma XL model descriptor.
   public static var pixartSigmaXL: any ModelDescriptor { PixArtModelDescriptor.sigmaXL }
 }
@@ -1507,7 +1504,7 @@ public enum Vinetas: Sendable {
   /// Validate whether the system has sufficient memory for a model.
   ///
   /// Checks the system's physical memory against the model's minimum
-  /// requirement (Klein 4B: 16 GB, Klein 9B: 24 GB).
+  /// requirement (Klein 4B: 16 GB, PixArt-Sigma XL: 8 GB).
   ///
   /// - Parameter model: The model to validate against.
   /// - Returns: `true` if the system has enough memory to load the model.
@@ -1749,13 +1746,12 @@ public enum Vinetas: Sendable {
 /// Available FLUX.2 model variants.
 ///
 /// - Important: Use ``ModelDescriptor`` types directly (e.g., ``VinetasClient/klein4B``,
-///   ``VinetasClient/klein9B``). This enum is preserved for backward compatibility.
+///   ``VinetasClient/pixartSigmaXL``). This enum is preserved for backward compatibility.
 @available(
   *, deprecated, message: "Use ModelDescriptor types directly (e.g., VinetasClient.klein4B)"
 )
 public enum VinetasModel: String, Sendable, Codable, CaseIterable {
   case klein4b = "klein4b"
-  case klein9b = "klein9b"
   case pixartSigma = "pixart-sigma"
 
   /// Bridge to ``ModelDescriptor``.
@@ -1765,8 +1761,6 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
     switch self {
     case .klein4b:
       Flux2ModelDescriptor.klein4B
-    case .klein9b:
-      Flux2ModelDescriptor.klein9B
     case .pixartSigma:
       PixArtModelDescriptor.sigmaXL
     }
@@ -1777,8 +1771,6 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
     switch self {
     case .klein4b:
       "black-forest-labs/FLUX.2-klein-4B"
-    case .klein9b:
-      "black-forest-labs/FLUX.2-klein-9B"
     case .pixartSigma:
       "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS"
     }
@@ -1789,8 +1781,6 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
     switch self {
     case .klein4b:
       16
-    case .klein9b:
-      24
     case .pixartSigma:
       8
     }
@@ -1801,8 +1791,6 @@ public enum VinetasModel: String, Sendable, Codable, CaseIterable {
     switch self {
     case .klein4b:
       "int4"
-    case .klein9b:
-      "qint8"
     case .pixartSigma:
       "int4"
     }

@@ -60,7 +60,7 @@ public struct Generate: AsyncParsableCommand {
 
   @Option(
     name: .long,
-    help: "Model variant: klein4b (default, fast), klein9b (quality), or pixart-sigma."
+    help: "Model variant: klein4b (default) or pixart-sigma."
   )
   public var model: String = "klein4b"
 
@@ -292,7 +292,7 @@ public struct Batch: AsyncParsableCommand {
 
   @Option(
     name: .long,
-    help: "Model variant: klein4b (default), klein9b, or pixart-sigma."
+    help: "Model variant: klein4b (default) or pixart-sigma."
   )
   public var model: String = "klein4b"
 
@@ -439,7 +439,7 @@ public struct Download: AsyncParsableCommand {
 
   @Option(
     name: .shortAndLong,
-    help: "Model to download: klein4b, klein9b, or pixart-sigma."
+    help: "Model to download: klein4b or pixart-sigma."
   )
   public var model: String = "klein4b"
 
@@ -548,7 +548,7 @@ public struct Info: AsyncParsableCommand {
 
   @Option(
     name: .shortAndLong,
-    help: "Model variant: klein4b, klein9b, or pixart-sigma."
+    help: "Model variant: klein4b or pixart-sigma."
   )
   public var model: String = "klein4b"
 
@@ -909,12 +909,12 @@ public struct CharacterCommand: AsyncParsableCommand {
     )
     public var strength: Float?
 
-    @Option(name: .long, help: "Model variant: klein4b (default) or klein9b.")
+    @Option(name: .long, help: "Model variant: klein4b (default).")
     public var model: String = "klein4b"
 
     public func run() async throws {
       guard let vinetasModel = VinetasModel(rawValue: model) else {
-        throw ValidationError("Unknown model '\(model)'. Valid: klein4b, klein9b")
+        throw ValidationError("Unknown model '\(model)'. Valid: klein4b")
       }
 
       if strength != nil {
@@ -1026,7 +1026,7 @@ public struct CharacterCommand: AsyncParsableCommand {
     @Option(name: .long, help: "LoRA rank (8-64).")
     public var rank: Int = 48
 
-    @Option(name: .long, help: "Model variant: klein4b (default) or klein9b.")
+    @Option(name: .long, help: "Model variant: klein4b (default).")
     public var model: String = "klein4b"
 
     public func run() async throws {

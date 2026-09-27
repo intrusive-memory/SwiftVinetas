@@ -27,7 +27,7 @@ public struct Storyboard: AsyncParsableCommand {
   @Option(
     name: .long,
     help:
-      "Fleet default model for shots that declare none: klein4b (default), klein9b, or pixart-sigma."
+      "Fleet default model for shots that declare none: klein4b (default) or pixart-sigma."
   )
   public var model: String = "klein4b"
 

@@ -16,8 +16,6 @@ internal enum VinetasPipeline {
     switch model {
     case .klein4b:
       .klein4B
-    case .klein9b:
-      .klein9B
     case .pixartSigma:
       // Fallback: PixArt models should not be routed through the Flux2 pipeline.
       // This case exists only for exhaustive switch; prefer EngineRouter for dispatch.
@@ -28,13 +26,10 @@ internal enum VinetasPipeline {
   /// Selects the appropriate quantization config for a model.
   ///
   /// - Klein 4B: `.ultraMinimal` (int4 transformer, ~30 GB)
-  /// - Klein 9B: `.balanced` (qint8 transformer, ~57 GB)
   private static func quantizationConfig(for model: VinetasModel) -> Flux2QuantizationConfig {
     switch model {
     case .klein4b:
       .ultraMinimal
-    case .klein9b:
-      .balanced
     case .pixartSigma:
       // Fallback: PixArt models should not be routed through the Flux2 pipeline.
       .ultraMinimal

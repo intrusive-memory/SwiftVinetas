@@ -14,19 +14,9 @@ struct Flux2EngineTests {
     #expect(Flux2ModelDescriptor.klein4B.id == "flux2-klein-4b")
   }
 
-  @Test("Klein 9B has correct id")
-  func klein9BID() {
-    #expect(Flux2ModelDescriptor.klein9B.id == "flux2-klein-9b")
-  }
-
   @Test("Klein 4B has correct displayName")
   func klein4BDisplayName() {
     #expect(Flux2ModelDescriptor.klein4B.displayName == "FLUX.2 Klein 4B")
-  }
-
-  @Test("Klein 9B has correct displayName")
-  func klein9BDisplayName() {
-    #expect(Flux2ModelDescriptor.klein9B.displayName == "FLUX.2 Klein 9B")
   }
 
   @Test("Klein 4B has engineID 'flux2'")
@@ -34,19 +24,9 @@ struct Flux2EngineTests {
     #expect(Flux2ModelDescriptor.klein4B.engineID == "flux2")
   }
 
-  @Test("Klein 9B has engineID 'flux2'")
-  func klein9BEngineID() {
-    #expect(Flux2ModelDescriptor.klein9B.engineID == "flux2")
-  }
-
   @Test("Klein 4B requires 16 GB minimum")
   func klein4BMinimumMemory() {
     #expect(Flux2ModelDescriptor.klein4B.minimumMemoryGB == 16)
-  }
-
-  @Test("Klein 9B requires 24 GB minimum")
-  func klein9BMinimumMemory() {
-    #expect(Flux2ModelDescriptor.klein9B.minimumMemoryGB == 24)
   }
 
   @Test("Klein 4B has non-commercial license")
@@ -58,23 +38,9 @@ struct Flux2EngineTests {
     }
   }
 
-  @Test("Klein 9B has non-commercial license")
-  func klein9BLicense() {
-    if case .nonCommercial = Flux2ModelDescriptor.klein9B.license {
-      // Expected
-    } else {
-      Issue.record("Klein 9B license should be nonCommercial")
-    }
-  }
-
   @Test("Klein 4B has 8 default steps")
   func klein4BDefaultSteps() {
     #expect(Flux2ModelDescriptor.klein4B.defaultSteps == 8)
-  }
-
-  @Test("Klein 9B has 8 default steps")
-  func klein9BDefaultSteps() {
-    #expect(Flux2ModelDescriptor.klein9B.defaultSteps == 8)
   }
 
   @Test("Klein 4B has 3.5 default guidance")
@@ -82,29 +48,14 @@ struct Flux2EngineTests {
     #expect(Flux2ModelDescriptor.klein4B.defaultGuidance == 3.5)
   }
 
-  @Test("Klein 9B has 3.5 default guidance")
-  func klein9BDefaultGuidance() {
-    #expect(Flux2ModelDescriptor.klein9B.defaultGuidance == 3.5)
-  }
-
   @Test("Klein 4B supports all aspect ratios")
   func klein4BAspectRatios() {
     #expect(Flux2ModelDescriptor.klein4B.supportedAspectRatios == AspectRatio.allCases)
   }
 
-  @Test("Klein 9B supports all aspect ratios")
-  func klein9BAspectRatios() {
-    #expect(Flux2ModelDescriptor.klein9B.supportedAspectRatios == AspectRatio.allCases)
-  }
-
   @Test("Klein 4B approximate download size is ~11 GB")
   func klein4BDownloadSize() {
     #expect(Flux2ModelDescriptor.klein4B.approximateDownloadSize == "~11 GB")
-  }
-
-  @Test("Klein 9B approximate download size is ~18 GB")
-  func klein9BDownloadSize() {
-    #expect(Flux2ModelDescriptor.klein9B.approximateDownloadSize == "~18 GB")
   }
 
   // MARK: - Flux2Engine Identity
@@ -115,14 +66,13 @@ struct Flux2EngineTests {
     #expect(engine.engineID == "flux2")
   }
 
-  @Test("Flux2Engine supportedModels contains Klein 4B and Klein 9B")
+  @Test("Flux2Engine supportedModels contains only Klein 4B")
   func flux2EngineSupportedModels() {
     let engine = Flux2Engine()
     let models = engine.supportedModels
-    #expect(models.count == 2)
+    #expect(models.count == 1)
     let ids = models.map { $0.id }
-    #expect(ids.contains("flux2-klein-4b"))
-    #expect(ids.contains("flux2-klein-9b"))
+    #expect(ids == ["flux2-klein-4b"])
   }
 
   // MARK: - Feature Support
@@ -217,11 +167,6 @@ struct Flux2EngineTests {
     #expect(id == "flux2-klein-4b")
   }
 
-  @Test("Two different Flux2ModelDescriptors have different IDs")
-  func flux2ModelDescriptorDifferentIDs() {
-    #expect(Flux2ModelDescriptor.klein4B.id != Flux2ModelDescriptor.klein9B.id)
-  }
-
   // MARK: - ModelDescriptor Protocol Conformance
 
   @Test("Flux2ModelDescriptor conforms to ModelDescriptor")
@@ -250,16 +195,6 @@ struct Flux2EngineTests {
     #expect(hasTextEncoder)
   }
 
-  @Test("Klein 9B modelComponents enumerates the text encoder")
-  func klein9BComponentsIncludeTextEncoder() {
-    let components = Flux2Engine.modelComponents(for: .klein9B)
-    let hasTextEncoder = components.contains {
-      if case .textEncoder = $0 { return true }
-      return false
-    }
-    #expect(hasTextEncoder)
-  }
-
   @Test("Klein 4B text encoder resolves to Qwen3-4B (NOT Mistral)")
   func klein4BTextEncoderRepoId() {
     #expect(
@@ -267,20 +202,13 @@ struct Flux2EngineTests {
         == "lmstudio-community/Qwen3-4B-MLX-8bit")
   }
 
-  @Test("Klein 9B text encoder resolves to Qwen3-8B (NOT Mistral)")
-  func klein9BTextEncoderRepoId() {
-    #expect(
-      Flux2Engine.acervoRepoId(for: .textEncoder(.klein9B))
-        == "lmstudio-community/Qwen3-8B-MLX-8bit")
-  }
-
   @Test("Klein 4B modelComponents resolves to the bf16 transformer generation loads")
   func klein4BComponentsUseBf16Transformer() {
     let components = Flux2Engine.modelComponents(for: .klein4B)
     // As of flux-2-swift-mlx 3.4.2, `(klein4B, .int4)` resolves to
     // `.klein4B_bf16`, NOT `.klein4B_4bit`: the mflux direct int4 load produced
-    // noise, so Klein 4B now loads the bf16 weights and quantizes on-the-fly
-    // (the same proven path Klein 9B uses). Availability/download therefore
+    // noise, so Klein 4B now loads the bf16 weights and quantizes on-the-fly.
+    // Availability/download therefore
     // target the bf16 repo, not the community int4 repo.
     let hasBf16Transformer = components.contains {
       if case .transformer(.klein4B_bf16) = $0 { return true }
