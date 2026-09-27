@@ -147,9 +147,6 @@ public struct CLITelemetryBootstrap: Sendable {
 
     await sink.close()
 
-    let message = "[vinetas] Telemetry trace: \(sink.traceURL.path)\n"
-    if let data = message.data(using: .utf8) {
-      FileHandle.standardError.write(data)
-    }
+    stderrPrint("[vinetas] Telemetry trace: \(sink.traceURL.path)")
   }
 }

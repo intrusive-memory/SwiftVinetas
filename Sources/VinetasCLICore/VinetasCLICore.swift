@@ -6,9 +6,14 @@ import SwiftVinetas
 
 // MARK: - Helpers
 
+/// Write one line of diagnostics to ``CLIEnvironment/stderrDescriptor``
+/// (stderr in production).
+///
+/// Uses a raw `write(2)` loop rather than `FileHandle.standardError.write(_:)`,
+/// which raises an uncatchable Objective-C exception on any write error (a
+/// closed stderr, `EPIPE`, …). A diagnostic line is never worth a crash.
 func stderrPrint(_ message: String) {
-  let data = (message + "\n").data(using: .utf8) ?? Data()
-  FileHandle.standardError.write(data)
+  writeAll(Data((message + "\n").utf8), to: CLIEnvironment.stderrDescriptor)
 }
 
 /// Load a CGImage from a file path using ImageIO.
@@ -46,7 +51,10 @@ public struct Generate: AsyncParsableCommand {
   @Option(name: .shortAndLong, help: "Style prompt for consistent look (e.g., 'noir comic').")
   public var style: String?
 
-  @Option(name: .shortAndLong, help: "Output file path.")
+  @Option(
+    name: .shortAndLong,
+    help: "Output PNG path, or - to write the PNG (with embedded metadata, no sidecar) to stdout."
+  )
   public var output: String = "panel.png"
 
   @Option(
@@ -143,6 +151,11 @@ public struct Generate: AsyncParsableCommand {
   }
 
   public func run() async throws {
+    // `-o -` streams the PNG to stdout. Guard fd 1 before anything else runs
+    // so library `print(` output lands on stderr, never in the PNG stream.
+    if output == "-" { StdoutGuard.begin() }
+    defer { if output == "-" { StdoutGuard.end() } }
+
     let bootstrap: CLITelemetryBootstrap? =
       telemetry ? try await CLITelemetryBootstrap.enable(mode: .full) : nil
     defer { Task { await bootstrap?.finish() } }
@@ -220,8 +233,6 @@ public struct Generate: AsyncParsableCommand {
       styleConfig.height = 512
     }
 
-    let outputURL = URL(fileURLWithPath: output)
-
     stderrPrint("[vinetas] Generating panel...")
     stderrPrint("[vinetas] Model: \(vinetasModel.rawValue)")
     stderrPrint("[vinetas] Dimensions: \(styleConfig.width)x\(styleConfig.height)")
@@ -236,42 +247,28 @@ public struct Generate: AsyncParsableCommand {
       }
     }
 
-    let client = CLIEnvironment.client
-    let image: CGImage
-    if preview {
-      image = try await client.preview(prompt: prompt)
-    } else {
-      let panel = try await client.generate(
-        PanelRequest(
-          prompt: prompt, style: styleConfig, model: descriptor, references: loadedReferences))
-      image = panel.image
+    // --preview goes through the same PanelRequest path (its Klein 4B /
+    // 4-step / 512×512 overrides are already applied to styleConfig above), so
+    // it records real provenance metadata like any other panel.
+    let panel = try await CLIEnvironment.client.generate(
+      PanelRequest(
+        prompt: prompt, style: styleConfig, model: descriptor, references: loadedReferences))
+
+    if negative != nil, panel.metadata.negativeApplied == false {
+      let engineName = panel.metadata.engine ?? descriptor.engineID
+      stderrPrint("warning: \(engineName) does not apply negative prompts; --negative ignored")
     }
 
-    try ImageOutput.writePNG(image: image, to: outputURL)
+    if output == "-" {
+      // Embedded metadata only: no sidecar, and no file named "-".
+      try StdoutGuard.write(ImageOutput.pngData(image: panel.image, metadata: panel.metadata))
+      stderrPrint("[vinetas] Done. Output: stdout")
+      return
+    }
 
-    // Write metadata sidecar
-    let isoFormatter = ISO8601DateFormatter()
-    isoFormatter.formatOptions = [.withInternetDateTime]
-    let meta = ImageOutput.PanelMetadata(
-      prompt: prompt,
-      model: vinetasModel.rawValue,
-      seed: styleConfig.seed ?? 0,
-      steps: styleConfig.steps,
-      guidance: styleConfig.guidanceScale,
-      width: styleConfig.width,
-      height: styleConfig.height,
-      durationSeconds: 0,
-      loras: styleConfig.loraPath.map {
-        [ImageOutput.LoRAEntry(path: $0, scale: styleConfig.loraScale ?? 1.0)]
-      },
-      generatedAt: isoFormatter.string(from: Date())
-    )
+    let outputURL = URL(fileURLWithPath: output)
+    try ImageOutput.writePanel(image: panel.image, metadata: panel.metadata, to: outputURL)
     let sidecarURL = outputURL.deletingPathExtension().appendingPathExtension("json")
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-    let metaData = try encoder.encode(meta)
-    try metaData.write(to: sidecarURL, options: .atomic)
-
     stderrPrint("[vinetas] Done. Output: \(outputURL.path)")
     stderrPrint("[vinetas] Metadata: \(sidecarURL.path)")
   }
