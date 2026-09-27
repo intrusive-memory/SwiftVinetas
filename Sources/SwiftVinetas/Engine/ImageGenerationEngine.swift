@@ -29,6 +29,13 @@ public protocol ImageGenerationEngine: Sendable {
   /// Returns whether this engine supports the given feature.
   func supports(_ feature: EngineFeature) -> Bool
 
+  /// The maximum number of reference (conditioning) images `model` accepts
+  /// for image-to-image generation. `0` means references are unsupported.
+  ///
+  /// This is a static per-model limit — it deliberately takes no memory or
+  /// device-tier input. The default implementation returns `0`.
+  func maxReferenceImages(for model: any ModelDescriptor) -> Int
+
   // MARK: - Lifecycle
 
   /// Load a model into memory, ready for generation.
@@ -169,6 +176,11 @@ public protocol ImageGenerationEngine: Sendable {
 }
 
 extension ImageGenerationEngine {
+  /// Default: references are unsupported.
+  public func maxReferenceImages(for model: any ModelDescriptor) -> Int {
+    0
+  }
+
   public func setTelemetry(_ reporter: (any VinetasTelemetryReporter)?) async {
     // No-op default — engines override to store the reporter for their own
     // emission sites. See REQUIREMENTS §5.3.
