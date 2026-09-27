@@ -2,6 +2,7 @@ import ArgumentParser
 import CoreGraphics
 import Foundation
 import ImageIO
+import SwiftAcervo
 import SwiftVinetas
 
 // MARK: - Helpers
@@ -551,7 +552,32 @@ public struct Info: AsyncParsableCommand {
   )
   public var model: String = "klein4b"
 
+  @Flag(
+    name: .long,
+    help: ArgumentHelp(
+      "Print the absolute path of the CLI's I/O staging directory and exit.",
+      discussion: """
+        Resolves `<App Group container>/vinetas-io/` — a sibling of Acervo's
+        `SharedModels` cache inside the same App Group container, not the
+        models directory itself — creates it if it doesn't already exist, and
+        prints only that absolute path to stdout. The rest of `info`'s output
+        is skipped.
+
+        The signed CLI has no Downloads-folder entitlement, so this directory
+        is the sandbox-safe place to stage reference images and generated
+        panels when a stream (`-r -` / `-o -`) isn't a better fit. See
+        README.md § "Reference images and streams".
+        """
+    )
+  )
+  public var printIODir: Bool = false
+
   public func run() async throws {
+    if printIODir {
+      print(try Self.resolveIODirectory().path)
+      return
+    }
+
     let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
 
     print("Model:              \(vinetasModel.rawValue)")
@@ -568,6 +594,36 @@ public struct Info: AsyncParsableCommand {
         : "Not downloaded"
       print("Cache Status:       \(cacheStatus)")
     }
+  }
+
+  /// The name of the CLI's staging subdirectory, a sibling of Acervo's
+  /// `SharedModels` cache inside the App Group container.
+  static let ioDirectoryName = "vinetas-io"
+
+  /// Resolves and creates `<App Group container>/vinetas-io/`.
+  ///
+  /// `Acervo.resolvedSharedModelsDirectory` (when configured) is the
+  /// container's `SharedModels` subdirectory
+  /// (`Acervo+PathResolution.swift:153, 249-251`); this walks up one level to
+  /// the container **root** — the directory the App Group itself resolves
+  /// to — so `vinetas-io` sits alongside `SharedModels` rather than inside
+  /// it. Factored out from `run()` so tests can assert on the computed path
+  /// without touching stdio.
+  ///
+  /// - Throws: `ValidationError` if no App Group / override is configured
+  ///   (see `Acervo.environmentHelp()`), or any `FileManager` directory
+  ///   creation error.
+  static func resolveIODirectory(fileManager: FileManager = .default) throws -> URL {
+    guard let sharedModelsDirectory = Acervo.resolvedSharedModelsDirectory else {
+      throw ValidationError(
+        "Could not resolve the App Group container. Configure ACERVO_APP_GROUP_ID "
+          + "or ACERVO_MODELS_DIR — see `vinetas --help` for details."
+      )
+    }
+    let containerRoot = sharedModelsDirectory.deletingLastPathComponent()
+    let ioDirectory = containerRoot.appendingPathComponent(ioDirectoryName, isDirectory: true)
+    try fileManager.createDirectory(at: ioDirectory, withIntermediateDirectories: true)
+    return ioDirectory
   }
 }
 
