@@ -259,8 +259,8 @@ struct LoRAMetadataTests {
     #expect(character.lora?.compatibleEngines == ["flux2"])
   }
 
-  @Test("Legacy YAML model field klein9b migrates to compatibleEngines flux2")
-  func legacyKlein9bMigratestoFlux2() throws {
+  @Test("Any legacy YAML model field with the klein prefix migrates to compatibleEngines flux2")
+  func legacyKleinPrefixMigratesToFlux2() throws {
     let yaml = """
       name: Vale
       slug: vale
@@ -272,7 +272,7 @@ struct LoRAMetadataTests {
         path: lora/vale-v1.safetensors
         scale: 0.8
         version: 1
-        model: klein9b
+        model: klein-legacy
       """
     let character = try Character.from(yaml: yaml)
     #expect(character.lora?.compatibleEngines == ["flux2"])

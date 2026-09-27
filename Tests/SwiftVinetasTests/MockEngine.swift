@@ -82,6 +82,21 @@ actor MockEngine: ImageGenerationEngine {
   /// All method calls recorded in order.
   private(set) var calls: [MethodCall] = []
 
+  /// Number of `loadModel` invocations (derived from `calls`).
+  var loadModelCallCount: Int {
+    calls.filter { if case .loadModel = $0 { return true } else { return false } }.count
+  }
+
+  /// Number of `generate` invocations (derived from `calls`).
+  var generateCallCount: Int {
+    calls.filter { if case .generate = $0 { return true } else { return false } }.count
+  }
+
+  /// Number of `loadLoRA` invocations (derived from `calls`).
+  var loadLoRACallCount: Int {
+    calls.filter { if case .loadLoRA = $0 { return true } else { return false } }.count
+  }
+
   // MARK: - Configurable Results
 
   /// The set of features this mock engine supports.
@@ -162,15 +177,51 @@ actor MockEngine: ImageGenerationEngine {
 
   // MARK: - Init
 
+  /// The value returned from `maxReferenceImages(for:)` for every model.
+  /// Defaults to 0 (references unsupported).
+  nonisolated let maxReferenceImagesValue: Int
+
+  /// The value returned from `supports(.negativePrompt)`. Defaults to `false`.
+  nonisolated let supportsNegativePrompt: Bool
+
+  /// The value returned from `supports(.loraInference)`. Defaults to `false`.
+  nonisolated let supportsLoRAInference: Bool
+
+  /// When non-nil, `generate` calls `print(_:)` with this text, standing in
+  /// for the bare `print(` logging real engines and their dependencies do on
+  /// the generate path (used by the CLI stdout-purity test).
+  nonisolated let printOnGenerate: String?
+
   init(
     engineID: String = "mock",
     supportedModels: [any ModelDescriptor] = [
       MockModelDescriptor()
-    ]
+    ],
+    maxReferenceImages: Int = 0,
+    supportsNegativePrompt: Bool = false,
+    supportsLoRAInference: Bool = false,
+    printOnGenerate: String? = nil
   ) {
     self.engineID = engineID
     self.supportedModels = supportedModels
+    self.maxReferenceImagesValue = maxReferenceImages
+    self.supportsNegativePrompt = supportsNegativePrompt
+    self.supportsLoRAInference = supportsLoRAInference
+    self.printOnGenerate = printOnGenerate
   }
+
+  /// Sets the result returned from `generate(request:stepProgress:)`.
+  func setGenerateResult(_ result: GenerationResult?) {
+    generateResult = result
+  }
+
+  /// Sets the error `loadLoRA(at:scale:)` will throw. Pass `nil` to clear it.
+  func setLoadLoRAError(_ error: Error?) {
+    loadLoRAError = error
+  }
+
+  /// The most recent request passed to `generate(request:stepProgress:)`.
+  private(set) var lastRequest: GenerationRequest?
 
   // MARK: - Capabilities
 
@@ -178,15 +229,21 @@ actor MockEngine: ImageGenerationEngine {
     switch feature {
     case .textToImage:
       return true
-    case .imageToImage:
-      return false
+    case .imageToImage(let count):
+      return maxReferenceImagesValue > 0 && count <= maxReferenceImagesValue
     case .loraInference:
-      return false
+      return supportsLoRAInference
     case .loraTraining:
       return false
     case .promptUpsampling:
       return false
+    case .negativePrompt:
+      return supportsNegativePrompt
     }
+  }
+
+  nonisolated func maxReferenceImages(for model: any ModelDescriptor) -> Int {
+    maxReferenceImagesValue
   }
 
   // MARK: - Lifecycle
@@ -214,6 +271,10 @@ actor MockEngine: ImageGenerationEngine {
     stepProgress: (@Sendable (Int, Int, TimeInterval) -> Void)?
   ) async throws -> GenerationResult {
     calls.append(.generate(request.prompt))
+    lastRequest = request
+    if let printOnGenerate {
+      print(printOnGenerate)
+    }
     if let error = generateError {
       throw error
     }

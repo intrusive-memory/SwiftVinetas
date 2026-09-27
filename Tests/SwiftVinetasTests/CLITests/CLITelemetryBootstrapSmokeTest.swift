@@ -56,18 +56,16 @@ final class CLITelemetryBootstrapSmokeTest: XCTestCase {
       // Expected on bare-metal environments without registered engines.
     }
 
-    // 4. Flush and tear down. We capture stderr by redirecting the file
-    //    descriptor so the "[vinetas] Telemetry trace: …" line can be asserted
-    //    too.
+    // 4. Flush and tear down, capturing CLI stderr so the
+    //    "[vinetas] Telemetry trace: …" line can be asserted too. Captured through the CLIEnvironment stderr seam, never by dup2-ing
+    //    over fd 2 (that races other suites' stderr writes into an EBADF
+    //    crash of the whole test process).
     let stderrPipe = Pipe()
-    let savedStderr = dup(fileno(stderr))
-    dup2(stderrPipe.fileHandleForWriting.fileDescriptor, fileno(stderr))
-
-    await bootstrap.finish()
-
-    fflush(stderr)
-    dup2(savedStderr, fileno(stderr))
-    close(savedStderr)
+    await CLIEnvironment.$stderrDescriptor.withValue(
+      stderrPipe.fileHandleForWriting.fileDescriptor
+    ) {
+      await bootstrap.finish()
+    }
     try? stderrPipe.fileHandleForWriting.close()
 
     let capturedStderrData = try stderrPipe.fileHandleForReading.readToEnd() ?? Data()

@@ -49,51 +49,13 @@ struct VinetasMemoryTests {
     #expect(result == false)
   }
 
-  // MARK: - Klein 9B Memory Validation (24 GB threshold)
+  // MARK: - Cross-model: 8 GB is sufficient for PixArt-Sigma but not Klein 4B
 
-  @Test("Klein 9B passes validation with exactly 24 GB")
-  func klein9bExactly24GB() {
-    let result = VinetasMemory.validate(
-      for: .klein9b,
-      availableMemoryBytes: 24 * Self.bytesPerGB
-    )
-    #expect(result == true)
-  }
-
-  @Test("Klein 9B passes validation with 64 GB")
-  func klein9bWith64GB() {
-    let result = VinetasMemory.validate(
-      for: .klein9b,
-      availableMemoryBytes: 64 * Self.bytesPerGB
-    )
-    #expect(result == true)
-  }
-
-  @Test("Klein 9B fails validation with 16 GB")
-  func klein9bWith16GB() {
-    let result = VinetasMemory.validate(
-      for: .klein9b,
-      availableMemoryBytes: 16 * Self.bytesPerGB
-    )
-    #expect(result == false)
-  }
-
-  @Test("Klein 9B fails validation with 23 GB")
-  func klein9bWith23GB() {
-    let result = VinetasMemory.validate(
-      for: .klein9b,
-      availableMemoryBytes: 23 * Self.bytesPerGB
-    )
-    #expect(result == false)
-  }
-
-  // MARK: - Cross-model: 16 GB is sufficient for Klein 4B but not Klein 9B
-
-  @Test("16 GB is sufficient for Klein 4B but insufficient for Klein 9B")
+  @Test("8 GB is sufficient for PixArt-Sigma but insufficient for Klein 4B")
   func memoryDiscriminatesBetweenModels() {
-    let sixteenGB = 16 * Self.bytesPerGB
-    #expect(VinetasMemory.validate(for: .klein4b, availableMemoryBytes: sixteenGB) == true)
-    #expect(VinetasMemory.validate(for: .klein9b, availableMemoryBytes: sixteenGB) == false)
+    let eightGB = 8 * Self.bytesPerGB
+    #expect(VinetasMemory.validate(for: .pixartSigma, availableMemoryBytes: eightGB) == true)
+    #expect(VinetasMemory.validate(for: .klein4b, availableMemoryBytes: eightGB) == false)
   }
 
   // MARK: - Loading Strategy Selection
@@ -166,12 +128,6 @@ struct VinetasMemoryTests {
   func requiredBytesKlein4b() {
     let required = VinetasMemory.requiredMemoryBytes(for: .klein4b)
     #expect(required == 16 * Self.bytesPerGB)
-  }
-
-  @Test("Required memory bytes for Klein 9B is 24 GB in bytes")
-  func requiredBytesKlein9b() {
-    let required = VinetasMemory.requiredMemoryBytes(for: .klein9b)
-    #expect(required == 24 * Self.bytesPerGB)
   }
 }
 

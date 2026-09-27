@@ -14,7 +14,7 @@ SwiftVinetas is a Swift library + CLI for generating storyboard panels and comic
 
 **Rationale**:
 - FLUX models are not available via Core ML and Apple has shown no intent to add them
-- flux-2-swift-mlx is an active MIT-licensed SPM package with FLUX.2 Klein 4B/9B support, LoRA loading + training, multi-image conditioning, and int4/qint8/bf16 quantization
+- flux-2-swift-mlx is an active MIT-licensed SPM package with FLUX.2 Klein 4B support, LoRA loading + training, multi-image conditioning, and int4/qint8/bf16 quantization
 - **mzbac/flux.swift was considered but rejected due to GPL-3.0 license** — copyleft is incompatible with Produciesta's licensing
 - MLX loads weights directly — no model conversion pipeline needed
 - Unified memory model eliminates CPU↔GPU transfer overhead
@@ -29,7 +29,7 @@ SwiftVinetas is a Swift library + CLI for generating storyboard panels and comic
 
 ### AD-2: FLUX.2 Klein 4B as Primary Model
 
-**Decision**: Target FLUX.2 Klein 4B as the primary generation model, with Klein 9B as a quality option.
+**Decision**: Target FLUX.2 Klein 4B as the FLUX generation model.
 
 **Rationale** (verified):
 - Klein 4B generates at **~26s/image** (1024x1024) — 2-3x faster than FLUX.1 4-bit
@@ -37,8 +37,6 @@ SwiftVinetas is a Swift library + CLI for generating storyboard panels and comic
 - Multi-image conditioning supports **up to 3 reference images** for character consistency
 - Single text encoder (Qwen3 4B) instead of CLIP + T5 simplifies the pipeline
 - flux-2-swift-mlx API: `Flux2Pipeline(model: .klein4b)` with `generateImageToImage(prompt:, images:, strength:)`
-
-**Quality tier**: Klein 9B (~62s, 4.9 GB int4) for final renders, Klein 4B for iteration/preview.
 
 **Not using**: FLUX.1 Kontext (requires GPL-licensed flux.swift). FLUX.2's native multi-image conditioning provides similar character consistency via the MIT-licensed package.
 
@@ -112,7 +110,7 @@ panels:
 │  ┌──────────┐   ┌───────────────┐   ┌──────────────┐ │
 │  │PromptFile│   │ Flux2Pipeline  │   │ Output       │ │
 │  │ Parser   │──▶│ (flux-2-swift) │──▶│ Writer       │ │
-│  │ (YAML)   │   │ Klein 4B/9B    │   │ (PNG+meta)   │ │
+│  │ (YAML)   │   │ Klein 4B       │   │ (PNG+meta)   │ │
 │  └──────────┘   └───────────────┘   └──────────────┘ │
 │       ▲               ▲                   │           │
 │       │               │                   ▼           │
@@ -136,8 +134,7 @@ panels:
 **Storage layout** (verified — SwiftAcervo is fully model-type-agnostic):
 ```
 ~/Library/SharedModels/
-├── black-forest-labs_FLUX.2-klein-4B/ # Primary model
-├── black-forest-labs_FLUX.2-klein-9B/ # Quality model
+├── black-forest-labs_FLUX.2-klein-4B/ # FLUX model
 ├── renderartist_retrocomicflux/       # Style LoRA
 └── custom_vale-character-v2/          # Character LoRA
 ```
@@ -158,7 +155,7 @@ SwiftVinetas/
 │   ├── VinetasError.swift         # Error types
 │   ├── VinetasPipeline.swift      # Wraps Flux2Pipeline, orchestrates generation
 │   ├── VinetasModelManager.swift  # SwiftAcervo + Flux2Pipeline model directory integration
-│   ├── VinetasMemory.swift        # Memory checks (Klein 4B=16GB, 9B=24GB thresholds)
+│   ├── VinetasMemory.swift        # Memory checks (Klein 4B=16GB threshold)
 │   ├── PromptFile.swift           # YAML prompt file parser (via Universal)
 │   ├── CharacterSheet.swift       # Character reference images (up to 3 per generation)
 │   └── PanelOutput.swift          # Output types (CGImage → PNG data, metadata, timing)
@@ -284,9 +281,7 @@ Using FLUX.2's multi-image conditioning (up to 3 reference images):
 
 | Available RAM | Model | Quantization | Gen Time |
 |--------------|-------|-------------|----------|
-| 64 GB+ | Klein 9B | bf16 | Fast |
-| 32 GB | Klein 9B | qint8 | ~62s |
-| 24 GB | Klein 4B | bf16 | ~26s |
+| 24 GB+ | Klein 4B | bf16 | ~26s |
 | 16 GB | Klein 4B | int4 | ~26s |
 | < 16 GB | Error: insufficient memory | — | — |
 
@@ -336,10 +331,6 @@ pipeline.unloadAllLoRAs()
 - `vinetas train --style ./my-art-samples/` workflow
 - Gradient checkpointing reduces training memory by ~50%
 - Character LoRA from reference images
-
-### Klein 9B as Quality Tier
-- Klein 9B (~62s) for final renders when quality > speed
-- Klein 4B (~26s) remains the default for iteration
 
 ### Page Composition
 - Panel layout engine (grid, manga, webtoon formats)

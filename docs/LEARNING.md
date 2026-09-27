@@ -14,7 +14,7 @@ This document captures everything we learned researching the image generation la
 |---------|----------|--------|--------|------|
 | **ml-explore/mlx-swift-examples** (StableDiffusion) | Swift | SD 2.1, SDXL Turbo | Active, official | Yes |
 | **mzbac/flux.swift** | Swift (SPM) | FLUX.1 schnell/dev/Kontext | Active (v0.1.7, Jul 2025) | No |
-| **VincentGourbin/flux-2-swift-mlx** | Swift | FLUX.2 Dev 32B, Klein 4B/9B | Active (v2.1.0, Feb 2026) | No |
+| **VincentGourbin/flux-2-swift-mlx** | Swift | FLUX.2 Dev 32B, Klein | Active (v2.1.0, Feb 2026) | No |
 | **argmaxinc/DiffusionKit** | Swift + Python | FLUX.1, SD3 | Stale (Dec 2024) | No |
 | **apple/ml-stable-diffusion** | Swift (Core ML) | SD 2.1, SDXL, SD3 | Maintenance mode | Yes |
 | **GuernikaKit** | Swift (Core ML) | SD 1.x/2.x/SDXL | Abandoned (Jun 2023) | Yes |
@@ -24,7 +24,7 @@ This document captures everything we learned researching the image generation la
 There is **no single Swift package** covering FLUX.1 + FLUX.2 + SD3. The ecosystem is fragmented. After verification, the two viable options are:
 
 - **mzbac/flux.swift** — most mature FLUX.1 package (schnell/dev/Kontext), LoRA, 4/8-bit. **BUT: GPL-3.0 license (copyleft) — cannot be linked into Produciesta without making the entire app GPL.**
-- **VincentGourbin/flux-2-swift-mlx** — FLUX.2 Klein 4B/9B/Dev, LoRA loading + training, multi-image refs. **MIT license. This is our choice.**
+- **VincentGourbin/flux-2-swift-mlx** — FLUX.2 Klein/Dev, LoRA loading + training, multi-image refs. **MIT license. This is our choice.**
 
 ### Licensing (Verified)
 
@@ -58,7 +58,7 @@ There is **no single Swift package** covering FLUX.1 + FLUX.2 + SD3. The ecosyst
 - 8 double-stream + 48 single-stream blocks
 - Multi-reference support (up to 10 images)
 - 4MP output resolution
-- **Klein** variants: 4B and 9B, designed for consumer hardware
+- **Klein** variants, designed for consumer hardware
 - Klein 4B at int4 fits in 16GB RAM
 
 **FLUX.1 Kontext** — The most relevant model for our use case:
@@ -80,7 +80,6 @@ There is **no single Swift package** covering FLUX.1 + FLUX.2 + SD3. The ecosyst
 | Model | int4 | qint8 | bf16 |
 |-------|------|-------|------|
 | Klein 4B | 16 GB | 16 GB | 24 GB |
-| Klein 9B | 16 GB | 24 GB | 32 GB |
 | Dev 32B | 32 GB | 96 GB | 96 GB |
 
 ### Quantization Rules
@@ -310,9 +309,9 @@ Can be loaded dynamically (swap at runtime), merged/fused (max inference speed),
 ## 10. Key Decisions (Updated After Verification)
 
 1. **Swift package**: **flux-2-swift-mlx** (MIT, active, Klein 4B is fast + small)
-2. **Model choice**: FLUX.2 Klein 4B as primary (26s, 16GB), Klein 9B for quality, image-to-image with up to 3 refs for character consistency
+2. **Model choice**: FLUX.2 Klein 4B as the FLUX model (26s, 16GB), image-to-image with up to 3 refs for character consistency
 3. **Platform**: macOS only (MLX limitation). iOS would require Core ML port
 4. **Style system**: LoRA-based (safetensors), single LoRA per generation (can pre-merge for composition)
 5. **YAML parsing**: marcprux/universal
-6. **Memory target**: 16GB minimum (int4 Klein 4B), 32GB recommended (qint8 Klein 9B)
+6. **Memory target**: 16GB minimum (int4 Klein 4B)
 7. **Performance target**: <30s/panel on M3/M4 Pro, <15s on M4 Max

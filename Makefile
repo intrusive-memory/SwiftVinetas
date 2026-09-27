@@ -160,38 +160,21 @@ link-test-models: ## Hardlink all model weights + tokenizer files from App Group
 		done; \
 		[ $$copied -gt 0 ] && echo "  $$dstdir: $$copied config/tokenizer file(s) copied" || :; \
 	done; \
-	echo "Linking Flux2 Klein models (Acervo slug directory structure)..."; \
-	KLEIN_SLUG="black-forest-labs_FLUX.2-klein-4B"; \
-	KLEIN_SRC="$$SHARED/$$KLEIN_SLUG"; \
-	if [ ! -d "$$KLEIN_SRC" ]; then \
-		echo "  SKIP Klein 4B (not downloaded: $$KLEIN_SRC)"; \
-	else \
-		XFMR_DEST="$$DEST/$$KLEIN_SLUG-klein4b-bf16"; \
-		mkdir -p "$$XFMR_DEST"; \
-		linked=0; \
-		for f in "$$KLEIN_SRC/"*.safetensors; do \
-			[ -e "$$f" ] || continue; \
-			ln -f "$$f" "$$XFMR_DEST/" && linked=$$((linked + 1)); \
-		done; \
-		echo "  $$KLEIN_SLUG-klein4b-bf16 (transformer): $$linked shard(s) linked"; \
-		for f in "$$KLEIN_SRC/"*.json; do \
-			[ -e "$$f" ] || continue; \
-			cp -n "$$f" "$$XFMR_DEST/" 2>/dev/null || :; \
-		done; \
-		VAE_SRC="$$KLEIN_SRC/vae"; \
-		VAE_DEST="$$DEST/$$KLEIN_SLUG-vae"; \
-		mkdir -p "$$VAE_DEST"; \
-		linked=0; \
-		for f in "$$VAE_SRC/"*.safetensors; do \
-			[ -e "$$f" ] || continue; \
-			ln -f "$$f" "$$VAE_DEST/" && linked=$$((linked + 1)); \
-		done; \
-		echo "  $$KLEIN_SLUG-vae (VAE): $$linked shard(s) linked"; \
-		for f in "$$VAE_SRC/"*.json; do \
-			[ -e "$$f" ] || continue; \
-			cp -n "$$f" "$$VAE_DEST/" 2>/dev/null || :; \
-		done; \
-	fi
+	echo "Linking Flux2 Klein 4B + Qwen3 text encoder (mirrored Acervo slug trees)..."; \
+	rm -rf "$$DEST/black-forest-labs_FLUX.2-klein-4B-klein4b-bf16" "$$DEST/black-forest-labs_FLUX.2-klein-4B-vae"; \
+	for slug in black-forest-labs_FLUX.2-klein-4B lmstudio-community_Qwen3-4B-MLX-8bit; do \
+		src="$$SHARED/$$slug"; \
+		if [ ! -d "$$src" ]; then \
+			echo "  SKIP $$slug (not downloaded: $$src)"; \
+			continue; \
+		fi; \
+		(cd "$$src" && find . -type d) | while IFS= read -r d; do mkdir -p "$$DEST/$$slug/$$d"; done; \
+		linked=$$(cd "$$src" && find . -type f -name '*.safetensors' | while IFS= read -r f; do \
+			ln -f "$$src/$$f" "$$DEST/$$slug/$$f" && echo x; done | wc -l | tr -d ' '); \
+		copied=$$(cd "$$src" && find . -type f ! -name '*.safetensors' | while IFS= read -r f; do \
+			cp -f "$$src/$$f" "$$DEST/$$slug/$$f" && echo x; done | wc -l | tr -d ' '); \
+		echo "  $$slug: $$linked shard(s) linked, $$copied metadata file(s) copied"; \
+	done
 
 # Keep the old name as an alias for backwards compatibility with any scripts.
 link-pixart-models: link-test-models

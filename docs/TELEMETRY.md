@@ -60,7 +60,7 @@ The five host libraries each define their own `*TelemetryEvent` enum upstream; S
 
 Which `kind`s actually appear in a trace depends on which engine the request routes through:
 
-- **Flux2 path** (`vinetas generate --model klein4b` / `klein9b`, `vinetas preview`) — emits `vinetas` + `flux2`. Flux2 reaches Acervo through a static seam without a reporter, so `acervo` events do **not** appear on Flux2 runs.
+- **Flux2 path** (`vinetas generate --model klein4b`, `vinetas preview`) — emits `vinetas` + `flux2`. Flux2 reaches Acervo through a static seam without a reporter, so `acervo` events do **not** appear on Flux2 runs.
 - **PixArt path** (`vinetas generate --model pixart-sigma-xl`) — emits all five `kind`s.
 - **Image-understanding** (`vinetas classify`, `vinetas features`, `vinetas similarity`) — emits `vinetas` + `acervo` (the latter only on the first run, when the ViT-B/16 or DINOv2-B/14 backbone is downloaded).
 

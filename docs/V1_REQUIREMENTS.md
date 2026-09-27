@@ -53,7 +53,7 @@
 
 The primary creative choice. Each style is a curated preset that bundles a style prompt, negative prompt, steps, guidance scale, and a suggested aspect ratio. The user picks a visual style and then adjusts individual parameters if they want to.
 
-The model (Klein 4B vs 9B) and seed are **not user-facing concepts**. The app selects the best model for each style automatically and manages seeds internally. Users never see model names or seed values as input controls.
+The model (Klein 4B or PixArt-Sigma XL) and seed are **not user-facing concepts**. The app selects the best model for each style automatically and manages seeds internally. Users never see model names or seed values as input controls.
 
 ### R4.1 Built-in Styles
 
@@ -90,8 +90,8 @@ Every style defines:
 - R4.2.3: Selected style has a highlighted border / selection ring
 - R4.2.4: Selecting a style populates all generation settings (style prompt, negative prompt, steps, guidance, aspect ratio) with that style's defaults
 - R4.2.5: User can modify any setting after selecting a style — changes are per-session overrides, not saved back to the style
-- R4.2.6: If the selected style's internal model requires an additional download, show an inline prompt: "This style requires additional data to produce the best results. [Download (~5 GB)] [Use standard quality instead]"
-- R4.2.7: No model names (Klein 4B, Klein 9B) appear anywhere in the user-facing UI — these are implementation details
+- R4.2.6: If the selected style's internal model requires an additional download, show an inline prompt: "This style requires additional data to produce the best results. [Download] [Use standard quality instead]"
+- R4.2.7: No model names (Klein 4B, PixArt-Sigma XL) appear anywhere in the user-facing UI — these are implementation details
 - R4.2.8: A "Modified" badge appears on the style card when user has changed any setting from the style's defaults
 - R4.2.9: "Reset to Style Defaults" button appears when settings are modified
 
@@ -110,8 +110,8 @@ struct StoryboardStyle: Identifiable, Codable {
     let suggestedAspectRatio: String  // "square", "wide", etc.
 
     // Internal only — never exposed in UI
-    let internalModel: String         // "klein4b" or "klein9b"
-    let requiresAdditionalDownload: Bool  // true if internalModel is 9B
+    let internalModel: String         // "klein4b" or "pixart-sigma"
+    let requiresAdditionalDownload: Bool  // true if internalModel's weights are not yet cached
 }
 ```
 
@@ -283,8 +283,7 @@ Browse and manage all previously generated images.
 ### R7.4 System Info
 
 - R7.4.1: Display: chip name (e.g., "Apple M4 Pro"), total unified memory
-- R7.4.2: Display which styles are available on this hardware (styles requiring 9B are unavailable on < 24 GB machines, with a note: "Some styles require 24 GB or more")
-- R7.4.3: Storage location on disk
+- R7.4.2: Storage location on disk
 
 ### R7.5 About
 
@@ -330,7 +329,7 @@ Browse and manage all previously generated images.
 
   // Internal fields — stored for reproducibility but not displayed in UI
   - seed: UInt64                    // Auto-generated seed (not user-facing)
-  - modelName: String               // "klein4b" or "klein9b" (not user-facing)
+  - modelName: String               // "klein4b" or "pixart-sigma" (not user-facing)
 ```
 
 - R9.1: Automatic thumbnail generation on save (256×256, JPEG)
@@ -392,7 +391,7 @@ This documents the data flow from UI to SwiftVinetas API:
 ## R12. Error Handling
 
 - R12.1: **Insufficient memory** — alert with explanation and suggestion to close other apps
-- R12.2: **Additional data needed** — inline message: "This style requires additional data. [Download Now]" (triggered when style needs 9B engine)
+- R12.2: **Additional data needed** — inline message: "This style requires additional data. [Download Now]" (triggered when a style's model weights are not yet cached)
 - R12.3: **Generation failed** — alert with error message from `VinetasError.generationFailed`; offer "Try Again"
 - R12.4: **Download failed** — alert with retry button; preserve download progress if possible
 - R12.5: **Disk full** — alert when saving images or downloading models
@@ -487,4 +486,3 @@ Decisions needed before implementation:
 8. **Pricing**: One-time purchase? Free + IAP for premium styles? Subscription?
 9. **Bundle ID / signing team**: What Apple Developer account / team to use?
 10. **Style thumbnails**: Generate real example images for each style as bundled assets? Or use placeholder art for v1?
-11. **Memory-gated styles**: Styles using the 9B engine need 24 GB. Should these styles be hidden on 16 GB machines, or shown with an "unavailable on this hardware" state?

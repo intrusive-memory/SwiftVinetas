@@ -138,7 +138,7 @@ vinetas storyboard <screenplay> [options]
    with a non-empty prompt).
 4. If `--dry-run`: print the plan and exit 0.
 5. Validate each effective shot's `model`/`aspect` against Vinetas vocab
-   (`VinetasModel`: `klein4b`, `klein9b`, `pixart-sigma`; `AspectRatio`
+   (`VinetasModel`: `klein4b`, `pixart-sigma`; `AspectRatio`
    cases). Decide per §11 whether an unknown value is a hard error or a warn-and-
    fall-back-to-fleet-default.
 6. Download required model weights (union of models across the plan) before

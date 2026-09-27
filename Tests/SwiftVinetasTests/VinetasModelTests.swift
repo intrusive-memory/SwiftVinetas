@@ -11,9 +11,8 @@ struct VinetasModelTests {
   @Test("CaseIterable includes all models")
   func caseIterable() {
     let allCases = VinetasModel.allCases
-    #expect(allCases.count == 3)
+    #expect(allCases.count == 2)
     #expect(allCases.contains(.klein4b))
-    #expect(allCases.contains(.klein9b))
     #expect(allCases.contains(.pixartSigma))
   }
 
@@ -22,13 +21,11 @@ struct VinetasModelTests {
   @Test("Raw values match expected strings")
   func rawValues() {
     #expect(VinetasModel.klein4b.rawValue == "klein4b")
-    #expect(VinetasModel.klein9b.rawValue == "klein9b")
   }
 
   @Test("Init from raw value")
   func initFromRawValue() {
     #expect(VinetasModel(rawValue: "klein4b") == .klein4b)
-    #expect(VinetasModel(rawValue: "klein9b") == .klein9b)
     #expect(VinetasModel(rawValue: "invalid") == nil)
   }
 
@@ -39,11 +36,6 @@ struct VinetasModelTests {
     #expect(VinetasModel.klein4b.repoId == "black-forest-labs/FLUX.2-klein-4B")
   }
 
-  @Test("Klein 9B HuggingFace repo")
-  func klein9bRepo() {
-    #expect(VinetasModel.klein9b.repoId == "black-forest-labs/FLUX.2-klein-9B")
-  }
-
   // MARK: - Minimum Memory
 
   @Test("Klein 4B requires 16 GB minimum")
@@ -51,21 +43,11 @@ struct VinetasModelTests {
     #expect(VinetasModel.klein4b.minimumMemoryGB == 16)
   }
 
-  @Test("Klein 9B requires 24 GB minimum")
-  func klein9bMemory() {
-    #expect(VinetasModel.klein9b.minimumMemoryGB == 24)
-  }
-
   // MARK: - Quantization
 
   @Test("Klein 4B uses int4 quantization")
   func klein4bQuantization() {
     #expect(VinetasModel.klein4b.quantization == "int4")
-  }
-
-  @Test("Klein 9B uses qint8 quantization")
-  func klein9bQuantization() {
-    #expect(VinetasModel.klein9b.quantization == "qint8")
   }
 
   // MARK: - Sendable
@@ -114,13 +96,6 @@ struct VinetasModelTests {
     #expect(descriptor.engineID == "flux2")
   }
 
-  @Test("klein9b descriptor bridges to Flux2ModelDescriptor.klein9B")
-  func klein9bDescriptorBridge() {
-    let descriptor = VinetasModel.klein9b.descriptor
-    #expect(descriptor.id == "flux2-klein-9b")
-    #expect(descriptor.engineID == "flux2")
-  }
-
   @Test("pixartSigma descriptor bridges to PixArtModelDescriptor.sigmaXL")
   func pixartSigmaDescriptorBridge() {
     let descriptor = VinetasModel.pixartSigma.descriptor
@@ -141,12 +116,6 @@ struct VinetasModelTests {
   func klein4bDescriptorMemoryMatches() {
     let descriptor = VinetasModel.klein4b.descriptor
     #expect(descriptor.minimumMemoryGB == VinetasModel.klein4b.minimumMemoryGB)
-  }
-
-  @Test("Descriptor minimumMemoryGB matches VinetasModel minimumMemoryGB for Klein 9B")
-  func klein9bDescriptorMemoryMatches() {
-    let descriptor = VinetasModel.klein9b.descriptor
-    #expect(descriptor.minimumMemoryGB == VinetasModel.klein9b.minimumMemoryGB)
   }
 
 }

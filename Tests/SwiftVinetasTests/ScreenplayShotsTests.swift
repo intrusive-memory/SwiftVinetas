@@ -29,7 +29,7 @@ struct ScreenplayShotsTests {
     let fountain = """
       INT. OFFICE - DAY
 
-      [[<shot prompt="" model="klein9b" aspect="wide"/>]]
+      [[<shot prompt="" model="pixart-sigma" aspect="wide"/>]]
 
       [[<shot prompt="wide office, rain"/>]]
 
@@ -54,7 +54,7 @@ struct ScreenplayShotsTests {
     let fountain = """
       INT. OFFICE - DAY
 
-      [[<shot prompt="" model="klein9b" aspect="wide"/>]]
+      [[<shot prompt="" model="pixart-sigma" aspect="wide"/>]]
 
       [[<shot prompt="wide office, rain"/>]]
 
@@ -68,10 +68,10 @@ struct ScreenplayShotsTests {
 
     #expect(resolved.count == 2)
     #expect(resolved[0].prompt == "wide office, rain")
-    #expect(resolved[0].model == "klein9b")  // inherited default
+    #expect(resolved[0].model == "pixart-sigma")  // inherited default
     #expect(resolved[0].aspect == "wide")  // inherited default
     #expect(resolved[1].prompt == "close on Maria")
-    #expect(resolved[1].model == "klein9b")  // inherited default
+    #expect(resolved[1].model == "pixart-sigma")  // inherited default
     #expect(resolved[1].aspect == "panel")  // own value wins
   }
 

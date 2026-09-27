@@ -19,7 +19,7 @@ struct ShotResolverTests {
 
   @Test("Empty-prompt shot renders nothing")
   func emptyPromptRendersNothing() {
-    let shots = [Shot(documentIndex: 0, prompt: "", model: "klein9b")]
+    let shots = [Shot(documentIndex: 0, prompt: "", model: "pixart-sigma")]
     #expect(ShotResolver.resolve(shots).isEmpty)
   }
 
@@ -57,7 +57,7 @@ struct ShotResolverTests {
       Shot(documentIndex: 0, prompt: "", model: "klein4b", aspect: "wide"),
       Shot(documentIndex: 1, prompt: "guy walks in"),
       // Update only the model going forward; aspect=wide must persist.
-      Shot(documentIndex: 2, prompt: "", model: "klein9b"),
+      Shot(documentIndex: 2, prompt: "", model: "pixart-sigma"),
       Shot(documentIndex: 3, prompt: "he orders a drink"),
     ]
     let resolved = ShotResolver.resolve(shots)
@@ -68,7 +68,7 @@ struct ShotResolverTests {
     #expect(resolved[0].aspect == "wide")
 
     #expect(resolved[1].prompt == "he orders a drink")
-    #expect(resolved[1].model == "klein9b")  // updated default
+    #expect(resolved[1].model == "pixart-sigma")  // updated default
     #expect(resolved[1].aspect == "wide")  // earlier default persists
   }
 
@@ -87,7 +87,7 @@ struct ShotResolverTests {
   func resortsByDocumentIndex() {
     let shots = [
       Shot(documentIndex: 3, prompt: "second panel"),
-      Shot(documentIndex: 0, prompt: "", model: "klein9b"),
+      Shot(documentIndex: 0, prompt: "", model: "pixart-sigma"),
       Shot(documentIndex: 1, prompt: "first panel"),
     ]
     let resolved = ShotResolver.resolve(shots)
@@ -96,8 +96,8 @@ struct ShotResolverTests {
     // both inherit the model default declared at index 0.
     #expect(resolved[0].prompt == "first panel")
     #expect(resolved[1].prompt == "second panel")
-    #expect(resolved[0].model == "klein9b")
-    #expect(resolved[1].model == "klein9b")
+    #expect(resolved[0].model == "pixart-sigma")
+    #expect(resolved[1].model == "pixart-sigma")
   }
 
   @Test("Prompted shots with no active defaults keep nil attributes")
@@ -113,12 +113,12 @@ struct ShotResolverTests {
   @Test("An empty-prompt shot that names no attributes is a no-op")
   func emptyShotNoAttributesIsNoop() {
     let shots = [
-      Shot(documentIndex: 0, prompt: "", model: "klein9b"),
+      Shot(documentIndex: 0, prompt: "", model: "pixart-sigma"),
       Shot(documentIndex: 1, prompt: ""),  // names nothing → must not clear model
       Shot(documentIndex: 2, prompt: "a panel"),
     ]
     let resolved = ShotResolver.resolve(shots)
     #expect(resolved.count == 1)
-    #expect(resolved[0].model == "klein9b")
+    #expect(resolved[0].model == "pixart-sigma")
   }
 }

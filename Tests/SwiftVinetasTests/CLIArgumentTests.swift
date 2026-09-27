@@ -32,10 +32,10 @@ struct GenerateArgumentTests {
     #expect(cmd.preview == false)
   }
 
-  @Test("--model klein9b sets model to klein9b")
+  @Test("--model pixart-sigma sets model to pixart-sigma")
   func generateModel() throws {
-    let cmd = try Generate.parse(["test prompt", "--model", "klein9b"])
-    #expect(cmd.model == "klein9b")
+    let cmd = try Generate.parse(["test prompt", "--model", "pixart-sigma"])
+    #expect(cmd.model == "pixart-sigma")
   }
 
   @Test("--output foo.png sets output to foo.png")
@@ -67,6 +67,27 @@ struct GenerateArgumentTests {
     let cmd = try Generate.parse(["test prompt", "--preview"])
     #expect(cmd.preview == true)
   }
+
+  // MARK: --reference / -r (Sortie 10)
+
+  @Test("-r a -r b parses in order, with no dedup")
+  func generateReferencesOrderPreserved() throws {
+    let cmd = try Generate.parse(["test prompt", "-r", "a", "-r", "b"])
+    #expect(cmd.references == ["a", "b"])
+  }
+
+  @Test("-r - parses a single stdin reference")
+  func generateReferenceStdinParses() throws {
+    let cmd = try Generate.parse(["test prompt", "-r", "-"])
+    #expect(cmd.references == ["-"])
+  }
+
+  @Test("-r - -r - is rejected: only one --reference may read from stdin")
+  func generateReferenceDoubleStdinRejected() throws {
+    #expect(throws: (any Error).self) {
+      _ = try Generate.parse(["test prompt", "-r", "-", "-r", "-"])
+    }
+  }
 }
 
 // MARK: - Batch subcommand
@@ -80,10 +101,10 @@ struct BatchArgumentTests {
     #expect(cmd.promptsFile == "prompts.yaml")
   }
 
-  @Test("--model klein9b sets model to klein9b")
+  @Test("--model pixart-sigma sets model to pixart-sigma")
   func batchModel() throws {
-    let cmd = try Batch.parse(["prompts.yaml", "--model", "klein9b"])
-    #expect(cmd.model == "klein9b")
+    let cmd = try Batch.parse(["prompts.yaml", "--model", "pixart-sigma"])
+    #expect(cmd.model == "pixart-sigma")
   }
 }
 

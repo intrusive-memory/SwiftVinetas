@@ -96,7 +96,7 @@ With the pipeline architecture, engines can expose capabilities that were previo
 
 Unchanged. Each engine declares its model descriptors:
 
-- `Flux2ModelDescriptor.klein4B`, `.klein9B` (unchanged — no `componentIds`, uses existing download path)
+- `Flux2ModelDescriptor.klein4B` (unchanged — no `componentIds`, uses existing download path)
 - `PixArtModelDescriptor.sigmaXL` (new — uses `componentIds` for Acervo integration)
 - Future: video model descriptors, audio model descriptors
 

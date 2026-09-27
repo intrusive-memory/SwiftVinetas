@@ -7,9 +7,8 @@ import SwiftAcervo
 
 /// Model descriptor for FLUX.2 Klein models.
 ///
-/// Provides static instances for the two supported FLUX.2 Klein variants:
+/// Provides the static instance for the supported FLUX.2 Klein variant:
 /// - `.klein4B` — 4-billion parameter model (int4 quantized, 16 GB minimum)
-/// - `.klein9B` — 9-billion parameter model (qint8 quantized, 24 GB minimum)
 public struct Flux2ModelDescriptor: ModelDescriptor {
 
   public let id: String
@@ -45,20 +44,6 @@ public struct Flux2ModelDescriptor: ModelDescriptor {
     flux2Model: .klein4B,
     quantizationConfig: .ultraMinimal
   )
-
-  /// FLUX.2 Klein 9B — higher quality, 24 GB minimum, qint8 quantized.
-  public static let klein9B = Flux2ModelDescriptor(
-    id: "flux2-klein-9b",
-    displayName: "FLUX.2 Klein 9B",
-    license: .nonCommercial(details: "FLUX.2 Community License"),
-    minimumMemoryGB: 24,
-    approximateDownloadSize: "~18 GB",
-    defaultSteps: 8,
-    defaultGuidance: 3.5,
-    supportedAspectRatios: AspectRatio.allCases,
-    flux2Model: .klein9B,
-    quantizationConfig: .balanced
-  )
 }
 
 // MARK: - Flux2Engine
@@ -70,7 +55,7 @@ public struct Flux2ModelDescriptor: ModelDescriptor {
 /// `VinetasMemory` for memory validation, and
 /// `VinetasLoRAManager` for LoRA adapter loading/unloading.
 ///
-/// Quantization selection (`.ultraMinimal` for Klein 4B, `.balanced` for Klein 9B)
+/// Quantization selection (`.ultraMinimal` for Klein 4B)
 /// and two-phase loading (text encoder then transformer + VAE) are handled internally
 /// and are not exposed through the protocol.
 public actor Flux2Engine: ImageGenerationEngine {
@@ -82,7 +67,7 @@ public actor Flux2Engine: ImageGenerationEngine {
   // MARK: - Model Catalog
 
   public nonisolated var supportedModels: [any ModelDescriptor] {
-    [Flux2ModelDescriptor.klein4B, Flux2ModelDescriptor.klein9B]
+    [Flux2ModelDescriptor.klein4B]
   }
 
   // MARK: - Internal State
@@ -165,15 +150,29 @@ public actor Flux2Engine: ImageGenerationEngine {
     switch feature {
     case .textToImage:
       true
-    case .imageToImage:
-      true
+    case .imageToImage(let maxReferenceImages):
+      maxReferenceImages <= Self.pipelineMaxReferenceImages
     case .loraInference:
       true
     case .loraTraining:
       true
     case .promptUpsampling:
       false
+    case .negativePrompt:
+      // Flux2Core has no negative-prompt parameter; `generate` drops it.
+      false
     }
+  }
+
+  /// Hard ceiling enforced by `Flux2Pipeline.generateImageToImage` (1–3 refs),
+  /// independent of the per-model `Flux2Model.maxReferenceImages`.
+  static let pipelineMaxReferenceImages = 3
+
+  /// `min(3, Flux2Model.maxReferenceImages)` for the descriptor's variant, or
+  /// `0` for a model this engine does not run. No memory/device-tier input.
+  public nonisolated func maxReferenceImages(for model: any ModelDescriptor) -> Int {
+    guard let descriptor = resolveDescriptor(model) else { return 0 }
+    return min(Self.pipelineMaxReferenceImages, descriptor.flux2Model.maxReferenceImages)
   }
 
   // MARK: - Lifecycle
@@ -653,8 +652,6 @@ public actor Flux2Engine: ImageGenerationEngine {
     switch model.id {
     case Flux2ModelDescriptor.klein4B.id:
       return .klein4B
-    case Flux2ModelDescriptor.klein9B.id:
-      return .klein9B
     default:
       return nil
     }
@@ -678,7 +675,7 @@ public actor Flux2Engine: ImageGenerationEngine {
 
   /// Map a descriptor to its FLUX.2 model components.
   ///
-  /// Klein 4B/9B both require a transformer, a dedicated Qwen3 text encoder, and
+  /// Klein 4B requires a transformer, a dedicated Qwen3 text encoder, and
   /// the shared VAE. Enumerating the text encoder here is what lets
   /// `availability(_:)` surface a missing dependency as `.partial` rather than
   /// reporting the model `.available` with the encoder absent (R4 / D1).
@@ -690,17 +687,12 @@ public actor Flux2Engine: ImageGenerationEngine {
     // hardcoding the bf16 variant. Availability/download/delete/diskSize all
     // key off this set, so it must match the variant generation loads — e.g.
     // Klein 4B's `.ultraMinimal` config resolves to `.klein4B_4bit` (int4),
-    // NOT `.klein4B_bf16`. Klein 9B always resolves to bf16.
+    // NOT `.klein4B_bf16`.
     let transformerVariant = ModelRegistry.TransformerVariant.variant(
       for: descriptor.flux2Model,
       quantization: descriptor.quantizationConfig.transformer
     )
-    switch descriptor.id {
-    case Flux2ModelDescriptor.klein9B.id:
-      return [.transformer(transformerVariant), .textEncoder(.klein9B), .vae(.standard)]
-    default:
-      return [.transformer(transformerVariant), .textEncoder(.klein4B), .vae(.standard)]
-    }
+    return [.transformer(transformerVariant), .textEncoder(.klein4B), .vae(.standard)]
   }
 
   /// Calculate elapsed seconds from a start time.
@@ -723,9 +715,8 @@ public actor Flux2Engine: ImageGenerationEngine {
 /// `ModelRegistry.TextEncoderVariant` (and its `repoId`/`huggingFaceRepo`)
 /// resolves to **Mistral** repos, which is the wrong source for the FLUX.2 Klein
 /// text encoder. SwiftVinetas instead routes the text encoder to the
-/// Acervo-managed Qwen3-MLX-8bit encoders:
+/// Acervo-managed Qwen3-MLX-8bit encoder:
 /// - `klein4B` → `lmstudio-community/Qwen3-4B-MLX-8bit`
-/// - `klein9B` → `lmstudio-community/Qwen3-8B-MLX-8bit`
 enum Flux2Component: Sendable {
   case transformer(ModelRegistry.TransformerVariant)
   case textEncoder(TextEncoder)
@@ -738,20 +729,17 @@ enum Flux2Component: Sendable {
   /// dependency audit targets the correct (Qwen3) source.
   enum TextEncoder: String, Sendable, CaseIterable {
     case klein4B
-    case klein9B
 
     /// Acervo repo id for the paired Qwen3-MLX-8bit text encoder.
     var repoId: String {
       switch self {
       case .klein4B: return "lmstudio-community/Qwen3-4B-MLX-8bit"
-      case .klein9B: return "lmstudio-community/Qwen3-8B-MLX-8bit"
       }
     }
 
     var displayName: String {
       switch self {
       case .klein4B: return "Qwen3-4B Text Encoder"
-      case .klein9B: return "Qwen3-8B Text Encoder"
       }
     }
   }

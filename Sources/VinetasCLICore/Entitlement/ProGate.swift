@@ -109,14 +109,12 @@ public enum ProGate {
       guard let candidate = SignedTransaction.parseUnverifiedPayload(jws: jws),
         candidate.environment == SignedTransaction.xcodeTestEnvironment
       else { return nil }
-      FileHandle.standardError.write(
-        Data(
-          """
-          [vinetas] WARNING: honouring an UNVERIFIED Xcode StoreKit test \
-          entitlement. This only happens in a debug build; release builds \
-          require a transaction signed by Apple.
-
-          """.utf8))
+      stderrPrint(
+        """
+        [vinetas] WARNING: honouring an UNVERIFIED Xcode StoreKit test \
+        entitlement. This only happens in a debug build; release builds \
+        require a transaction signed by Apple.
+        """)
       return candidate
     #else
       return nil
