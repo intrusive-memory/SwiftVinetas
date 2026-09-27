@@ -82,6 +82,16 @@ actor MockEngine: ImageGenerationEngine {
   /// All method calls recorded in order.
   private(set) var calls: [MethodCall] = []
 
+  /// Number of `loadModel` invocations (derived from `calls`).
+  var loadModelCallCount: Int {
+    calls.filter { if case .loadModel = $0 { return true } else { return false } }.count
+  }
+
+  /// Number of `generate` invocations (derived from `calls`).
+  var generateCallCount: Int {
+    calls.filter { if case .generate = $0 { return true } else { return false } }.count
+  }
+
   // MARK: - Configurable Results
 
   /// The set of features this mock engine supports.
@@ -162,14 +172,20 @@ actor MockEngine: ImageGenerationEngine {
 
   // MARK: - Init
 
+  /// The value returned from `maxReferenceImages(for:)` for every model.
+  /// Defaults to 0 (references unsupported).
+  nonisolated let maxReferenceImagesValue: Int
+
   init(
     engineID: String = "mock",
     supportedModels: [any ModelDescriptor] = [
       MockModelDescriptor()
-    ]
+    ],
+    maxReferenceImages: Int = 0
   ) {
     self.engineID = engineID
     self.supportedModels = supportedModels
+    self.maxReferenceImagesValue = maxReferenceImages
   }
 
   // MARK: - Capabilities
@@ -178,8 +194,8 @@ actor MockEngine: ImageGenerationEngine {
     switch feature {
     case .textToImage:
       return true
-    case .imageToImage:
-      return false
+    case .imageToImage(let count):
+      return maxReferenceImagesValue > 0 && count <= maxReferenceImagesValue
     case .loraInference:
       return false
     case .loraTraining:
@@ -187,6 +203,10 @@ actor MockEngine: ImageGenerationEngine {
     case .promptUpsampling:
       return false
     }
+  }
+
+  nonisolated func maxReferenceImages(for model: any ModelDescriptor) -> Int {
+    maxReferenceImagesValue
   }
 
   // MARK: - Lifecycle

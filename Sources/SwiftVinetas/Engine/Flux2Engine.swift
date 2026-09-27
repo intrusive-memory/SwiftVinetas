@@ -165,8 +165,8 @@ public actor Flux2Engine: ImageGenerationEngine {
     switch feature {
     case .textToImage:
       true
-    case .imageToImage:
-      true
+    case .imageToImage(let maxReferenceImages):
+      maxReferenceImages <= Self.pipelineMaxReferenceImages
     case .loraInference:
       true
     case .loraTraining:
@@ -174,6 +174,17 @@ public actor Flux2Engine: ImageGenerationEngine {
     case .promptUpsampling:
       false
     }
+  }
+
+  /// Hard ceiling enforced by `Flux2Pipeline.generateImageToImage` (1–3 refs),
+  /// independent of the per-model `Flux2Model.maxReferenceImages`.
+  static let pipelineMaxReferenceImages = 3
+
+  /// `min(3, Flux2Model.maxReferenceImages)` for the descriptor's variant, or
+  /// `0` for a model this engine does not run. No memory/device-tier input.
+  public nonisolated func maxReferenceImages(for model: any ModelDescriptor) -> Int {
+    guard let descriptor = resolveDescriptor(model) else { return 0 }
+    return min(Self.pipelineMaxReferenceImages, descriptor.flux2Model.maxReferenceImages)
   }
 
   // MARK: - Lifecycle

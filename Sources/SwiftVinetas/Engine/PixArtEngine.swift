@@ -168,6 +168,11 @@ public actor PixArtEngine: ImageGenerationEngine {
     }
   }
 
+  /// PixArt has no image-to-image path: always `0`.
+  public nonisolated func maxReferenceImages(for model: any ModelDescriptor) -> Int {
+    0
+  }
+
   // MARK: - Lifecycle
 
   public func loadModel(
