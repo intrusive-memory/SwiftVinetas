@@ -41,4 +41,20 @@ public enum CLIEnvironment {
   /// `FileHandle.standardError.write(_:)` turns into an uncatchable
   /// `NSFileHandleOperationException` that aborts the whole test process.
   @TaskLocal public static var stderrDescriptor: Int32 = STDERR_FILENO
+
+  /// Performs a model download. Defaults to the real `Vinetas.download(model:progress:)`,
+  /// which always dispatches through the process-wide `VinetasClient.shared` (not
+  /// ``client``) — see ``client``'s doc comment.
+  ///
+  /// Tests bind a stub here instead of relying solely on ``skipDownload``: a
+  /// command that (incorrectly) reaches its download step before finishing
+  /// validation would still skip the *real* download under `skipDownload`,
+  /// making "no download attempted" trivially true regardless of ordering.
+  /// Binding this closure to a call-counting stub — with `skipDownload` left
+  /// `false` — proves the command never reached the download step at all.
+  @TaskLocal public static var downloadModel:
+    @Sendable (VinetasModel, @escaping @Sendable (VinetasDownloadProgress) -> Void) async throws
+      -> Void = { model, progress in
+        try await Vinetas.download(model: model, progress: progress)
+      }
 }

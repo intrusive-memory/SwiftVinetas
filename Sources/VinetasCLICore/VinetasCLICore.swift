@@ -844,16 +844,39 @@ public struct CharacterCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Comma-separated views to generate: front,left,right,back.")
     public var views: String = "front,left,right,back"
 
-    @Option(name: .long, help: "Img2img deviation strength (0.0-1.0).")
-    public var strength: Float = 0.65
+    @Option(
+      name: .long,
+      help: ArgumentHelp(
+        "Deprecated: img2img deviation strength. FLUX.2 reference conditioning has no "
+          + "strength control, so this has no effect and will be removed in the next minor release."
+      )
+    )
+    public var strength: Float?
 
     @Option(name: .long, help: "Model variant: klein4b (default) or klein9b.")
     public var model: String = "klein4b"
 
     public func run() async throws {
-      let character = try Vinetas.loadCharacter(slug: slug)
-      let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
+      guard let vinetasModel = VinetasModel(rawValue: model) else {
+        throw ValidationError("Unknown model '\(model)'. Valid: klein4b, klein9b")
+      }
+
+      if strength != nil {
+        stderrPrint(
+          "warning: --strength has no effect and will be removed in the next minor release")
+      }
+
       try await ProGate.requireAccess(to: vinetasModel)
+
+      // Resolve the engine and validate the reference count (character
+      // reference sheets always pass exactly one) BEFORE any download or
+      // model load (RI-5, RI-8): `--model pixart-sigma` fails here, since
+      // PixArt accepts no reference images.
+      let descriptor = vinetasModel.descriptor
+      let engine = try await CLIEnvironment.client.router.engine(for: descriptor)
+      try ReferenceValidator.validate(referenceCount: 1, engine: engine, model: descriptor)
+
+      let character = try Vinetas.loadCharacter(slug: slug)
 
       let viewNames = views.split(separator: ",").map {
         String($0).trimmingCharacters(in: .whitespaces)
@@ -869,13 +892,12 @@ public struct CharacterCommand: AsyncParsableCommand {
 
       stderrPrint("[vinetas] Generating reference sheets for '\(character.name)'...")
       stderrPrint("[vinetas] Views: \(referenceViews.map(\.rawValue).joined(separator: ", "))")
-      stderrPrint("[vinetas] Strength: \(strength)")
       stderrPrint("[vinetas] Model: \(vinetasModel.rawValue)")
 
       // Download model if not cached
       if !CLIEnvironment.skipDownload {
         stderrPrint("[vinetas] Checking model cache...")
-        try await Vinetas.download(model: vinetasModel) { progress in
+        try await CLIEnvironment.downloadModel(vinetasModel) { progress in
           stderrPrint(
             "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
         }
@@ -886,7 +908,7 @@ public struct CharacterCommand: AsyncParsableCommand {
       let images = try await CLIEnvironment.client.generateReferenceSheets(
         for: character,
         views: referenceViews,
-        model: vinetasModel.descriptor,
+        model: descriptor,
         progress: { current, total in
           stderrPrint("[vinetas] Reference \(current)/\(total)...")
         }
