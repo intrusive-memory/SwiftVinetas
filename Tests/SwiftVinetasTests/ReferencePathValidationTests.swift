@@ -58,7 +58,8 @@ struct ReferencePathValidationTests {
 
   // MARK: - ReferenceSheetGenerator
 
-  @Test("ReferenceSheetGenerator.generate on an engine with no reference support throws before load")
+  @Test(
+    "ReferenceSheetGenerator.generate on an engine with no reference support throws before load")
   func referenceSheetUnsupportedEngine() async throws {
     let mock = MockEngine(maxReferenceImages: 0)
     let router = EngineRouter(engines: [mock])
@@ -104,7 +105,8 @@ struct ReferencePathValidationTests {
     slug: String, photoName: String, data: Data?
   ) throws -> CharacterManager {
     let root = FileManager.default.temporaryDirectory
-      .appendingPathComponent("ReferencePathValidationTests-\(UUID().uuidString)", isDirectory: true)
+      .appendingPathComponent(
+        "ReferencePathValidationTests-\(UUID().uuidString)", isDirectory: true)
     let manager = CharacterManager(baseDirectory: root)
     let dir = manager.characterDirectory(slug: slug)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

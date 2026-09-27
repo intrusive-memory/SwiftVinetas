@@ -159,7 +159,8 @@ struct ReferenceGenerationGPUTests {
     #expect(md.steps == Self.steps)
     #expect(md.width == Self.width && md.height == Self.height)
     let records = try #require(md.references, "metadata.references is nil")
-    #expect(records.map(\.sha256) == refs.map(\.sha256), "reference sha256s out of order/mismatched")
+    #expect(
+      records.map(\.sha256) == refs.map(\.sha256), "reference sha256s out of order/mismatched")
     #expect(records.map(\.source) == refs.map(\.source.description))
     #expect(Set(refs.map(\.sha256)).count == referenceCount, "test references are not distinct")
 
