@@ -460,6 +460,18 @@ extension VinetasClient {
     let totalPanels = prompts.count
     var images: [CGImage] = []
 
+    // Pre-flight reference validation: when references are supplied, resolve
+    // the engine and validate the count BEFORE generationStart and loadModel,
+    // so an over-limit or unsupported request never loads a model.
+    var validatedEngine: (any ImageGenerationEngine)? = nil
+    if useImageToImage {
+      let resolved = try await router.engine(for: model)
+      endEngineID = resolved.engineID
+      try ReferenceValidator.validate(
+        referenceCount: referenceImages?.count ?? 0, engine: resolved, model: model)
+      validatedEngine = resolved
+    }
+
     // Emit a single generationStart for the whole sequence BEFORE routing so
     // the ordering invariant holds: generationStart → engineSelected → … → generationEnd.
     // model.engineID is known from the descriptor; the router confirms it next.
@@ -489,7 +501,12 @@ extension VinetasClient {
         loraScale: nil,
         upsamplePromptRequested: false,
         interpretImageCount: 0))
-    let engine = try await router.engine(for: model)
+    let engine: any ImageGenerationEngine
+    if let validatedEngine {
+      engine = validatedEngine
+    } else {
+      engine = try await router.engine(for: model)
+    }
     endEngineID = engine.engineID
     // Emit engineSelected after the router confirms the route (success path only).
     await reporter?.capture(
@@ -1480,28 +1497,32 @@ public enum Vinetas: Sendable {
 
   /// Generate pencil-sketch turnaround reference sheets from a character's source photo.
   ///
-  /// Loads the first source photo from the character's directory, then uses FLUX.2
-  /// img2img to generate pencil-sketch reference views at each requested angle.
-  /// Generated images are saved to `characters/<slug>/references/<view>.png`.
+  /// Loads the first source photo from the character's directory (any format
+  /// ImageIO can decode — PNG, JPEG, HEIC, …), then uses FLUX.2 reference
+  /// conditioning to generate pencil-sketch reference views at each requested
+  /// angle. The source photo is validated as a single reference against the
+  /// model before any model is loaded. Generated images are saved to
+  /// `characters/<slug>/references/<view>.png`.
   ///
   /// - Parameters:
   ///   - character: The character to generate reference sheets for. Must have at least
   ///     one entry in `sourcePhotos`.
   ///   - views: The turnaround angles to render (default: all four canonical views).
-  ///   - strength: How much to deviate from the source photo (0.0-1.0). Default: 0.65.
   ///   - model: The FLUX.2 model variant to use (default: Klein 4B).
   ///   - progress: Optional callback reporting `(currentView, totalViews)`.
   /// - Returns: Array of generated CGImages, one per requested view.
-  /// - Throws: `VinetasError.generationFailed` if the character has no source photos or
-  ///           the photo cannot be loaded.
+  /// - Throws: `VinetasError.generationFailed` if the character has no source photos;
+  ///   ``VinetasError/referenceNotFound(path:)``, ``VinetasError/referenceEmpty(source:)``
+  ///   or ``VinetasError/referenceUndecodable(source:)`` if the photo cannot be loaded;
+  ///   ``VinetasError/referencesUnsupported(engineID:)`` if the model accepts no
+  ///   reference images (e.g. PixArt).
   public static func generateReferenceSheets(
     for character: Character,
     views: [ReferenceView] = ReferenceView.allCases.map { $0 },
-    strength: Float = 0.65,
     model: VinetasModel = .klein4b,
     progress: ((Int, Int) -> Void)? = nil
   ) async throws -> [CGImage] {
-    guard let firstPhoto = character.sourcePhotos.first else {
+    guard !character.sourcePhotos.isEmpty else {
       await VinetasClient.shared.currentTelemetry()?.capture(
         .errorThrown(
           phase: .other,
@@ -1513,36 +1534,69 @@ public enum Vinetas: Sendable {
       )
     }
 
-    let manager = CharacterManager()
-    let photoURL = manager.characterDirectory(slug: character.slug)
-      .appendingPathComponent(firstPhoto)
-
-    guard let dataProvider = CGDataProvider(url: photoURL as CFURL),
-      let sourceImage = CGImage(
-        pngDataProviderSource: dataProvider,
-        decode: nil,
-        shouldInterpolate: true,
-        intent: .defaultIntent
-      )
-    else {
+    let source: ReferenceImage
+    do {
+      source = try loadReferenceSheetSource(for: character)
+    } catch {
       await VinetasClient.shared.currentTelemetry()?.capture(
         .errorThrown(
           phase: .other,
-          errorDescription:
-            "generationFailed: Could not load source photo at \(photoURL.path)"))
-      throw VinetasError.generationFailed(
-        "Could not load source photo at \(photoURL.path)"
-      )
+          errorDescription: "\(error)"))
+      throw error
     }
 
     return try await ReferenceSheetGenerator.generate(
       for: character,
       views: views,
-      sourceImage: sourceImage,
-      strength: strength,
+      sourceImage: source.image,
       model: model.descriptor,
       progress: progress
     )
+  }
+
+  /// Generate pencil-sketch turnaround reference sheets (legacy `strength` overload).
+  ///
+  /// `strength` is ignored: FLUX.2 reference conditioning has no strength control.
+  /// Forwards to ``generateReferenceSheets(for:views:model:progress:)``.
+  @available(
+    *, deprecated,
+    message:
+      "FLUX.2 reference conditioning has no strength control; removed in the next minor release."
+  )
+  public static func generateReferenceSheets(
+    for character: Character,
+    views: [ReferenceView] = ReferenceView.allCases.map { $0 },
+    strength: Float,
+    model: VinetasModel = .klein4b,
+    progress: ((Int, Int) -> Void)? = nil
+  ) async throws -> [CGImage] {
+    try await generateReferenceSheets(
+      for: character,
+      views: views,
+      model: model,
+      progress: progress
+    )
+  }
+
+  /// Loads the first source photo of `character` from its directory under
+  /// `manager`, decoding any ImageIO-supported format via
+  /// ``ReferenceImage/load(path:)``.
+  ///
+  /// - Throws: `VinetasError.generationFailed` if the character has no source
+  ///   photos, or the ``ReferenceImage/load(path:)`` errors.
+  static func loadReferenceSheetSource(
+    for character: Character,
+    manager: CharacterManager = CharacterManager()
+  ) throws -> ReferenceImage {
+    guard let firstPhoto = character.sourcePhotos.first else {
+      throw VinetasError.generationFailed(
+        "Character '\(character.name)' has no source photos. "
+          + "Add a source photo with createCharacter(name:photo:)."
+      )
+    }
+    let photoURL = manager.characterDirectory(slug: character.slug)
+      .appendingPathComponent(firstPhoto)
+    return try ReferenceImage.load(path: photoURL.path)
   }
 
   // MARK: - LoRA Training
