@@ -370,9 +370,8 @@ public struct Batch: AsyncParsableCommand {
       }
     }
 
-    let outputs = try await Self.generatePanels(
+    let panels = try await Self.generatePanels(
       from: promptURL,
-      modelID: vinetasModel.rawValue,
       descriptor: vinetasModel.descriptor,
       client: CLIEnvironment.client,
       progress: { current, total in
@@ -380,17 +379,16 @@ public struct Batch: AsyncParsableCommand {
       }
     )
 
-    for (index, output) in outputs.enumerated() {
+    for (index, panel) in panels.enumerated() {
       let panelNumber = index + 1
       let filename = String(format: "panel-%03d.png", panelNumber)
       let panelURL = outputDirURL.appendingPathComponent(filename)
-      let style = StyleConfig(width: output.width, height: output.height)
-      try ImageOutput.writePanel(output, to: panelURL, style: style)
-      stderrPrint("[vinetas] Wrote \(filename) (seed: \(output.seed))")
+      try ImageOutput.writePanel(image: panel.image, metadata: panel.metadata, to: panelURL)
+      stderrPrint("[vinetas] Wrote \(filename) (seed: \(panel.metadata.seed))")
     }
 
     stderrPrint(
-      "[vinetas] Batch complete. \(outputs.count) panel(s) written to \(outputDirURL.path)")
+      "[vinetas] Batch complete. \(panels.count) panel(s) written to \(outputDirURL.path)")
   }
 
   /// Generate every panel of a YAML prompt file through `client`.
@@ -398,17 +396,19 @@ public struct Batch: AsyncParsableCommand {
   /// Mirrors the deprecated static prompt-file loop (project style as
   /// defaults with per-panel overrides, seed resolved up front so the recorded
   /// seed is accurate) but dispatches through the injected client and never
-  /// downloads — `run()` owns the download.
+  /// downloads — `run()` owns the download. Uses
+  /// ``VinetasClient/generate(_:)`` (rather than the plain-`CGImage`
+  /// overload) so each returned ``GeneratedPanel/metadata`` records exactly
+  /// what was used for that item (RI-13): actual seed, steps, guidance, etc.
   static func generatePanels(
     from url: URL,
-    modelID: String,
     descriptor: any ModelDescriptor,
     client: VinetasClient,
     progress: (Int, Int) -> Void
-  ) async throws -> [PanelOutput] {
+  ) async throws -> [GeneratedPanel] {
     let promptFile = try PromptFile.parse(url: url)
     let total = promptFile.panels.count
-    var outputs: [PanelOutput] = []
+    var outputs: [GeneratedPanel] = []
     outputs.reserveCapacity(total)
 
     for index in 0..<total {
@@ -419,26 +419,9 @@ public struct Batch: AsyncParsableCommand {
       let resolvedSeed = panelStyle.seed ?? UInt64.random(in: 0...UInt64.max)
       panelStyle.seed = resolvedSeed
 
-      let clock = ContinuousClock()
-      let startTime = clock.now
-      let image = try await client.generate(
-        prompt: panel.prompt, style: panelStyle, model: descriptor)
-      let elapsed = clock.now - startTime
-      let durationSeconds =
-        Double(elapsed.components.seconds)
-        + Double(elapsed.components.attoseconds) / 1e18
-
-      outputs.append(
-        PanelOutput(
-          image: image,
-          prompt: panel.prompt,
-          seed: resolvedSeed,
-          durationSeconds: durationSeconds,
-          modelID: modelID,
-          width: panelStyle.width,
-          height: panelStyle.height
-        )
-      )
+      let generated = try await client.generate(
+        PanelRequest(prompt: panel.prompt, style: panelStyle, model: descriptor))
+      outputs.append(generated)
     }
     return outputs
   }
