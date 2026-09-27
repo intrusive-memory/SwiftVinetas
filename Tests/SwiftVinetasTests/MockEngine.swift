@@ -92,6 +92,11 @@ actor MockEngine: ImageGenerationEngine {
     calls.filter { if case .generate = $0 { return true } else { return false } }.count
   }
 
+  /// Number of `loadLoRA` invocations (derived from `calls`).
+  var loadLoRACallCount: Int {
+    calls.filter { if case .loadLoRA = $0 { return true } else { return false } }.count
+  }
+
   // MARK: - Configurable Results
 
   /// The set of features this mock engine supports.
@@ -179,23 +184,33 @@ actor MockEngine: ImageGenerationEngine {
   /// The value returned from `supports(.negativePrompt)`. Defaults to `false`.
   nonisolated let supportsNegativePrompt: Bool
 
+  /// The value returned from `supports(.loraInference)`. Defaults to `false`.
+  nonisolated let supportsLoRAInference: Bool
+
   init(
     engineID: String = "mock",
     supportedModels: [any ModelDescriptor] = [
       MockModelDescriptor()
     ],
     maxReferenceImages: Int = 0,
-    supportsNegativePrompt: Bool = false
+    supportsNegativePrompt: Bool = false,
+    supportsLoRAInference: Bool = false
   ) {
     self.engineID = engineID
     self.supportedModels = supportedModels
     self.maxReferenceImagesValue = maxReferenceImages
     self.supportsNegativePrompt = supportsNegativePrompt
+    self.supportsLoRAInference = supportsLoRAInference
   }
 
   /// Sets the result returned from `generate(request:stepProgress:)`.
   func setGenerateResult(_ result: GenerationResult?) {
     generateResult = result
+  }
+
+  /// Sets the error `loadLoRA(at:scale:)` will throw. Pass `nil` to clear it.
+  func setLoadLoRAError(_ error: Error?) {
+    loadLoRAError = error
   }
 
   /// The most recent request passed to `generate(request:stepProgress:)`.
@@ -210,7 +225,7 @@ actor MockEngine: ImageGenerationEngine {
     case .imageToImage(let count):
       return maxReferenceImagesValue > 0 && count <= maxReferenceImagesValue
     case .loraInference:
-      return false
+      return supportsLoRAInference
     case .loraTraining:
       return false
     case .promptUpsampling:
