@@ -200,9 +200,8 @@ extension VinetasClient {
 
   /// Generate a single panel image from a text prompt.
   ///
-  /// Resolves the engine via the router, composes the prompt from style and panel
-  /// prompts, builds a ``GenerationRequest`` from the style config, calls
-  /// `engine.generate(request:stepProgress:)`, and returns the generated image.
+  /// The no-reference case of ``generate(_:)``: equivalent to
+  /// `try await generate(PanelRequest(prompt:style:model:references: [])).image`.
   ///
   /// - Parameters:
   ///   - prompt: Text description of the panel to generate.
@@ -216,6 +215,37 @@ extension VinetasClient {
     style: StyleConfig? = nil,
     model: any ModelDescriptor = VinetasClient.defaultModel
   ) async throws -> CGImage {
+    try await generate(
+      PanelRequest(
+        prompt: prompt,
+        style: style ?? StyleConfig(),
+        model: model,
+        references: []
+      )
+    ).image
+  }
+
+  /// Generate a single panel and report exactly how it was produced.
+  ///
+  /// Resolves the engine, validates the reference count with
+  /// ``ReferenceValidator`` **before** any model is loaded, then generates
+  /// text-to-image (no references) or image-to-image (one or more
+  /// references). References are never silently dropped: an engine/model
+  /// that cannot accept them throws.
+  ///
+  /// The returned metadata records the **actual** seed (from the engine, so a
+  /// random seed is recoverable), the effective (clamped) width and height,
+  /// the user and composed prompts, the negative prompt and whether the
+  /// engine applied it, the reference records, mode, engine, model, steps,
+  /// guidance, and the engine-call duration.
+  ///
+  /// - Parameter request: The panel request.
+  /// - Returns: The image and its ``ImageOutput/PanelMetadata``.
+  /// - Throws: ``VinetasError/engineNotFound(engineID:)``,
+  ///   ``VinetasError/referencesUnsupported(engineID:)``,
+  ///   ``VinetasError/tooManyReferences(model:max:got:)``, or
+  ///   ``VinetasError/generationFailed(_:)``.
+  public func generate(_ request: PanelRequest) async throws -> GeneratedPanel {
     // MARK: - generationEnd capture
     //
     // OQ-6 resolution: we use the captured-mutable-var + `defer` idiom from
@@ -227,8 +257,9 @@ extension VinetasClient {
     // the synchronous `defer` body — fire-and-forget is acceptable per
     // REQUIREMENTS §6 / OQ-2.
     //
-    // The same shape is reused at the other three entry points
+    // The same shape is reused at the other entry points
     // (`generateSequence`, `generate(prompt:character:...)`, `preview`).
+    let model = request.model
     let reporter = currentTelemetry()
     let endClock = ContinuousClock()
     let endStart = endClock.now
@@ -258,6 +289,7 @@ extension VinetasClient {
       }
     }
 
+    let prompt = request.prompt
     guard !prompt.trimmingCharacters(in: .whitespaces).isEmpty else {
       await reporter?.capture(
         .errorThrown(
@@ -265,12 +297,16 @@ extension VinetasClient {
           errorDescription: "generationFailed: Prompt must not be empty"))
       throw VinetasError.generationFailed("Prompt must not be empty")
     }
-    let effectiveStyle = style ?? StyleConfig()
-    let composedPrompt = composePrompt(panelPrompt: prompt, style: effectiveStyle)
-    let request = buildRequest(
+    let style = request.style
+    let references = request.references
+    let isImageToImage = !references.isEmpty
+    let composedPrompt = composePrompt(panelPrompt: prompt, style: style)
+    let engineRequest = buildRequest(
       prompt: composedPrompt,
-      style: effectiveStyle,
-      mode: .textToImage
+      style: style,
+      mode: isImageToImage
+        ? .imageToImage(references: references.map(\.image))
+        : .textToImage
     )
     // Emit generationStart BEFORE routing so the ordering invariant holds:
     //   generationStart → engineSelected → … → generationEnd
@@ -281,13 +317,13 @@ extension VinetasClient {
         promptLength: composedPrompt.count,
         engineID: model.engineID,
         modelID: model.id,
-        steps: request.steps,
-        guidanceScale: Double(request.guidanceScale),
-        seed: request.seed ?? 0,
-        width: request.width,
-        height: request.height,
-        mode: .textToImage,
-        referenceImageCount: 0,
+        steps: engineRequest.steps,
+        guidanceScale: Double(engineRequest.guidanceScale),
+        seed: engineRequest.seed ?? 0,
+        width: engineRequest.width,
+        height: engineRequest.height,
+        mode: isImageToImage ? .imageToImage : .textToImage,
+        referenceImageCount: references.count,
         loraAttached: false,
         loraScale: nil,
         upsamplePromptRequested: false,
@@ -302,12 +338,47 @@ extension VinetasClient {
         modelID: model.id,
         requestedFeature: nil,
         fallbackUsed: false))
+
+    // Pre-load validation: never load a model for a request it cannot run.
+    try ReferenceValidator.validate(
+      referenceCount: references.count, engine: engine, model: model)
+
     try await engine.loadModel(model, progress: { _ in })
-    let result = try await engine.generate(request: request, stepProgress: nil)
+
+    let genClock = ContinuousClock()
+    let genStart = genClock.now
+    let result = try await engine.generate(request: engineRequest, stepProgress: nil)
+    let elapsed = genClock.now - genStart
+    let durationSeconds =
+      Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+
     success = true
     actualSeed = result.seed
     outputDims = [result.image.width, result.image.height]
-    return result.image
+
+    let negative = style.negativePrompt.flatMap { $0.isEmpty ? nil : $0 }
+    let isoFormatter = ISO8601DateFormatter()
+    isoFormatter.formatOptions = [.withInternetDateTime]
+    let metadata = ImageOutput.PanelMetadata(
+      prompt: prompt,
+      model: model.id,
+      seed: result.seed,
+      steps: engineRequest.steps,
+      guidance: engineRequest.guidanceScale,
+      width: engineRequest.width,
+      height: engineRequest.height,
+      durationSeconds: durationSeconds,
+      loras: [],
+      generatedAt: isoFormatter.string(from: Date()),
+      mode: isImageToImage ? .imageToImage : .textToImage,
+      engine: engine.engineID,
+      references: references.map { ImageOutput.ReferenceRecord($0) },
+      style: style.stylePrompt.isEmpty ? nil : style.stylePrompt,
+      composedPrompt: composedPrompt,
+      negative: negative,
+      negativeApplied: negative.map { _ in engine.supports(.negativePrompt) }
+    )
+    return GeneratedPanel(image: result.image, metadata: metadata)
   }
 
   /// Generate a sequence of panels from an array of prompts.

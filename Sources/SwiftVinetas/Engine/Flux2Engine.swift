@@ -173,6 +173,9 @@ public actor Flux2Engine: ImageGenerationEngine {
       true
     case .promptUpsampling:
       false
+    case .negativePrompt:
+      // Flux2Core has no negative-prompt parameter; `generate` drops it.
+      false
     }
   }
 

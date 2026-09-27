@@ -176,17 +176,30 @@ actor MockEngine: ImageGenerationEngine {
   /// Defaults to 0 (references unsupported).
   nonisolated let maxReferenceImagesValue: Int
 
+  /// The value returned from `supports(.negativePrompt)`. Defaults to `false`.
+  nonisolated let supportsNegativePrompt: Bool
+
   init(
     engineID: String = "mock",
     supportedModels: [any ModelDescriptor] = [
       MockModelDescriptor()
     ],
-    maxReferenceImages: Int = 0
+    maxReferenceImages: Int = 0,
+    supportsNegativePrompt: Bool = false
   ) {
     self.engineID = engineID
     self.supportedModels = supportedModels
     self.maxReferenceImagesValue = maxReferenceImages
+    self.supportsNegativePrompt = supportsNegativePrompt
   }
+
+  /// Sets the result returned from `generate(request:stepProgress:)`.
+  func setGenerateResult(_ result: GenerationResult?) {
+    generateResult = result
+  }
+
+  /// The most recent request passed to `generate(request:stepProgress:)`.
+  private(set) var lastRequest: GenerationRequest?
 
   // MARK: - Capabilities
 
@@ -202,6 +215,8 @@ actor MockEngine: ImageGenerationEngine {
       return false
     case .promptUpsampling:
       return false
+    case .negativePrompt:
+      return supportsNegativePrompt
     }
   }
 
@@ -234,6 +249,7 @@ actor MockEngine: ImageGenerationEngine {
     stepProgress: (@Sendable (Int, Int, TimeInterval) -> Void)?
   ) async throws -> GenerationResult {
     calls.append(.generate(request.prompt))
+    lastRequest = request
     if let error = generateError {
       throw error
     }

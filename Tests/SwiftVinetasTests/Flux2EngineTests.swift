@@ -155,6 +155,7 @@ struct Flux2EngineTests {
   func doesNotSupportPromptUpsampling() {
     let engine = Flux2Engine()
     #expect(engine.supports(.promptUpsampling) == false)
+    #expect(engine.supports(.negativePrompt) == false)
   }
 
   // MARK: - Memory Validation Thresholds

@@ -340,7 +340,8 @@ struct GenerationRequestTests {
     set.insert(.loraInference)
     set.insert(.loraTraining)
     set.insert(.promptUpsampling)
-    #expect(set.count == 4)
+    set.insert(.negativePrompt)
+    #expect(set.count == 5)
   }
 
   // MARK: - ModelLicense

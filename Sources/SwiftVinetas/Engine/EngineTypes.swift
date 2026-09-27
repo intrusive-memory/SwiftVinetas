@@ -201,4 +201,8 @@ public enum EngineFeature: Sendable, Hashable {
 
   /// Prompt upsampling (engine-side prompt enhancement).
   case promptUpsampling
+
+  /// The engine passes ``GenerationRequest/negativePrompt`` to its pipeline.
+  /// Engines that ignore negative prompts (e.g. FLUX.2) return `false`.
+  case negativePrompt
 }
