@@ -5,7 +5,7 @@ updated: 2026-09-23
 
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.20.0
+**Version**: 0.20.1
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -121,12 +121,12 @@ Pinned floors (see [Package.swift](Package.swift) for the source of truth):
 
 | Package | Import | Min version | Purpose |
 |---------|--------|-------------|---------|
-| flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | 3.4.2 | FLUX.2 pipeline (MIT) |
+| flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | 3.4.3 | FLUX.2 pipeline (MIT) |
 | SwiftTubería | `Tuberia`, `TuberiaCatalog` | 0.7.9 | Componentized diffusion pipeline protocols |
-| pixart-swift-mlx | `PixArtBackbone` | 0.8.1 | PixArt-Sigma DiT model plugin |
+| pixart-swift-mlx | `PixArtBackbone` | 0.8.2 | PixArt-Sigma DiT model plugin |
 | SwiftAcervo | `SwiftAcervo` | 0.24.1 | Model download/cache; resharding + integrity verification |
-| glosa-av | `GlosaCore` | 0.8.0 | GLOSA `<shot>` directives for `vinetas storyboard` |
-| SwiftCompartido | `SwiftCompartido` | 7.2.4 | Screenplay parsing (.fountain/.highland/.fdx) |
+| glosa-av | `GlosaCore` | 0.8.1 | GLOSA `<shot>` directives for `vinetas storyboard` |
+| SwiftCompartido | `SwiftCompartido` | 7.2.5 | Screenplay parsing (.fountain/.highland/.fdx) |
 | Universal | `YAML`, `JSON` | 5.3.0 | Prompt file parsing |
 | swift-argument-parser | `ArgumentParser` | 1.7.1 | CLI (vinetas target only) |
 | swift-certificates / swift-crypto | `X509`, `Crypto` | 1.0.0 / 3.0.0 | Pro entitlement JWS verification |
@@ -207,6 +207,7 @@ SwiftVinetas/
 │   ├── V1_REQUIREMENTS.md
 │   ├── GUI_REQUIREMENTS.md
 │   ├── ENGINE_ABSTRACTION_REQUIREMENTS.md
+│   ├── REQUIREMENTS-REFERENCE-IMAGES.md     # reference images for `vinetas generate` (requirements)
 │   ├── REQUIREMENTS-STORYBOARD-COMMAND.md   # `vinetas storyboard` spec
 │   ├── REQUIREMENTS-IOS-BACKGROUND-DOWNLOADS.md
 │   ├── REQUIREMENTS-PIXART-MEMORY.md
@@ -250,6 +251,12 @@ SwiftVinetas/
 7. Follow agent-specific instructions — see [CLAUDE.md](CLAUDE.md) or [GEMINI.md](GEMINI.md)
 
 ## Recent Changes
+
+### v0.20.1
+
+- **FLUX.2 memory gate gone** — flux-2-swift-mlx floored at 3.4.3, which removes the RAM-tier image-size gate: `generateWithResult` no longer throws `insufficientMemory` for large images, so FLUX.2 generation proceeds at the requested size and real allocation failures surface from the generate path. 3.4.3 also quantizes incrementally (fixes a GPU watchdog timeout during load-time quantization) and routes library logs to stderr.
+- **Dependency floors** — pixart-swift-mlx 0.8.2, glosa-av 0.8.1, SwiftCompartido 7.2.5 (SwiftTuberia 0.9.0 and SwiftAcervo 0.25.0 unchanged, already latest).
+- **Docs** — requirements for reference images in `vinetas generate`.
 
 ### v0.20.0
 

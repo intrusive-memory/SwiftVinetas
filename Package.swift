@@ -27,7 +27,7 @@ let package = Package(
   ],
   dependencies: [
     // FLUX.2 image generation pipeline (MIT license, includes mlx-swift transitively)
-    // Floored at 3.4.1: flux 3.3.2 floors mlx-swift at 0.31.4, which carries
+    // Floored at 3.4.3: flux 3.3.2 floors mlx-swift at 0.31.4, which carries
     // upstream #410 (deadlock/EINVAL); 3.3.3 pins mlx exactly to 0.31.3, 3.3.4
     // fixes Klein transformer-weight resolution (weights live in the diffusers
     // `transformer/` subfolder, not the repo root), 3.4.0 adds iPad memory-tier
@@ -35,11 +35,14 @@ let package = Package(
     // 3.4.1 makes pre-quantized MLX transformer dirs loadable (findModelPath now
     // accepts `model.safetensors.index.json` / bare `*.safetensors`, not just
     // `config.json`/`model_index.json`) — the fix for Klein 4B int4 generation.
+    // 3.4.3 removes the RAM-tier image-size gate in generateWithResult (no more
+    // insufficientMemory for oversized images), quantizes incrementally to avoid
+    // a GPU watchdog timeout, and routes library logs to stderr.
     // Keep this as upToNextMajor so a future flux that adopts a fixed mlx is
     // picked up automatically — the mlx-version guarantee lives in flux itself.
     .package(
-      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.4.2")
-    ),
+      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
+      .upToNextMajor(from: "3.4.3")),
 
     // Shared model management (download, cache, discovery)
     // Floored at 0.23.0: 0.21.0 made the CDN base URL a per-consumer config value
@@ -48,34 +51,38 @@ let package = Package(
     // the integrity-checkpoint work. Consumers must supply ACERVO_CDN_BASE_URL
     // (CLI / tests / CI) or the AcervoCDNBaseURL Info.plist key (UI apps).
     .package(
-      url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.25.0")),
+      url: "https://github.com/intrusive-memory/SwiftAcervo.git",
+      .upToNextMajor(from: "0.25.0")),
 
     // Componentized diffusion pipeline (protocols + infrastructure).
     // Floored at 0.9.0: removes the DiffusionPipeline.loadModels pre-flight memory
     // gate (the downstream half of the SwiftVinetas gate removal). 0.8.0 and
     // earlier still refuse loads that would have succeeded.
     .package(
-      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.9.0")),
+      url: "https://github.com/intrusive-memory/SwiftTuberia.git",
+      .upToNextMajor(from: "0.9.0")),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe).
-    // Floored at 0.8.1: 0.8.0 landed the seam-free tiled VAE decode (#45/#83) —
+    // Floored at 0.8.2: 0.8.0 landed the seam-free tiled VAE decode (#45/#83) —
     // PixArtRecipe sets decodeTileLatentSize so the macOS 4K decode transient is
-    // bounded — and 0.8.1 is the current published patch.
+    // bounded — and 0.8.2 is the current published patch.
     .package(
-      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.8.1")
-    ),
+      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
+      .upToNextMajor(from: "0.8.2")),
 
     // GLOSA screenplay directive parser — provides the `<shot>` storyboard
     // directives consumed by `vinetas storyboard`. Foundation-only leaf.
     .package(
-      url: "https://github.com/intrusive-memory/glosa-av.git", .upToNextMajor(from: "0.8.0")),
+      url: "https://github.com/intrusive-memory/glosa-av.git",
+      .upToNextMajor(from: "0.8.1")),
 
     // Screenplay file parsing (.fountain / .highland / .fdx) — turns a
     // screenplay path into the `[[ ]]` note stream GlosaCore parses. Same
     // parser glosa-tools uses, so the screenplay→notes extraction has one
     // source of truth.
     .package(
-      url: "https://github.com/intrusive-memory/SwiftCompartido.git", .upToNextMajor(from: "7.2.4")),
+      url: "https://github.com/intrusive-memory/SwiftCompartido.git",
+      .upToNextMajor(from: "7.2.5")),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
