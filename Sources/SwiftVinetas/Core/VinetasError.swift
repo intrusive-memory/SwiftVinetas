@@ -28,6 +28,15 @@ public enum VinetasError: Error, LocalizedError {
   /// the model to restore a complete, hash-verified copy.
   case modelIncomplete(modelID: String, components: [String])
 
+  /// A reference image path does not exist or cannot be read.
+  case referenceNotFound(path: String)
+
+  /// A reference image source contained zero bytes.
+  case referenceEmpty(source: ReferenceSource)
+
+  /// A reference image source's bytes could not be decoded as an image.
+  case referenceUndecodable(source: ReferenceSource)
+
   public var errorDescription: String? {
     switch self {
     case .modelNotFound(let model):
@@ -64,6 +73,15 @@ public enum VinetasError: Error, LocalizedError {
       return
         "Model '\(modelID)' is incomplete or corrupted on disk — re-download it to continue. "
         + "Affected components: \(list)."
+    case .referenceNotFound(let path):
+      return
+        "Reference image not found: '\(path)' does not exist or is not a readable file."
+    case .referenceEmpty(let source):
+      return
+        "Reference image '\(source)' is empty (0 bytes)."
+    case .referenceUndecodable(let source):
+      return
+        "Reference image '\(source)' could not be decoded — it is not a supported image format (PNG, JPEG, or HEIC)."
     }
   }
 }
