@@ -208,12 +208,12 @@ An `ImageGenerationEngine` conformance that wraps the existing `Flux2Core` depen
 
 - E4.1.1: `Flux2Engine` conforms to `ImageGenerationEngine`.
 - E4.1.2: `engineID` is `"flux2"`.
-- E4.1.3: `supportedModels` returns descriptors for Klein 4B and Klein 9B (matching current `VinetasModel` cases).
+- E4.1.3: `supportedModels` returns the Klein 4B descriptor (matching the FLUX case of `VinetasModel`).
 - E4.1.4: `generate(request:stepProgress:)` delegates to `Flux2Pipeline.generateTextToImageWithResult()` and `generateImageToImageWithResult()`, mapping `GenerationRequest` to Flux2Core's API.
 - E4.1.5: `loadLoRA`/`unloadLoRA` delegate to the existing `VinetasLoRAManager`.
 - E4.1.6: `download` delegates to the existing `Flux2ModelDownloader` via `VinetasModelManager`.
 - E4.1.7: `validateMemory` delegates to the existing `VinetasMemory` checks.
-- E4.1.8: Quantization selection (`.ultraMinimal` for Klein 4B, `.balanced` for Klein 9B) stays internal to `Flux2Engine` — the protocol caller never sees quantization config.
+- E4.1.8: Quantization selection (`.ultraMinimal` for Klein 4B) stays internal to `Flux2Engine` — the protocol caller never sees quantization config.
 - E4.1.9: Two-phase loading (text encoder → unload → transformer + VAE) stays internal to `Flux2Engine`.
 
 ### E4.2 Location
@@ -301,7 +301,6 @@ extension VinetasClient {
 
     /// All known model descriptors for code completion / discovery.
     public static var klein4B: any ModelDescriptor { Flux2ModelDescriptor.klein4B }
-    public static var klein9B: any ModelDescriptor { Flux2ModelDescriptor.klein9B }
     public static var pixartSigmaXL: any ModelDescriptor { PixArtModelDescriptor.sigmaXL }
 }
 ```
@@ -338,7 +337,7 @@ LoRA loading/unloading is currently FLUX.2-specific (`VinetasLoRAManager` calls 
 
 ### E8.1 Requirements
 
-- E8.1.1: `LoRAMetadata.model: VinetasModel?` is **replaced** by `compatibleEngines: [String]` (engine IDs). Existing `character.yaml` files with `model: klein4b` are migrated during deserialization: `klein4b`/`klein9b` → `["flux2"]`. The `model` field is no longer written.
+- E8.1.1: `LoRAMetadata.model: VinetasModel?` is **replaced** by `compatibleEngines: [String]` (engine IDs). Existing `character.yaml` files with `model: klein4b` are migrated during deserialization: any legacy value with the `klein` prefix → `["flux2"]`. The `model` field is no longer written.
 - E8.1.2: When generating with a character, `VinetasClient` checks that the selected model's engine is in the LoRA's `compatibleEngines` list. If not, generation proceeds without LoRA (prompt-only consistency) and logs a warning.
 - E8.1.3: `CharacterTrainer` tags the trained LoRA's `compatibleEngines` with the engine ID of the model it was trained on.
 - E8.1.4: LoRA file format remains standard safetensors (`lora_a.weight` / `lora_b.weight`). Engine-specific layer targeting is the engine's responsibility.
@@ -513,7 +512,7 @@ Steps 1–8 can ship independently of the PixArt backend existing. The abstracti
 | 2 | `EngineRouter`: class or actor? | **Actor.** | Engines like `Flux2Engine` own mutable pipeline state and are themselves actors. The router must safely handle concurrent model lookups and engine resolution. Sync query methods on engines (`isAvailable`, `supports`, `validateMemory`, `diskSize`) are `nonisolated` since they only read static/filesystem state. `Flux2Pipeline` from Flux2Core is `@unchecked Sendable` — wrapping it in an actor-based engine serializes access properly. |
 | 3 | `preview()`: FLUX.2-only or all engines? | **FLUX.2-only private fast path.** | `preview()` hardcodes Klein 4B, 4 steps, 512×512 for rapid prompt iteration. It does not route through `EngineRouter` — it resolves directly to the `"flux2"` engine. Revisit when PixArt is integrated (PixArt at 8 steps may be fast enough to serve as its own preview). |
 | 4 | `Vinetas` facade: static enum or instance? | **Instance-based `VinetasClient` class** with `VinetasClient.shared` default singleton. | `VinetasClient` is a `public final class` (not actor) because: (a) `EngineRouter` is already an actor providing concurrency safety — double actor hops would add overhead; (b) `VinetasClient` has no mutable state, it holds a router and delegates; (c) understanding features (`classify`, `extractFeatures`, `similarity`) continue to use their own actor singletons directly. The existing `Vinetas` enum becomes a deprecated shim forwarding to `VinetasClient.shared`. |
-| 5 | Model API parameter type? | **`any ModelDescriptor` is primary.** | All `VinetasClient` methods accept `any ModelDescriptor` with a default of `VinetasClient.defaultModel`. Static properties on `VinetasClient` (`.klein4B`, `.klein9B`, `.pixartSigmaXL`) provide discoverability without needing to know concrete descriptor types. `VinetasModel` enum is deprecated with a `.descriptor` bridge. |
+| 5 | Model API parameter type? | **`any ModelDescriptor` is primary.** | All `VinetasClient` methods accept `any ModelDescriptor` with a default of `VinetasClient.defaultModel`. Static properties on `VinetasClient` (`.klein4B`, `.pixartSigmaXL`) provide discoverability without needing to know concrete descriptor types. `VinetasModel` enum is deprecated with a `.descriptor` bridge. |
 | 6 | `LoRAMetadata.model` or `compatibleEngines`? | **Replace `model: VinetasModel?` with `compatibleEngines: [String]`.** | Keeping both is redundant. YAML migration: old `model: klein4b` deserializes to `compatibleEngines: ["flux2"]`. New files only write `compatible_engines`. |
 
 ### E14.1 `VinetasClient` Shape
@@ -549,7 +548,6 @@ public final class VinetasClient: Sendable {
 extension VinetasClient {
     public static var defaultModel: any ModelDescriptor { Flux2ModelDescriptor.klein4B }
     public static var klein4B: any ModelDescriptor { Flux2ModelDescriptor.klein4B }
-    public static var klein9B: any ModelDescriptor { Flux2ModelDescriptor.klein9B }
     public static var pixartSigmaXL: any ModelDescriptor { PixArtModelDescriptor.sigmaXL }
 }
 ```
@@ -601,7 +599,6 @@ public enum Vinetas: Sendable {
 @available(*, deprecated, message: "Use ModelDescriptor types directly (e.g., VinetasClient.klein4B)")
 public enum VinetasModel: String, Sendable, Codable, CaseIterable {
     case klein4b = "klein4b"
-    case klein9b = "klein9b"
     case pixartSigma = "pixart-sigma"
 
     /// Bridge to ModelDescriptor

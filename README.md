@@ -16,7 +16,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 ### Key Features
 
 - **Engine Abstraction** — Protocol-based `ImageGenerationEngine` with `EngineRouter` dispatcher, supporting multiple backends
-- **FLUX.2 Klein 4B/9B** — Fast generation (~26s/panel on Klein 4B) with 16 GB minimum RAM
+- **FLUX.2 Klein 4B** — Fast generation (~26s/panel on Klein 4B) with 16 GB minimum RAM
 - **PixArt-Sigma XL** — Real engine implementation via SwiftTubería pipeline (8 GB minimum, ~10s/image)
 - **LoRA support** — Load style adapters in safetensors format with engine-tagged compatibility
 - **Multi-image conditioning** — Up to 3 reference images for character consistency across panels
@@ -31,7 +31,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 | **macOS** | 26.0 | 26.0+ |
 | **Swift** | 6.2 | 6.2+ |
 | **Hardware** | Apple Silicon (M1+) | M3 Pro or later |
-| **RAM** | 16 GB (Klein 4B, int4) | 32 GB (Klein 9B, qint8) |
+| **RAM** | 16 GB (Klein 4B, int4) | 32 GB (balanced loading strategy) |
 
 ## Installation
 
@@ -175,7 +175,6 @@ Prints (and creates, if missing) the absolute path to a scratch directory inside
 |-------|-----------|-----------|-------------|-------|
 | **PixArt-Sigma XL** | 0.6B | ~3.6 GB | 8 GB | ~10s/image |
 | **Klein 4B** (default) | 4B | ~2.1 GB | 16 GB | ~26s/image |
-| **Klein 9B** | 9B | ~4.9 GB | 24 GB | ~62s/image |
 
 Models are downloaded from HuggingFace on first use and cached in the App Group container (`group.intrusive-memory.models`) or `Application Support/SwiftAcervo/SharedModels/` as fallback. All paths are sandbox-safe for App Store distribution.
 

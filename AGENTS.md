@@ -22,7 +22,7 @@ updated: 2026-09-23
 - **Engines**: `Flux2Engine` (wraps Flux2Core), `PixArtEngine` (wraps PixArtBackbone via SwiftTubería pipeline)
 - **Public API**: `VinetasClient` (instance-based, `.shared` singleton) — replaces deprecated static `Vinetas` enum
 - **CLI**: `vinetas` for testing and standalone use
-- **Models**: FLUX.2 Klein 4B (fast, default) and Klein 9B (quality), extensible via `ModelDescriptor` protocol
+- **Models**: FLUX.2 Klein 4B (default, the only FLUX model) and PixArt-Sigma XL, extensible via `ModelDescriptor` protocol
 - **Style**: LoRA adapters in safetensors format, tagged with `compatibleEngines: [String]`
 - **Prompt files**: YAML parsed via `marcprux/universal`
 - **Model cache**: App Group container (`group.intrusive-memory.models`) via SwiftAcervo, with Application Support fallback — sandbox-safe on all platforms
@@ -100,7 +100,7 @@ EngineRouter           // Actor: dispatches to registered engines by model's eng
 Flux2Engine            // Actor: wraps Flux2Pipeline, engineID "flux2"
 PixArtEngine           // Actor: wraps DiffusionPipeline via PixArtBackbone, engineID "pixart-sigma"
 ModelDescriptor        // Protocol: id, displayName, engineID, minimumMemoryGB, etc.
-Flux2ModelDescriptor   // .klein4B ("flux2-klein-4b"), .klein9B ("flux2-klein-9b")
+Flux2ModelDescriptor   // .klein4B ("flux2-klein-4b"), 16 GB minimum
 PixArtModelDescriptor  // .sigmaXL ("pixart-sigma-xl"), 8 GB minimum, Apache 2.0
 
 // Deprecated API (still functional, forwards to VinetasClient.shared)
@@ -236,7 +236,6 @@ SwiftVinetas/
 
 - PixArt-Sigma XL int4: 8 GB minimum (works on all iPads and most Macs)
 - Klein 4B int4: 16 GB minimum
-- Klein 9B qint8: 24 GB minimum
 - Always validate memory before loading models
 - VAE must stay at bf16/fp16 (never quantize)
 

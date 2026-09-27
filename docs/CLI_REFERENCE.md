@@ -39,8 +39,8 @@ OPTIONS:
   -s, --style <style>     Style prompt for consistent look (e.g., 'noir comic').
   -o, --output <output>   Output PNG path, or - to write the PNG (with embedded
                           metadata, no sidecar) to stdout. (default: panel.png)
-  --model <model>         Model variant: klein4b (default, fast), klein9b
-                          (quality), or pixart-sigma. (default: klein4b)
+  --model <model>         Model variant: klein4b (default) or pixart-sigma.
+                          (default: klein4b)
   --lora <lora>           Path to a LoRA safetensors file.
   --lora-scale <lora-scale>
                           LoRA scale (0.0-1.0). (default: 0.8)
@@ -62,7 +62,7 @@ OPTIONS:
 
 ### Reference images (`-r`/`--reference`)
 
-FLUX.2 Klein 4B/9B accept up to 3 reference (conditioning) images for
+FLUX.2 Klein 4B accepts up to 3 reference (conditioning) images for
 image-to-image generation. PixArt-Sigma does not support references — passing
 any `-r` with `--model pixart-sigma` fails before any download or model load.
 
@@ -125,7 +125,7 @@ for tooling that would rather not parse PNG chunks.
 
 ### `--negative` on engines that don't apply it
 
-FLUX.2 (Klein 4B/9B) does not apply negative prompts. Passing `--negative`
+FLUX.2 (Klein 4B) does not apply negative prompts. Passing `--negative`
 with a FLUX.2 model still runs — it does not fail — but:
 
 - prints `warning: <engine> does not apply negative prompts; --negative ignored` to stderr
@@ -249,7 +249,7 @@ SUBCOMMANDS:
 ### `character reference` hardening
 
 - `--model` is validated eagerly: an unknown value (anything other than
-  `klein4b`/`klein9b`) is a `ValidationError` naming the valid choices,
+  `klein4b`) is a `ValidationError` naming the valid choice,
   instead of silently falling back to `klein4b`. `--model pixart-sigma` is
   rejected specifically — PixArt has no reference-image support — **before**
   any download or model load.

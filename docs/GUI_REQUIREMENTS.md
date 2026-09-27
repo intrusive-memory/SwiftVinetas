@@ -13,7 +13,6 @@ Separate repo: `VinetasApp` (or similar). Depends on `SwiftVinetas` as a Swift p
 ### 1.1 Primary Platform
 - **macOS 26.0+**, Apple Silicon only (M1/M2/M3/M4/M5)
 - Minimum 16 GB unified memory (Klein 4B)
-- Recommended 24 GB+ (Klein 9B support)
 
 ### 1.2 Stretch Goal
 - **iPadOS 26.0+**, M4/M5 iPad Pro with 16 GB RAM (1TB/2TB storage configs)
@@ -22,8 +21,6 @@ Separate repo: `VinetasApp` (or similar). Depends on `SwiftVinetas` as a Swift p
 
 ### 1.3 Pre-Flight Validation
 - On launch, detect available memory and GPU capabilities
-- Disable unavailable models (grey out Klein 9B if < 24 GB)
-- Show clear messaging: "This device has 16 GB — Klein 4B available, Klein 9B requires 24 GB+"
 
 ---
 
@@ -44,7 +41,6 @@ Separate repo: `VinetasApp` (or similar). Depends on `SwiftVinetas` as a Swift p
 
 ### 2.3 Model Storage
 - First launch: prompt user to download Klein 4B (~2.5 GB)
-- Optional Klein 9B download from settings
 - Show download progress with pause/resume
 - Display cache size and offer "Delete Model" in settings
 - Consider whether SwiftAcervo's `~/Library/SharedModels/` works inside sandbox, or if models need to live in the app container
@@ -65,7 +61,7 @@ The primary workspace. Two-column layout on Mac, adaptive on iPad.
   - Style prompt field (e.g., "noir comic book, high contrast")
   - Negative prompt field (collapsible, advanced)
 - **Generation settings** (collapsible section)
-  - Model picker: Klein 4B / Klein 9B (disabled if insufficient memory)
+  - Model picker: Klein 4B / PixArt-Sigma XL
   - Aspect ratio picker: Square, Wide, Ultrawide, Portrait, Panel, Strip (visual previews)
   - Steps slider (1–50, default per model)
   - Guidance scale slider (1.0–20.0)
@@ -154,7 +150,7 @@ Browse previously generated images.
 ### 3.5 Settings
 
 - **Models**
-  - Download / delete Klein 4B, Klein 9B
+  - Download / delete Klein 4B and PixArt-Sigma XL
   - Cache size display
   - Model storage location (if outside sandbox)
 - **Defaults**
@@ -286,7 +282,7 @@ GenerationRecord
 - Consider App Store review implications: reviewer needs Apple Silicon Mac
 
 ### 6.3 Pricing
-- TBD: one-time purchase, free with IAP for Klein 9B, or subscription
+- TBD: one-time purchase, free with IAP for FLUX.2 Klein 4B, or subscription
 - No server costs (fully on-device) — one-time purchase is natural fit
 
 ### 6.4 Privacy
