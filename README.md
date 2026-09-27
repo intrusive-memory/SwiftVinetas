@@ -39,7 +39,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.20.1")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.21.0")
 ]
 ```
 
@@ -227,10 +227,12 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [GUI Requirements](docs/GUI_REQUIREMENTS.md) — Host-app/GUI requirements
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 - [Storyboard Command Requirements](docs/REQUIREMENTS-STORYBOARD-COMMAND.md) — `vinetas storyboard`: screenplay → `<shot>` → panels
-- [Reference Images Requirements](docs/REQUIREMENTS-REFERENCE-IMAGES.md) — reference images for `vinetas generate` (not yet implemented)
+- [Reference Images Requirements](docs/REQUIREMENTS-REFERENCE-IMAGES.md) — reference images for `vinetas generate`
 - [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.21.0** — Reference images and provenance metadata. `vinetas generate -r/--reference` (repeatable; `-r -` reads from stdin) conditions FLUX.2 on reference images; paths, formats and per-engine reference limits are validated before any download or model load. `-o -` streams the PNG to stdout, with all library logging kept on stderr. Every PNG now embeds its generation metadata (engine, mode, references with SHA-256 and effective size, composed prompt, applied LoRAs) as a `vinetas` iTXt chunk, mirrored to the JSON sidecar. New single-image `PanelRequest` API with references and LoRA support. `vinetas info --print-io-dir`. **Breaking:** FLUX.2 Klein 9B is removed (`VinetasModel.klein9b`, `Flux2ModelDescriptor.klein9B`, `VinetasClient.klein9B`), so Klein 4B is the only FLUX.2 model. `PanelMetadata.Mode` gains `.unknown(String)`, so an exhaustive `switch` needs a `default` case. `--strength` is deprecated and has no effect. `--preview` now honors `--seed`, `--guidance`, `--style`, `--negative`, `--lora` and `-r`.
 
 **v0.20.1** — FLUX.2 memory gate gone via dependency floors: flux-2-swift-mlx is floored at 3.4.3, which removes the RAM-tier image-size gate — `generateWithResult` no longer throws `insufficientMemory` for oversized images, so generation runs at the requested size and genuine allocation failures surface from the generate path. 3.4.3 also quantizes incrementally (fixing a GPU watchdog timeout) and sends library logs to stderr. Also floors pixart-swift-mlx at 0.8.2, glosa-av at 0.8.1, and SwiftCompartido at 7.2.5 (SwiftTuberia 0.9.0 / SwiftAcervo 0.25.0 already latest). Adds requirements doc for reference images in `vinetas generate`.
 
