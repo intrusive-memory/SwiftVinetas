@@ -127,6 +127,48 @@ panels:
     height: 640
 ```
 
+## Reference images and streams
+
+`vinetas generate` accepts reference (conditioning) images for FLUX.2 Klein image-to-image generation. PixArt-Sigma does not support references.
+
+```bash
+# References set generation priority in the order given (first = highest priority)
+vinetas generate "Vale in the rain" -r vale-front.png -r vale-side.jpg --output panel.png
+
+# Read a single reference from stdin instead of a file
+cat vale-front.png | vinetas generate "Vale in the rain" -r - --output panel.png
+```
+
+- `-r`/`--reference` is repeatable, 1–3 times; order is priority (the first reference is weighted highest).
+- Accepted formats: PNG, JPEG, HEIC (anything ImageIO can decode).
+- A reference larger than the model's native conditioning size is downscaled automatically; when that happens, `generate` prints one `note: reference <n> (<source>) downscaled <w>×<h> → <w'>×<h'>` line per affected reference to stderr.
+- Only one `-r -` (stdin) reference is allowed per invocation — a second `-r -` is rejected.
+
+### Streaming output (`-o -`)
+
+```bash
+vinetas generate "A detective in a rain-soaked alley" -o - > panel.png
+```
+
+- `-o -` writes a byte-pure PNG to stdout — every log line, warning, and telemetry note goes to stderr instead, so the stream is always exactly the PNG (plus its embedded metadata) and is safe to pipe directly into another tool.
+- No `.json` sidecar is written for `-o -`; the metadata travels embedded in the PNG itself (see below).
+- Writing to a path (`-o panel.png`) writes both the PNG *and* a `panel.json` sidecar with the same metadata.
+
+### Embedded metadata
+
+Every generated PNG — whether written to a path or streamed to stdout — carries its generation metadata in a `vinetas` `iTXt` chunk: prompt, composed prompt, model, engine, mode (text-to-image / image-to-image), actual seed, steps, guidance, style, negative prompt and whether it was actually applied, applied LoRAs, and one record per reference image (source, sha256, original size, effective size). Path outputs additionally get a `.json` sidecar with byte-identical contents, for tooling that would rather not parse PNG chunks.
+
+### Staging directory (`vinetas info --print-io-dir`)
+
+```bash
+vinetas info --print-io-dir
+# /Users/you/Library/Group Containers/group.intrusive-memory.models/vinetas-io
+```
+
+Prints (and creates, if missing) the absolute path to a scratch directory inside the same App Group container SwiftAcervo caches models in — a sibling of the model cache, not inside it. Use it to stage reference images or collect generated panels when a stream isn't a good fit.
+
+**Sandbox note**: the signed, notarized `vinetas` CLI carries no Downloads-folder entitlement, so it cannot read a file a user drops in `~/Downloads` or write a panel there directly. Prefer `-r -` / `-o -` streams, or stage files through the directory `vinetas info --print-io-dir` prints.
+
 ## Models
 
 | Model | Parameters | int4 Size | RAM Required | Speed |
@@ -179,6 +221,7 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 
 ## Documentation
 
+- [CLI Reference](docs/CLI_REFERENCE.md) — Full `vinetas` command reference: every subcommand, flag, and the reference-image/streaming behavior above
 - [Learning Document](docs/LEARNING.md) — Research findings on MLX, FLUX, and the image generation ecosystem
 - [Architecture](docs/ARCHITECTURE.md) — Technical design decisions and component architecture
 - [V1 Library Requirements](docs/V1_REQUIREMENTS.md) — Prioritized library feature requirements
