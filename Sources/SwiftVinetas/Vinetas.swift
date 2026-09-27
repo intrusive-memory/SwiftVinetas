@@ -345,6 +345,22 @@ extension VinetasClient {
 
     try await engine.loadModel(model, progress: { _ in })
 
+    // RI-15: apply style.loraPath, if configured, before generating. An
+    // engine that doesn't support LoRA inference fails fast (before the
+    // generate call); a load failure propagates as a thrown error and no
+    // metadata is produced. The LoRA is recorded in metadata.loras only
+    // after a successful load.
+    var appliedLoRAs: [ImageOutput.LoRAEntry] = []
+    if style.loraPath != nil {
+      guard engine.supports(.loraInference) else {
+        throw VinetasError.engineFeatureUnsupported(
+          feature: .loraInference, engineID: engine.engineID)
+      }
+      if let entry = try await VinetasLoRAManager.loadIfConfigured(style: style, on: engine) {
+        appliedLoRAs = [entry]
+      }
+    }
+
     let genClock = ContinuousClock()
     let genStart = genClock.now
     let result = try await engine.generate(request: engineRequest, stepProgress: nil)
@@ -368,7 +384,7 @@ extension VinetasClient {
       width: engineRequest.width,
       height: engineRequest.height,
       durationSeconds: durationSeconds,
-      loras: [],
+      loras: appliedLoRAs,
       generatedAt: isoFormatter.string(from: Date()),
       mode: isImageToImage ? .imageToImage : .textToImage,
       engine: engine.engineID,
