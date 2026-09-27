@@ -18,6 +18,19 @@ func loadCGImage(from path: String) -> CGImage? {
   return CGImageSourceCreateImageAtIndex(source, 0, nil)
 }
 
+/// One `note: ...` line per reference whose engine-side conditioning size
+/// (``ReferenceImage/effectiveSize``) differs from what was decoded
+/// (``ReferenceImage/originalSize``). Pure and synchronous so it's testable
+/// without touching stdio; `Generate.run()` just prints whatever it returns.
+func downscaleNoteLines(for references: [ReferenceImage]) -> [String] {
+  references.enumerated().compactMap { index, reference in
+    guard reference.originalSize != reference.effectiveSize else { return nil }
+    return "note: reference \(index + 1) (\(reference.source)) downscaled "
+      + "\(reference.originalSize.width)×\(reference.originalSize.height) → "
+      + "\(reference.effectiveSize.width)×\(reference.effectiveSize.height)"
+  }
+}
+
 // MARK: - Generate a single panel
 
 public struct Generate: AsyncParsableCommand {
@@ -73,6 +86,12 @@ public struct Generate: AsyncParsableCommand {
   @Flag(name: .long, help: "Fast preview mode (4 steps, 512x512, Klein 4B).")
   public var preview: Bool = false
 
+  @Option(
+    name: [.customShort("r"), .customLong("reference")],
+    help: "Reference (conditioning) image path, or - to read one from stdin. Repeatable, 1-3."
+  )
+  public var references: [String] = []
+
   @Flag(
     name: .long,
     help: ArgumentHelp(
@@ -116,6 +135,13 @@ public struct Generate: AsyncParsableCommand {
   )
   public var telemetry: Bool = false
 
+  public mutating func validate() throws {
+    let stdinReferenceCount = references.filter { $0 == "-" }.count
+    guard stdinReferenceCount <= 1 else {
+      throw ValidationError("only one --reference may read from stdin")
+    }
+  }
+
   public func run() async throws {
     let bootstrap: CLITelemetryBootstrap? =
       telemetry ? try await CLITelemetryBootstrap.enable(mode: .full) : nil
@@ -140,6 +166,28 @@ public struct Generate: AsyncParsableCommand {
     // recommended guidance (4.5) and steps don't get overridden by FLUX-tuned
     // defaults. User-supplied --steps / --guidance still take precedence.
     let descriptor = vinetasModel.descriptor
+
+    // Load and validate reference images BEFORE any download or engine call
+    // (RI-1 – RI-5): a bad path, an unsupported engine, or too many
+    // references all fail fast, with no download and no model load.
+    var loadedReferences: [ReferenceImage] = []
+    for reference in references {
+      if reference == "-" {
+        let data = CLIEnvironment.stdinReferenceData()
+        loadedReferences.append(try ReferenceImage.load(data: data, source: .stdin))
+      } else {
+        loadedReferences.append(try ReferenceImage.load(path: reference))
+      }
+    }
+    if !loadedReferences.isEmpty {
+      let engine = try await CLIEnvironment.client.router.engine(for: descriptor)
+      try ReferenceValidator.validate(
+        referenceCount: loadedReferences.count, engine: engine, model: descriptor)
+    }
+    for line in downscaleNoteLines(for: loadedReferences) {
+      stderrPrint(line)
+    }
+
     var styleConfig = StyleConfig(
       steps: descriptor.defaultSteps,
       guidanceScale: descriptor.defaultGuidance
@@ -193,8 +241,10 @@ public struct Generate: AsyncParsableCommand {
     if preview {
       image = try await client.preview(prompt: prompt)
     } else {
-      image = try await client.generate(
-        prompt: prompt, style: styleConfig, model: vinetasModel.descriptor)
+      let panel = try await client.generate(
+        PanelRequest(
+          prompt: prompt, style: styleConfig, model: descriptor, references: loadedReferences))
+      image = panel.image
     }
 
     try ImageOutput.writePNG(image: image, to: outputURL)

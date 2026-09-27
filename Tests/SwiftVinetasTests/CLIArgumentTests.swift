@@ -67,6 +67,27 @@ struct GenerateArgumentTests {
     let cmd = try Generate.parse(["test prompt", "--preview"])
     #expect(cmd.preview == true)
   }
+
+  // MARK: --reference / -r (Sortie 10)
+
+  @Test("-r a -r b parses in order, with no dedup")
+  func generateReferencesOrderPreserved() throws {
+    let cmd = try Generate.parse(["test prompt", "-r", "a", "-r", "b"])
+    #expect(cmd.references == ["a", "b"])
+  }
+
+  @Test("-r - parses a single stdin reference")
+  func generateReferenceStdinParses() throws {
+    let cmd = try Generate.parse(["test prompt", "-r", "-"])
+    #expect(cmd.references == ["-"])
+  }
+
+  @Test("-r - -r - is rejected: only one --reference may read from stdin")
+  func generateReferenceDoubleStdinRejected() throws {
+    #expect(throws: (any Error).self) {
+      _ = try Generate.parse(["test prompt", "-r", "-", "-r", "-"])
+    }
+  }
 }
 
 // MARK: - Batch subcommand

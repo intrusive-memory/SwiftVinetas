@@ -1,3 +1,4 @@
+import Foundation
 import SwiftVinetas
 
 /// Task-local injection seam for CLI commands.
@@ -20,4 +21,12 @@ public enum CLIEnvironment {
 
   /// When `true`, commands skip their up-front model download (tests only).
   @TaskLocal public static var skipDownload = false
+
+  /// Supplies the raw bytes for a `-r -` (stdin) reference. Defaults to
+  /// reading the process's real standard input; tests override this so a
+  /// `generate -r -` run doesn't block on (or depend on) the actual stdin
+  /// file descriptor.
+  @TaskLocal public static var stdinReferenceData: @Sendable () -> Data = {
+    FileHandle.standardInput.readDataToEndOfFile()
+  }
 }
