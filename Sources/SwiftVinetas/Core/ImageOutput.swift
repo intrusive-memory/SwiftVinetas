@@ -60,9 +60,40 @@ public enum ImageOutput {
   public struct PanelMetadata: Codable, Sendable, Equatable {
 
     /// Whether the image was generated from text alone or conditioned on references.
-    public enum Mode: String, Codable, Sendable, Equatable {
+    ///
+    /// Open by design: a mode written by a newer version decodes as
+    /// ``unknown(_:)`` and round-trips unchanged, instead of failing the whole
+    /// metadata record. Encoded as a bare string (e.g. `"imageToImage"`).
+    public enum Mode: RawRepresentable, Codable, Sendable, Equatable, Hashable {
       case textToImage
       case imageToImage
+      /// A mode this version does not recognise, carrying its raw string.
+      case unknown(String)
+
+      public init(rawValue: String) {
+        switch rawValue {
+        case "textToImage": self = .textToImage
+        case "imageToImage": self = .imageToImage
+        default: self = .unknown(rawValue)
+        }
+      }
+
+      public var rawValue: String {
+        switch self {
+        case .textToImage: return "textToImage"
+        case .imageToImage: return "imageToImage"
+        case .unknown(let value): return value
+        }
+      }
+
+      public init(from decoder: Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+      }
+
+      public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+      }
     }
 
     /// The caller's prompt as supplied, before style/character composition.

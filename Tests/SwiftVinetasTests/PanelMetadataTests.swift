@@ -116,6 +116,36 @@ struct PanelMetadataTests {
     #expect(meta.negativeApplied == nil)
   }
 
+  @Test("Mode encodes as a bare string")
+  func modeEncodesAsString() throws {
+    let data = try JSONEncoder().encode(Self.fullMetadata)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    #expect(object["mode"] as? String == "imageToImage")
+  }
+
+  @Test("An unrecognised mode decodes as .unknown and round-trips")
+  func unknownModeRoundTrips() throws {
+    var object = try #require(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(Self.fullMetadata))
+        as? [String: Any])
+    object["mode"] = "inpainting"
+    let meta = try JSONDecoder().decode(
+      ImageOutput.PanelMetadata.self, from: JSONSerialization.data(withJSONObject: object))
+    #expect(meta.mode == .unknown("inpainting"))
+    #expect(meta.prompt == Self.fullMetadata.prompt)
+
+    let reencoded = try #require(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(meta)) as? [String: Any])
+    #expect(reencoded["mode"] as? String == "inpainting")
+  }
+
+  @Test("Mode raw values map to known cases")
+  func modeRawValues() {
+    #expect(ImageOutput.PanelMetadata.Mode(rawValue: "textToImage") == .textToImage)
+    #expect(ImageOutput.PanelMetadata.Mode(rawValue: "imageToImage") == .imageToImage)
+    #expect(ImageOutput.PanelMetadata.Mode.unknown("x").rawValue == "x")
+  }
+
   @Test("iTXt chunk has keyword vinetas, is uncompressed, and sits before IEND")
   func chunkLayout() throws {
     let png = try ImageOutput.pngData(image: Self.makeImage(), metadata: Self.fullMetadata)
