@@ -187,6 +187,11 @@ actor MockEngine: ImageGenerationEngine {
   /// The value returned from `supports(.loraInference)`. Defaults to `false`.
   nonisolated let supportsLoRAInference: Bool
 
+  /// When non-nil, `generate` calls `print(_:)` with this text, standing in
+  /// for the bare `print(` logging real engines and their dependencies do on
+  /// the generate path (used by the CLI stdout-purity test).
+  nonisolated let printOnGenerate: String?
+
   init(
     engineID: String = "mock",
     supportedModels: [any ModelDescriptor] = [
@@ -194,13 +199,15 @@ actor MockEngine: ImageGenerationEngine {
     ],
     maxReferenceImages: Int = 0,
     supportsNegativePrompt: Bool = false,
-    supportsLoRAInference: Bool = false
+    supportsLoRAInference: Bool = false,
+    printOnGenerate: String? = nil
   ) {
     self.engineID = engineID
     self.supportedModels = supportedModels
     self.maxReferenceImagesValue = maxReferenceImages
     self.supportsNegativePrompt = supportsNegativePrompt
     self.supportsLoRAInference = supportsLoRAInference
+    self.printOnGenerate = printOnGenerate
   }
 
   /// Sets the result returned from `generate(request:stepProgress:)`.
@@ -265,6 +272,9 @@ actor MockEngine: ImageGenerationEngine {
   ) async throws -> GenerationResult {
     calls.append(.generate(request.prompt))
     lastRequest = request
+    if let printOnGenerate {
+      print(printOnGenerate)
+    }
     if let error = generateError {
       throw error
     }

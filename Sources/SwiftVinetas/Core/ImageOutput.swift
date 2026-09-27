@@ -65,7 +65,11 @@ public enum ImageOutput {
       case imageToImage
     }
 
-    /// The composed prompt used to generate the image.
+    /// The caller's prompt as supplied, before style/character composition.
+    /// The final prompt sent to the engine is ``composedPrompt``.
+    ///
+    /// Legacy writers (``ImageOutput/metadata(for:style:)``) record
+    /// `PanelOutput.prompt` here, which is already composed.
     public let prompt: String
 
     /// The model variant used (e.g., "klein4b").
@@ -292,9 +296,20 @@ public enum ImageOutput {
     to url: URL,
     style: StyleConfig
   ) throws {
-    let meta = metadata(for: output, style: style)
-    let json = try metadataJSON(meta)
-    let png = try pngData(image: output.image, metadataJSON: json)
+    try writePanel(image: output.image, metadata: metadata(for: output, style: style), to: url)
+  }
+
+  /// Write `image` as a PNG with `metadata` embedded as `vinetas` iTXt, plus
+  /// the byte-identical JSON sidecar (`<name>.json`).
+  ///
+  /// Use this with ``GeneratedPanel/metadata`` so the file records what was
+  /// actually used (real seed, duration, references, …).
+  ///
+  /// - Throws: `VinetasError.generationFailed` if PNG encoding fails, or a
+  ///           file I/O error if a write fails.
+  public static func writePanel(image: CGImage, metadata: PanelMetadata, to url: URL) throws {
+    let json = try metadataJSON(metadata)
+    let png = try pngData(image: image, metadataJSON: json)
     try png.write(to: url, options: .atomic)
     try json.write(to: sidecarURL(for: url), options: .atomic)
   }

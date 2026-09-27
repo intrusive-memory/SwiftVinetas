@@ -143,37 +143,31 @@ struct GenerateReferenceValidationTests {
 
   // MARK: - Successful path: downscale note
   //
-  // `downscaleNoteLines(for:)` is the pure, synchronous helper `Generate.run()`
-  // calls to build these lines (VinetasCLICore.swift). Exercising it here
-  // through `StdioCapture.run` with a plain synchronous body — no `Task` /
-  // `DispatchSemaphore` bridge into async `Generate.run()` — keeps the fd-1/2
-  // swap window microseconds long, matching every other `StdioCapture.run`
-  // caller in the suite. An async bridge was tried and measurably raced fd 1/2
-  // against unrelated, slower concurrent test suites (real Acervo network
-  // attempts in `Flux2EngineTests`), twice reproducing a fatal
-  // `NSFileHandleOperationException: Bad file descriptor` crash of the whole
-  // xctest process across a handful of local runs. The wiring itself (that
-  // `Generate.run()` calls this helper with the loaded references, before any
-  // engine call) is covered separately by `endToEndWithDownscaledReference`
-  // below, which never touches stdio.
+  // Runs `Generate.run()` end to end under `StdioCapture`, which captures CLI
+  // stderr through the `CLIEnvironment.stderrDescriptor` seam instead of
+  // `dup2`-ing over fd 2 (see `StdioCapture` for why that crashed xctest).
 
-  @Test("downscaleNoteLines formats a 1-based note with × dimensions, on stderr")
-  func downscaleNoteOnStderr() throws {
+  @Test("a 2048x2048 reference produces a 1-based downscale note on stderr")
+  func downscaleNoteOnStderr() async throws {
+    let engine = MockEngine(engineID: "pixart-sigma", maxReferenceImages: 3)
     let path = try Self.writeTempFile(Self.makePNGData(width: 2048, height: 2048))
     let reference = try ReferenceImage.load(path: path)
     #expect(reference.originalSize == ReferenceImage.Size(width: 2048, height: 2048))
     #expect(reference.effectiveSize == ReferenceImage.Size(width: 1024, height: 1024))
+    let outputPath = Self.tempOutputPath()
+    defer {
+      try? FileManager.default.removeItem(atPath: outputPath)
+      try? FileManager.default.removeItem(
+        atPath: (outputPath as NSString).deletingPathExtension + ".json")
+    }
 
-    let result = try StdioCapture.run {
-      for line in downscaleNoteLines(for: [reference]) {
-        stderrPrint(line)
-      }
+    let result = try await StdioCapture.run {
+      try await Self.runGenerate(["prompt", "-r", path, "--output", outputPath], engine: engine)
     }
 
     let stderrText = String(data: result.stderr, encoding: .utf8) ?? ""
     #expect(stderrText.contains("note: reference 1"))
     #expect(stderrText.contains("downscaled 2048×2048 → 1024×1024"))
-    #expect(result.stdout.isEmpty)
   }
 
   // MARK: - End-to-end: a downscaled reference still generates successfully
