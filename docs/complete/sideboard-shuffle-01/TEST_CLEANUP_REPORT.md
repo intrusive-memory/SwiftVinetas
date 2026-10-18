@@ -1,6 +1,6 @@
 ---
 type: test-cleanup-report
-state: current
+state: completed
 mission: sideboard-shuffle-01
 updated: 2026-10-18
 ---
