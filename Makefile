@@ -29,7 +29,7 @@ SHELL := /bin/bash
 
 DERIVED_DATA = /tmp/SwiftVinetasBuild
 DESTINATION_MACOS = 'platform=macOS,arch=arm64'
-DESTINATION_IOS = 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=26.1'
+DESTINATION_IOS = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'
 SCHEME_LIB = SwiftVinetas
 SCHEME_CLI = vinetas
 SCHEME_PKG = SwiftVinetas-Package
@@ -129,6 +129,7 @@ test-unit: ## Run macOS unit tests only (no GPU or model required); output captu
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasTests \
+		-only-testing:VinetasVocabularyTests \
 		2>&1 | tee build/test-output.log; exit $${PIPESTATUS[0]}
 
 link-test-models: ## Hardlink all model weights + tokenizer files from App Group container to /tmp so xctest can open them
@@ -243,6 +244,7 @@ test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required); 
 		-destination $(DESTINATION_IOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasTests \
+		-only-testing:VinetasVocabularyTests \
 		2>&1 | tee build/test-output-ios.log; exit $${PIPESTATUS[0]}
 
 check-acervo-warnings: ## Fail if build/test-output.log contains SwiftAcervo regression warnings (run after test-unit)

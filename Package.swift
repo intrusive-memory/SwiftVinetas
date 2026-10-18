@@ -52,6 +52,12 @@ let package = Package(
       name: "SwiftVinetas",
       targets: ["SwiftVinetas"]
     ),
+    // Engine-free vocabulary (aspect ratios, resolution clamps, style
+    // configuration) for hosts that must not link an inference stack.
+    .library(
+      name: "VinetasVocabulary",
+      targets: ["VinetasVocabulary"]
+    ),
     // CLI command structs as a library (testable)
     .library(
       name: "VinetasCLICore",
@@ -151,10 +157,17 @@ let package = Package(
     .package(url: "https://github.com/apple/swift-asn1.git", from: "1.0.0"),
   ],
   targets: [
+    // Engine-free vocabulary — Apple system frameworks only, no package
+    // dependency. Re-exported by SwiftVinetas for `import SwiftVinetas` consumers.
+    .target(
+      name: "VinetasVocabulary"
+    ),
+
     // Main library - storyboard/comic panel generation
     .target(
       name: "SwiftVinetas",
       dependencies: [
+        "VinetasVocabulary",
         .product(name: "Flux2Core", package: "flux-2-swift-mlx"),
         .product(name: "SwiftAcervo", package: "SwiftAcervo"),
         .product(name: "Tuberia", package: "SwiftTuberia"),
@@ -208,6 +221,12 @@ let package = Package(
         .product(name: "SwiftASN1", package: "swift-asn1"),
         .product(name: "Crypto", package: "swift-crypto"),
       ]
+    ),
+
+    // Vocabulary unit tests (no GPU or MLX required — safe for CI)
+    .testTarget(
+      name: "VinetasVocabularyTests",
+      dependencies: ["VinetasVocabulary"]
     ),
 
     // GPU Tests (requires Apple Silicon GPU + downloaded models)
