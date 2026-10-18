@@ -13,6 +13,18 @@
         }
       }
     },
+    "Caption" : {
+      "comment" : "Label and placeholder of the single-line caption field under the prompt.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Caption"
+          }
+        }
+      }
+    },
     "Custom prompt" : {
       "comment" : "Caption under the Other row of the style list.",
       "extractionState" : "manual",
@@ -25,6 +37,150 @@
         }
       }
     },
+    "Custom style prompt" : {
+      "comment" : "Accessibility label of the custom style text field.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom style prompt"
+          }
+        }
+      }
+    },
+    "Describe the image you want to generate" : {
+      "comment" : "Accessibility hint of the primary prompt editor.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Describe the image you want to generate"
+          }
+        }
+      }
+    },
+    "Describe what you want to avoid in the generated image" : {
+      "comment" : "Accessibility hint of the negative prompt editor.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Describe what you want to avoid in the generated image"
+          }
+        }
+      }
+    },
+    "Describe your style…" : {
+      "comment" : "Placeholder of the custom style text field.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Describe your style…"
+          }
+        }
+      }
+    },
+    "FLUX.2 responds well to detailed, descriptive prose. Include lighting, composition, and style cues." : {
+      "comment" : "Prompt-writing hint shown under the prompt for FLUX.2 models.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FLUX.2 responds well to detailed, descriptive prose. Include lighting, composition, and style cues."
+          }
+        }
+      }
+    },
+    "Negative Prompt" : {
+      "comment" : "Heading of the negative prompt section and accessibility label of its editor.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Negative Prompt"
+          }
+        }
+      }
+    },
+    "Negative prompt section" : {
+      "comment" : "Accessibility label of the control that shows or hides the negative prompt.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Negative prompt section"
+          }
+        }
+      }
+    },
+    "PixArt-Sigma uses classifier-free guidance — negative prompts have strong effect." : {
+      "comment" : "Hint shown under the negative prompt for PixArt-Sigma models.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PixArt-Sigma uses classifier-free guidance — negative prompts have strong effect."
+          }
+        }
+      }
+    },
+    "PixArt-Sigma works best with concise, keyword-rich prompts. Separate concepts with commas." : {
+      "comment" : "Prompt-writing hint shown under the prompt for PixArt-Sigma models.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PixArt-Sigma works best with concise, keyword-rich prompts. Separate concepts with commas."
+          }
+        }
+      }
+    },
+    "Primary prompt" : {
+      "comment" : "Accessibility label of the primary prompt editor.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primary prompt"
+          }
+        }
+      }
+    },
+    "Prompt" : {
+      "comment" : "Label of the primary prompt editor.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt"
+          }
+        }
+      }
+    },
+    "Prompt text" : {
+      "comment" : "Label of the disclosure that reveals the selected style's prompt text.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt text"
+          }
+        }
+      }
+    },
     "Style" : {
       "comment" : "Heading of the style list.",
       "extractionState" : "manual",
@@ -33,6 +189,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Style"
+          }
+        }
+      }
+    },
+    "Style prompt text" : {
+      "comment" : "Accessibility label of the selected style's prompt text.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Style prompt text"
           }
         }
       }
