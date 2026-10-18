@@ -1,0 +1,46 @@
+{
+  "composedPrompt" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light, Wide shot across the yard at dusk: a woman of about fifty-seven with a salt-and-pepper shoulder-length bob, in a plain white shirt, hurrying down the porch steps with both arms open; a slim ten-year-old boy with short messy dark brown hair and freckles in a green t-shirt running up the gravel to meet her; the bearded father in his late forties smiling as he watches from beside the car; porch light glowing warm behind her. The woman is the woman from the first reference image. The boy is the boy from the second reference image. The bearded father is the man from the third reference image, fully clothed in a rolled-sleeve work shirt and jeans. An old two-story Midwestern farmhouse with a deep front porch behind them. Exactly three people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "durationSeconds" : 809.036416417,
+  "engine" : "flux2",
+  "generatedAt" : "2026-10-07T15:22:29Z",
+  "guidance" : 3.5,
+  "height" : 1200,
+  "loras" : [
+
+  ],
+  "mode" : "imageToImage",
+  "model" : "flux2-klein-4b",
+  "negative" : "text, lettering, watermark, logo, cartoon, illustration, extra limbs, deformed hands, blurry",
+  "negativeApplied" : false,
+  "prompt" : "Wide shot across the yard at dusk: a woman of about fifty-seven with a salt-and-pepper shoulder-length bob, in a plain white shirt, hurrying down the porch steps with both arms open; a slim ten-year-old boy with short messy dark brown hair and freckles in a green t-shirt running up the gravel to meet her; the bearded father in his late forties smiling as he watches from beside the car; porch light glowing warm behind her. The woman is the woman from the first reference image. The boy is the boy from the second reference image. The bearded father is the man from the third reference image, fully clothed in a rolled-sleeve work shirt and jeans. An old two-story Midwestern farmhouse with a deep front porch behind them. Exactly three people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "references" : [
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "de09cabc1dfe99d372f81726d1a0a8607f3ee90b445e00dbb402d357774c8793",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/JOANN\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "f4713c1078470f64c107e4ea0b2d71e587c67082f7f03b9fcd0d70de0a5857c3",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/TOBY\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "ccf77d71e44a0b657860db24240074495836b49c346e4521d37550fe8e54e043",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/HUNTER\/ref-portrait.png"
+    }
+  ],
+  "seed" : 22,
+  "steps" : 8,
+  "style" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light",
+  "width" : 2144
+}

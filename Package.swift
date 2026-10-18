@@ -42,6 +42,7 @@ func sibling(_ name: String, remote: String, branch: String) -> Package.Dependen
 
 let package = Package(
   name: "SwiftVinetas",
+  defaultLocalization: "en",
   platforms: [
     .macOS(.v26),
     .iOS(.v26),
@@ -57,6 +58,12 @@ let package = Package(
     .library(
       name: "VinetasVocabulary",
       targets: ["VinetasVocabulary"]
+    ),
+    // SwiftUI prompt panel (inspector element) for hosts that render the
+    // generation controls without linking an inference stack.
+    .library(
+      name: "VinetasUI",
+      targets: ["VinetasUI"]
     ),
     // CLI command structs as a library (testable)
     .library(
@@ -163,6 +170,16 @@ let package = Package(
       name: "VinetasVocabulary"
     ),
 
+    // SwiftUI prompt panel — depends on the vocabulary only, never on an
+    // inference stack. English string catalogue under Resources/.
+    .target(
+      name: "VinetasUI",
+      dependencies: ["VinetasVocabulary"],
+      resources: [
+        .process("Resources")
+      ]
+    ),
+
     // Main library - storyboard/comic panel generation
     .target(
       name: "SwiftVinetas",
@@ -227,6 +244,15 @@ let package = Package(
     .testTarget(
       name: "VinetasVocabularyTests",
       dependencies: ["VinetasVocabulary"],
+      resources: [
+        .copy("Fixtures")
+      ]
+    ),
+
+    // VinetasUI unit tests (no GPU or MLX required — safe for CI)
+    .testTarget(
+      name: "VinetasUITests",
+      dependencies: ["VinetasUI"],
       resources: [
         .copy("Fixtures")
       ]

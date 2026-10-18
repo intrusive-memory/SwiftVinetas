@@ -130,6 +130,7 @@ test-unit: ## Run macOS unit tests only (no GPU or model required); output captu
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasTests \
 		-only-testing:VinetasVocabularyTests \
+		-only-testing:VinetasUITests \
 		2>&1 | tee build/test-output.log; exit $${PIPESTATUS[0]}
 
 link-test-models: ## Hardlink all model weights + tokenizer files from App Group container to /tmp so xctest can open them
@@ -245,6 +246,7 @@ test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required); 
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasTests \
 		-only-testing:VinetasVocabularyTests \
+		-only-testing:VinetasUITests \
 		2>&1 | tee build/test-output-ios.log; exit $${PIPESTATUS[0]}
 
 check-acervo-warnings: ## Fail if build/test-output.log contains SwiftAcervo regression warnings (run after test-unit)

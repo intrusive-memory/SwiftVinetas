@@ -1,0 +1,46 @@
+{
+  "composedPrompt" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light, Medium shot from inside a farmhouse front hall looking out: a broad barrel-chested very heavy man of thirty-nine with short untidy sandy light-brown hair, a short sandy beard and a ruddy face, in a red plaid shirt, ducking and turning his shoulders to fit through the too-small front door, framed by warm yellow hall light; beyond him on the dark porch the two brothers still seated, blue zapper glow at the rail. The heavy sandy-haired man in the doorway is the man from the first reference image, in a red plaid shirt. The two seated brothers on the porch beyond are the men from the second and third reference images, small and out of focus: the black-haired, black-bearded one fully clothed in a plain grey work shirt, the slim clean-shaven one in a maroon sweater. Exactly three people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "durationSeconds" : 806.236070959,
+  "engine" : "flux2",
+  "generatedAt" : "2026-10-07T18:06:00Z",
+  "guidance" : 3.5,
+  "height" : 1200,
+  "loras" : [
+
+  ],
+  "mode" : "imageToImage",
+  "model" : "flux2-klein-4b",
+  "negative" : "text, lettering, watermark, logo, cartoon, illustration, extra limbs, deformed hands, blurry",
+  "negativeApplied" : false,
+  "prompt" : "Medium shot from inside a farmhouse front hall looking out: a broad barrel-chested very heavy man of thirty-nine with short untidy sandy light-brown hair, a short sandy beard and a ruddy face, in a red plaid shirt, ducking and turning his shoulders to fit through the too-small front door, framed by warm yellow hall light; beyond him on the dark porch the two brothers still seated, blue zapper glow at the rail. The heavy sandy-haired man in the doorway is the man from the first reference image, in a red plaid shirt. The two seated brothers on the porch beyond are the men from the second and third reference images, small and out of focus: the black-haired, black-bearded one fully clothed in a plain grey work shirt, the slim clean-shaven one in a maroon sweater. Exactly three people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "references" : [
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "f8f25ca5733da27acf83ea5f900dbe025489dfbedcf2635bb73a68f829cb7ff8",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/GARETH\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "ccf77d71e44a0b657860db24240074495836b49c346e4521d37550fe8e54e043",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/HUNTER\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "b70b45ff640f2cd39d5b6b575108707930d977376b19268d394ac9b88dd0df07",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/KEVIN\/ref-portrait.png"
+    }
+  ],
+  "seed" : 22,
+  "steps" : 8,
+  "style" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light",
+  "width" : 2144
+}
