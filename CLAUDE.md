@@ -22,6 +22,7 @@ make test-pixart-repro   # PixArt 5×-seed diagnostic harness (local only)
 make test-ios            # All iOS Simulator tests
 make test-unit-ios       # iOS unit tests only (no GPU)
 make lint                # swift-format -i -r .
+make lint-check / make verify-ui-isolation  # lint gate (fails on a format diff) / VinetasUI links no inference stack
 make install             # Release build + install
 ```
 

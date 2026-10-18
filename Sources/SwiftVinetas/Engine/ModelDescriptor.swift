@@ -20,6 +20,9 @@ public protocol ModelDescriptor: Sendable, Identifiable where ID == String {
   /// Engine identifier that routes this model to the correct engine.
   var engineID: String { get }
 
+  /// The name the CLI and GLOSA `model=` attributes use for this model (e.g. "klein4b").
+  var cliName: String { get }
+
   /// License under which the model weights are distributed.
   var license: ModelLicense { get }
 
@@ -57,6 +60,24 @@ extension ModelDescriptor {
   /// Engines that use Acervo component-based downloads override this property
   /// in their concrete descriptor types.
   public var componentIds: [String] { [] }
+
+  /// The engine-free ``ModelSummary`` of this descriptor.
+  ///
+  /// Built from the descriptor's own fields plus ``cliName``; ``license`` and
+  /// ``componentIds`` are not part of the summary.
+  public var summary: ModelSummary {
+    ModelSummary(
+      id: id,
+      displayName: displayName,
+      engineID: engineID,
+      cliName: cliName,
+      minimumMemoryGB: minimumMemoryGB,
+      approximateDownloadSize: approximateDownloadSize,
+      defaultSteps: defaultSteps,
+      defaultGuidance: defaultGuidance,
+      supportedAspectRatios: supportedAspectRatios
+    )
+  }
 }
 
 // MARK: - ModelLicense

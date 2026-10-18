@@ -1,0 +1,46 @@
+{
+  "composedPrompt" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light, Wide shot at dusk from the gravel drive, looking past a parked vehicle toward an old two-story Midwestern farmhouse with a deep front porch and a warm porch light already burning. Three people only. In the foreground a dust-caked SUV with a small U-Haul trailer behind it, its driver's door open: a big man in his late forties with thick jet-black hair and a dense black beard, in a plain grey rolled-sleeve work shirt and jeans, climbing out and stretching. At the SUV's open rear door, one slim ten-year-old boy with short messy dark brown hair and freckles in a green t-shirt, hopping down onto the gravel. Far beyond them, up on the farmhouse porch at the top of the steps, one tall rangy clean-shaven man in his late sixties with short grey hair receding at the temples, in a worn chambray work shirt, stands still with one hand on the porch post, watching them arrive; he stays up on the porch and does not come down, and nobody else is on the porch or in the yard. Shaggy unmowed yard, a wooden fence wanting paint, long shadows, deep blue dusk at the tree line. The man on the porch is the man from the first reference image. The man at the driver's door is the man from the second reference image, fully clothed. The boy is the boy from the third reference image. Exactly three people in the image, one of each. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms, no extra children, no extra men. No text or lettering anywhere in the image.",
+  "durationSeconds" : 814.81651175,
+  "engine" : "flux2",
+  "generatedAt" : "2026-10-08T00:13:32Z",
+  "guidance" : 3.5,
+  "height" : 1200,
+  "loras" : [
+
+  ],
+  "mode" : "imageToImage",
+  "model" : "flux2-klein-4b",
+  "negative" : "text, lettering, watermark, logo, cartoon, illustration, extra limbs, deformed hands, blurry",
+  "negativeApplied" : false,
+  "prompt" : "Wide shot at dusk from the gravel drive, looking past a parked vehicle toward an old two-story Midwestern farmhouse with a deep front porch and a warm porch light already burning. Three people only. In the foreground a dust-caked SUV with a small U-Haul trailer behind it, its driver's door open: a big man in his late forties with thick jet-black hair and a dense black beard, in a plain grey rolled-sleeve work shirt and jeans, climbing out and stretching. At the SUV's open rear door, one slim ten-year-old boy with short messy dark brown hair and freckles in a green t-shirt, hopping down onto the gravel. Far beyond them, up on the farmhouse porch at the top of the steps, one tall rangy clean-shaven man in his late sixties with short grey hair receding at the temples, in a worn chambray work shirt, stands still with one hand on the porch post, watching them arrive; he stays up on the porch and does not come down, and nobody else is on the porch or in the yard. Shaggy unmowed yard, a wooden fence wanting paint, long shadows, deep blue dusk at the tree line. The man on the porch is the man from the first reference image. The man at the driver's door is the man from the second reference image, fully clothed. The boy is the boy from the third reference image. Exactly three people in the image, one of each. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms, no extra children, no extra men. No text or lettering anywhere in the image.",
+  "references" : [
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "176e74b62ce7d1bffed4abe039d7ba6332ddcc05dda8c1f2dfafb43587b9189c",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/RAY\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "ccf77d71e44a0b657860db24240074495836b49c346e4521d37550fe8e54e043",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/HUNTER\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "f4713c1078470f64c107e4ea0b2d71e587c67082f7f03b9fcd0d70de0a5857c3",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/TOBY\/ref-portrait.png"
+    }
+  ],
+  "seed" : 7,
+  "steps" : 8,
+  "style" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light",
+  "width" : 2144
+}

@@ -1,0 +1,46 @@
+{
+  "composedPrompt" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light, Medium shot of a farmhouse porch at dusk from the yard: a grey-haired man in his late sixties and a woman with a salt-and-pepper bob steering a slim ten-year-old boy through the front screen door toward warm yellow kitchen light inside, the screen door caught mid-swing; three grown men left behind on the porch in silhouette, one of them very large; a glowing blue bug zapper at the far end of the porch. The grey-haired man is the man from the first reference image, in a worn chambray work shirt. The woman is the woman from the second reference image, in a plain white shirt. The boy is the boy from the third reference image, in a green t-shirt. The three men on the porch are dark backlit silhouettes with no visible faces. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "durationSeconds" : 819.550684334,
+  "engine" : "flux2",
+  "generatedAt" : "2026-10-07T15:36:09Z",
+  "guidance" : 3.5,
+  "height" : 1200,
+  "loras" : [
+
+  ],
+  "mode" : "imageToImage",
+  "model" : "flux2-klein-4b",
+  "negative" : "text, lettering, watermark, logo, cartoon, illustration, extra limbs, deformed hands, blurry",
+  "negativeApplied" : false,
+  "prompt" : "Medium shot of a farmhouse porch at dusk from the yard: a grey-haired man in his late sixties and a woman with a salt-and-pepper bob steering a slim ten-year-old boy through the front screen door toward warm yellow kitchen light inside, the screen door caught mid-swing; three grown men left behind on the porch in silhouette, one of them very large; a glowing blue bug zapper at the far end of the porch. The grey-haired man is the man from the first reference image, in a worn chambray work shirt. The woman is the woman from the second reference image, in a plain white shirt. The boy is the boy from the third reference image, in a green t-shirt. The three men on the porch are dark backlit silhouettes with no visible faces. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "references" : [
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "176e74b62ce7d1bffed4abe039d7ba6332ddcc05dda8c1f2dfafb43587b9189c",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/RAY\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "de09cabc1dfe99d372f81726d1a0a8607f3ee90b445e00dbb402d357774c8793",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/JOANN\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "f4713c1078470f64c107e4ea0b2d71e587c67082f7f03b9fcd0d70de0a5857c3",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/TOBY\/ref-portrait.png"
+    }
+  ],
+  "seed" : 22,
+  "steps" : 8,
+  "style" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light",
+  "width" : 2144
+}

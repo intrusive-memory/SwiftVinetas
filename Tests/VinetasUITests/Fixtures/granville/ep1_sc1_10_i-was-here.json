@@ -1,0 +1,46 @@
+{
+  "composedPrompt" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light, Tight two-shot on the porch at night: the slim dark-haired man of thirty-nine leaning in close, face inches from his bearded brother, whispering through gritted teeth with furious hurt in his eyes; the big bearded man in his late forties holding his ground, stunned and quiet; a single warm porch bulb overhead, moths circling, the dark yard behind. The slim dark-haired man is the man from the first reference image, in a maroon sweater. The big bearded man is the man from the second reference image, fully clothed in a rolled-sleeve work shirt and jeans. The porch is the porch of the house shown in the third reference image, now at night. Exactly two people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "durationSeconds" : 809.2040495,
+  "engine" : "flux2",
+  "generatedAt" : "2026-10-07T16:16:57Z",
+  "guidance" : 3.5,
+  "height" : 1200,
+  "loras" : [
+
+  ],
+  "mode" : "imageToImage",
+  "model" : "flux2-klein-4b",
+  "negative" : "text, lettering, watermark, logo, cartoon, illustration, extra limbs, deformed hands, blurry",
+  "negativeApplied" : false,
+  "prompt" : "Tight two-shot on the porch at night: the slim dark-haired man of thirty-nine leaning in close, face inches from his bearded brother, whispering through gritted teeth with furious hurt in his eyes; the big bearded man in his late forties holding his ground, stunned and quiet; a single warm porch bulb overhead, moths circling, the dark yard behind. The slim dark-haired man is the man from the first reference image, in a maroon sweater. The big bearded man is the man from the second reference image, fully clothed in a rolled-sleeve work shirt and jeans. The porch is the porch of the house shown in the third reference image, now at night. Exactly two people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "references" : [
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "b70b45ff640f2cd39d5b6b575108707930d977376b19268d394ac9b88dd0df07",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/KEVIN\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "ccf77d71e44a0b657860db24240074495836b49c346e4521d37550fe8e54e043",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/HUNTER\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 736,
+      "effectiveWidth" : 1344,
+      "originalHeight" : 1200,
+      "originalWidth" : 2144,
+      "sha256" : "615bd668c652ddaa49fd9174b0010bb0f5835a3744136eeebadf2e1c775c2c8b",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/ep1-sc1\/ep1_sc1_02_arrival.png"
+    }
+  ],
+  "seed" : 22,
+  "steps" : 8,
+  "style" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light",
+  "width" : 2144
+}

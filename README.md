@@ -24,6 +24,18 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 - **Memory-aware** — Automatically selects quantization and loading strategy based on available RAM
 - **On-device only** — No cloud, no API keys, everything runs locally on Apple Silicon
 
+## Products
+
+| Product | Kind | Links | What it is for |
+|---|---|---|---|
+| `SwiftVinetas` | library | `VinetasVocabulary`, Flux2Core, PixArtBackbone, Tuberia, SwiftAcervo, universal (MLX through Flux2Core) | On-device panel generation: `VinetasClient`, engines, pipelines |
+| `VinetasCLICore` | library | `SwiftVinetas`, plus ArgumentParser, GlosaCore, SwiftCompartido, X509 and Crypto | The `vinetas` command structs, shared by the executable and the tests |
+| `vinetas` | executable | `VinetasCLICore` (and SwiftAcervo for `--help`) | The command-line tool |
+| `VinetasVocabulary` | library | nothing beyond Foundation | Engine-free vocabulary: `StoryboardStyle`, `StyleSwatchPalette`, `AspectRatio`, `ModelSummary` |
+| `VinetasUI` | library | `VinetasVocabulary` and SwiftUI only; no inference stack (`make verify-ui-isolation` proves it) | The SwiftUI storyboard prompt panel for macOS and iOS hosts |
+
+A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see the host guide, [docs/VinetasUI.md](docs/VinetasUI.md).
+
 ## Requirements
 
 | | Minimum | Recommended |

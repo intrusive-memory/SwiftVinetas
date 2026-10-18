@@ -1,0 +1,138 @@
+{
+  "_comment": "Canonical export of StoryboardStyle. Generated — do not hand-edit. Regenerate with Scripts/sync-storyboard-styles.sh. StoryboardStyleCatalogTests fails if this drifts from the enum; the vinetas-skills repo vendors these fields so CLI-rendered storyboards match the app.",
+  "styles": [
+    {
+      "id": "midCenturyModern",
+      "displayName": "Mid-Century Modern Illustration",
+      "genre": "Advertising / corporate drama",
+      "prompt": "mid-century modern illustration, flat color planes, bold outlines, retro atomic age palette, stylized geometry",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, photorealistic, 3d render, photographic, soft gradient shading, cluttered detail, busy background"
+    },
+    {
+      "id": "pencilSketchComic",
+      "displayName": "Pencil Sketch Comic Strip",
+      "genre": "Indie / coming-of-age",
+      "prompt": "pencil sketch comic strip, hand-drawn crosshatching, expressive linework, newspaper panel style",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, color, photorealistic, 3d render, digital painting, smooth gradients, glossy"
+    },
+    {
+      "id": "darkAcademic",
+      "displayName": "Dark Academic Learned Scholar",
+      "genre": "Period gothic",
+      "prompt": "dark academic aesthetic, moody oil painting, leather-bound library, warm candlelight, rich earth tones",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, bright flat lighting, neon, modern technology, cartoon, flat colors, oversaturated"
+    },
+    {
+      "id": "dustBowlPhoto",
+      "displayName": "1940's Tinted Dust Bowl Photo",
+      "genre": "American historical",
+      "prompt": "1940s tinted photograph, dust bowl era, sepia and muted color tones, grain texture, documentary realism",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, vivid saturated colors, neon, modern clothing, digital art, cgi, clean and pristine"
+    },
+    {
+      "id": "noirGraphicNovel",
+      "displayName": "Noir Graphic Novel",
+      "genre": "Film noir",
+      "prompt": "noir graphic novel, high contrast black and white, dramatic shadows, rain-slicked streets, ink splatter",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, color, bright lighting, soft shadows, pastel, cheerful, low contrast"
+    },
+    {
+      "id": "watercolorStoryboard",
+      "displayName": "Melodrama Watercolor",
+      "genre": "Domestic melodrama",
+      "prompt": "watercolor storyboard, loose wet-on-wet washes, soft bleeding edges, muted pastel palette",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, hard edges, photorealistic, 3d render, harsh contrast, sharp digital lines, neon"
+    },
+    {
+      "id": "japaneseScroll",
+      "displayName": "Japanese Scroll Illustration",
+      "genre": "Jidaigeki / period samurai",
+      "prompt": "traditional Japanese hand scroll (emakimono) illustration, fine ink linework with delicate watercolor washes, gold-leaf accents, flat perspective with stylized clouds and mist, jidaigeki period drama composition",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, western style, photorealistic, 3d render, modern clothing, harsh cast shadows, vivid neon"
+    },
+    {
+      "id": "retroSciFiPulp",
+      "displayName": "Retro Sci-Fi Pulp Art",
+      "genre": "1950s sci-fi",
+      "prompt": "retro sci-fi pulp art, 1950s space age, vivid saturated colors, ray guns and rocket ships, dramatic poses",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, muted colors, photorealistic, modern technology, minimalist, monochrome, grayscale"
+    },
+    {
+      "id": "popArtComic",
+      "displayName": "Pop Art Comic Book",
+      "genre": "Comic-book adaptation",
+      "prompt": "pop art comic book, Ben-Day dots, bold primary colors, thick outlines, speech bubble aesthetic",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, photorealistic, muted colors, soft gradients, realistic shading, grayscale, painterly"
+    },
+    {
+      "id": "minimalistLineArt",
+      "displayName": "Minimalist Line Art",
+      "genre": "Arthouse animation",
+      "prompt": "minimalist line art, single continuous stroke, clean vector aesthetic, generous white space, elegant simplicity",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, detailed shading, heavy texture, photorealistic, busy background, color fill, clutter"
+    },
+    {
+      "id": "photoRealistic",
+      "displayName": "Photo Realistic",
+      "genre": "Contemporary realist",
+      "prompt": "photorealistic, ultra-detailed photograph, natural lighting, sharp focus, high dynamic range, lifelike textures",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, illustration, painting, drawing, cartoon, anime, cgi, 3d render, sketch, flat colors"
+    },
+    {
+      "id": "kodachrome1970s",
+      "displayName": "1970's Kodachrome",
+      "genre": "New Hollywood (1970s)",
+      "prompt": "1970s Kodachrome film photograph, warm saturated reds and yellows, rich golden tones, slight grain, vintage analog warmth, nostalgic color rendition",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, cool blue tones, digital, modern, neon, illustration, cartoon, washed out"
+    },
+    {
+      "id": "germanExpressionist",
+      "displayName": "German Expressionist",
+      "genre": "Silent horror",
+      "prompt": "German Expressionist silent-film aesthetic, sharply angular shadows, distorted architecture, painted theatrical sets, high-contrast black and white, Nosferatu and Caligari composition",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, color, naturalistic lighting, soft shadows, photorealistic, cheerful, modern setting"
+    },
+    {
+      "id": "spaghettiWestern",
+      "displayName": "Spaghetti Western",
+      "genre": "Western",
+      "prompt": "spaghetti western cinematography, wide anamorphic framing alternated with extreme close-ups, sun-baked desert palette, dust and heat haze, weathered faces, golden hour",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, cool blue tones, urban, modern, neon, overcast, cartoon, clean"
+    },
+    {
+      "id": "watercolorAsianAnimation",
+      "displayName": "Anime Fantasy Watercolor",
+      "genre": "Anime fantasy",
+      "prompt": "hand-painted anime watercolor background, soft cumulus clouds, lush green landscapes, gentle natural light, anime fantasy composition, painterly atmospheric perspective",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, photorealistic, 3d render, harsh shadows, western cartoon, gritty, dark and gloomy"
+    },
+    {
+      "id": "wesAndersonSymmetric",
+      "displayName": "Symmetric Quirky Indie",
+      "genre": "Quirky indie",
+      "prompt": "symmetric composition, head-on framing with centered subject, pastel color palette, meticulous production design, flat staging, dollhouse precision",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, asymmetric, cluttered, gritty, chaotic composition, dutch angle, dark and grimy"
+    },
+    {
+      "id": "wuxiaInkBrush",
+      "displayName": "Wuxia Ink Brush",
+      "genre": "Wuxia martial arts",
+      "prompt": "wuxia ink brush painting fused with cinematic color, sweeping silk fabrics, mountain mist, bold color-coded palettes, calligraphic motion lines, martial arts choreography",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, western style, photorealistic, 3d render, modern clothing, flat lighting, neon"
+    },
+    {
+      "id": "gialloHorror",
+      "displayName": "Giallo Horror",
+      "genre": "Giallo horror",
+      "prompt": "Italian giallo horror cinematography, saturated red and electric blue lighting, baroque interiors, lurid saturated palette, theatrical chiaroscuro, glossy surfaces",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, muted colors, flat lighting, minimalist, daytime, naturalistic, cartoon"
+    },
+    {
+      "id": "atticRedFigure",
+      "displayName": "Attic Red-Figure Illustration",
+      "genre": "Greek myth / antiquity",
+      "prompt": "ancient Greek Attic red-figure vase painting, flat reddish-orange terracotta silhouettes reserved against a solid deep-black background, two colors only, no shading or gradients, no perspective or cast shadows, crisp two-dimensional outlines, interior anatomy and texture drawn only with fine black relief lines, figures posed in clean profile with idealized archaic linework, hair and foliage as scrolled and stippled black masses, meander Greek-key palmette and laurel ornamental borders",
+      "negative": "blurry, low quality, low resolution, distorted, deformed, disfigured, bad anatomy, extra limbs, extra fingers, text, watermark, signature, jpeg artifacts, photorealistic, 3d render, shading, gradients, cel shading, ambient occlusion, drop shadow, cast shadow, highlights, depth of field, perspective, foreshortening, full color, blue, green, purple, white background, gray background, watercolor, oil painting, anime, cartoon, comic, crosshatching, halftone, black-figure technique, filled black figures, neon, glow, 3d bevel, embossing"
+    }
+  ]
+}

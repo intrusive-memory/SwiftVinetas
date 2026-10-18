@@ -1,0 +1,46 @@
+{
+  "composedPrompt" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light, Medium shot on the porch at night: the slim dark-haired man of thirty-nine stopped mid-pace, mouth open, all the fight gone out of him; a man in his late forties with thick jet-black hair and a dense black beard, in a plain grey work shirt, seated and looking down at his hands as he speaks; behind them a much heavier man of thirty-nine with short untidy sandy light-brown hair, in a red plaid shirt, wearing an exaggerated worried face; warm porch bulb, deep blue night beyond the rail. The slim dark-haired man is the man from the first reference image, in a maroon sweater. The black-haired, black-bearded man is the man from the second reference image, fully clothed in a plain grey rolled-sleeve work shirt and jeans, no plaid. The heavy sandy-haired man is the man from the third reference image, in a red plaid shirt. Exactly three people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "durationSeconds" : 817.649425917,
+  "engine" : "flux2",
+  "generatedAt" : "2026-10-07T17:39:05Z",
+  "guidance" : 3.5,
+  "height" : 1200,
+  "loras" : [
+
+  ],
+  "mode" : "imageToImage",
+  "model" : "flux2-klein-4b",
+  "negative" : "text, lettering, watermark, logo, cartoon, illustration, extra limbs, deformed hands, blurry",
+  "negativeApplied" : false,
+  "prompt" : "Medium shot on the porch at night: the slim dark-haired man of thirty-nine stopped mid-pace, mouth open, all the fight gone out of him; a man in his late forties with thick jet-black hair and a dense black beard, in a plain grey work shirt, seated and looking down at his hands as he speaks; behind them a much heavier man of thirty-nine with short untidy sandy light-brown hair, in a red plaid shirt, wearing an exaggerated worried face; warm porch bulb, deep blue night beyond the rail. The slim dark-haired man is the man from the first reference image, in a maroon sweater. The black-haired, black-bearded man is the man from the second reference image, fully clothed in a plain grey rolled-sleeve work shirt and jeans, no plaid. The heavy sandy-haired man is the man from the third reference image, in a red plaid shirt. Exactly three people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "references" : [
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "b70b45ff640f2cd39d5b6b575108707930d977376b19268d394ac9b88dd0df07",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/KEVIN\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "ccf77d71e44a0b657860db24240074495836b49c346e4521d37550fe8e54e043",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/HUNTER\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "f8f25ca5733da27acf83ea5f900dbe025489dfbedcf2635bb73a68f829cb7ff8",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/GARETH\/ref-portrait.png"
+    }
+  ],
+  "seed" : 22,
+  "steps" : 8,
+  "style" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light",
+  "width" : 2144
+}

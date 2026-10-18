@@ -1,0 +1,46 @@
+{
+  "composedPrompt" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light, Medium two-shot at magic hour on the gravel drive: a big man in his late forties with short thick jet-black hair, a neatly trimmed dense black beard and dark eyes, in a plain grey rolled-sleeve work shirt and jeans, wrapping his rangy clean-shaven father, a man in his late sixties with short grey hair receding at the temples and no beard, in a worn chambray work shirt, in a long, tight embrace, both of the son's arms around the older man's back, the older man stiff for a moment and then giving in with a sigh, eyes closed, his own two arms hanging at his sides; low golden raking light, the farmhouse and its warm porch light out of focus behind them, long shadows stretching across the gravel. The bearded son has exactly the face, hair and beard of the man in the first reference image. The father has exactly the face and hair of the man in the second reference image, clean-shaven with no beard, moustache or stubble. The farmhouse, porch and gravel drive are the same house shown in the third reference image. Exactly two people in the image, two human men only, no animals of any kind, four arms in total. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "durationSeconds" : 808.834003709,
+  "engine" : "flux2",
+  "generatedAt" : "2026-10-07T23:45:07Z",
+  "guidance" : 3.5,
+  "height" : 1200,
+  "loras" : [
+
+  ],
+  "mode" : "imageToImage",
+  "model" : "flux2-klein-4b",
+  "negative" : "text, lettering, watermark, logo, cartoon, illustration, extra limbs, deformed hands, blurry",
+  "negativeApplied" : false,
+  "prompt" : "Medium two-shot at magic hour on the gravel drive: a big man in his late forties with short thick jet-black hair, a neatly trimmed dense black beard and dark eyes, in a plain grey rolled-sleeve work shirt and jeans, wrapping his rangy clean-shaven father, a man in his late sixties with short grey hair receding at the temples and no beard, in a worn chambray work shirt, in a long, tight embrace, both of the son's arms around the older man's back, the older man stiff for a moment and then giving in with a sigh, eyes closed, his own two arms hanging at his sides; low golden raking light, the farmhouse and its warm porch light out of focus behind them, long shadows stretching across the gravel. The bearded son has exactly the face, hair and beard of the man in the first reference image. The father has exactly the face and hair of the man in the second reference image, clean-shaven with no beard, moustache or stubble. The farmhouse, porch and gravel drive are the same house shown in the third reference image. Exactly two people in the image, two human men only, no animals of any kind, four arms in total. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "references" : [
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "ccf77d71e44a0b657860db24240074495836b49c346e4521d37550fe8e54e043",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/HUNTER\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "176e74b62ce7d1bffed4abe039d7ba6332ddcc05dda8c1f2dfafb43587b9189c",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/RAY\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 736,
+      "effectiveWidth" : 1344,
+      "originalHeight" : 1200,
+      "originalWidth" : 2144,
+      "sha256" : "615bd668c652ddaa49fd9174b0010bb0f5835a3744136eeebadf2e1c775c2c8b",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/ep1-sc1\/ep1_sc1_02_arrival.png"
+    }
+  ],
+  "seed" : 41,
+  "steps" : 8,
+  "style" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light",
+  "width" : 2144
+}

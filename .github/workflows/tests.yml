@@ -30,11 +30,17 @@ jobs:
       - name: Swift version
         run: swift --version
 
+      - name: Lint check
+        run: make lint-check
+
       - name: Build
         run: make build
 
       - name: Run unit tests
         run: make test-unit
+
+      - name: Verify VinetasUI isolation
+        run: make verify-ui-isolation
 
       - name: Check for SwiftAcervo regression warnings
         if: always()
@@ -62,3 +68,26 @@ jobs:
         run: |
           echo "## Test Results" >> $GITHUB_STEP_SUMMARY
           echo "Unit tests completed" >> $GITHUB_STEP_SUMMARY
+
+  unit-tests-ios:
+    name: Unit Tests (iOS)
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Simulator runtimes
+        run: xcrun simctl list runtimes
+
+      - name: Run iOS unit tests
+        run: make test-unit-ios DESTINATION_IOS="'platform=iOS Simulator,name=iPhone 17,OS=26.5'"
+
+      - name: Show iOS test log tail
+        if: always()
+        run: tail -n 80 build/test-output-ios.log || echo "no iOS log"

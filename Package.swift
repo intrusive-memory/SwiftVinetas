@@ -42,6 +42,7 @@ func sibling(_ name: String, remote: String, branch: String) -> Package.Dependen
 
 let package = Package(
   name: "SwiftVinetas",
+  defaultLocalization: "en",
   platforms: [
     .macOS(.v26),
     .iOS(.v26),
@@ -51,6 +52,18 @@ let package = Package(
     .library(
       name: "SwiftVinetas",
       targets: ["SwiftVinetas"]
+    ),
+    // Engine-free vocabulary (aspect ratios, resolution clamps, style
+    // configuration) for hosts that must not link an inference stack.
+    .library(
+      name: "VinetasVocabulary",
+      targets: ["VinetasVocabulary"]
+    ),
+    // SwiftUI prompt panel (inspector element) for hosts that render the
+    // generation controls without linking an inference stack.
+    .library(
+      name: "VinetasUI",
+      targets: ["VinetasUI"]
     ),
     // CLI command structs as a library (testable)
     .library(
@@ -151,10 +164,27 @@ let package = Package(
     .package(url: "https://github.com/apple/swift-asn1.git", from: "1.0.0"),
   ],
   targets: [
+    // Engine-free vocabulary — Apple system frameworks only, no package
+    // dependency. Re-exported by SwiftVinetas for `import SwiftVinetas` consumers.
+    .target(
+      name: "VinetasVocabulary"
+    ),
+
+    // SwiftUI prompt panel — depends on the vocabulary only, never on an
+    // inference stack. English string catalogue under Resources/.
+    .target(
+      name: "VinetasUI",
+      dependencies: ["VinetasVocabulary"],
+      resources: [
+        .process("Resources")
+      ]
+    ),
+
     // Main library - storyboard/comic panel generation
     .target(
       name: "SwiftVinetas",
       dependencies: [
+        "VinetasVocabulary",
         .product(name: "Flux2Core", package: "flux-2-swift-mlx"),
         .product(name: "SwiftAcervo", package: "SwiftAcervo"),
         .product(name: "Tuberia", package: "SwiftTuberia"),
@@ -207,6 +237,24 @@ let package = Package(
         .product(name: "X509", package: "swift-certificates"),
         .product(name: "SwiftASN1", package: "swift-asn1"),
         .product(name: "Crypto", package: "swift-crypto"),
+      ]
+    ),
+
+    // Vocabulary unit tests (no GPU or MLX required — safe for CI)
+    .testTarget(
+      name: "VinetasVocabularyTests",
+      dependencies: ["VinetasVocabulary"],
+      resources: [
+        .copy("Fixtures")
+      ]
+    ),
+
+    // VinetasUI unit tests (no GPU or MLX required — safe for CI)
+    .testTarget(
+      name: "VinetasUITests",
+      dependencies: ["VinetasUI"],
+      resources: [
+        .copy("Fixtures")
       ]
     ),
 

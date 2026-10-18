@@ -35,7 +35,7 @@ SHELL := /bin/bash
 
 DERIVED_DATA = /tmp/SwiftVinetasBuild
 DESTINATION_MACOS = 'platform=macOS,arch=arm64'
-DESTINATION_IOS = 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=26.1'
+DESTINATION_IOS = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'
 SCHEME_LIB = SwiftVinetas
 SCHEME_CLI = vinetas
 SCHEME_PKG = SwiftVinetas-Package
@@ -82,7 +82,7 @@ PERF_SUITES = \
 SKIP_PERF_SUITES = $(addprefix -skip-testing:,$(PERF_SUITES))
 ONLY_PERF_SUITES = $(addprefix -only-testing:,$(PERF_SUITES))
 
-.PHONY: build release test test-unit test-perf test-gpu test-integration test-fixtures test-pixart-repro profile-pixart-memory test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help check-acervo-warnings test-telemetry-debug codesign-cli
+.PHONY: build release test test-unit test-perf test-gpu test-integration test-fixtures test-pixart-repro profile-pixart-memory test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help check-acervo-warnings test-telemetry-debug codesign-cli lint-check verify-ui-isolation
 
 help: ## Show all available targets with descriptions
 	@echo "SwiftVinetas — Makefile targets"
@@ -111,9 +111,13 @@ build: ## Debug build of the vinetas CLI + copy to ./bin/vinetas
 	@rsync -a --include='*.bundle' --include='*.bundle/**' --exclude='*' $(DERIVED_DATA)/Build/Products/Debug/ $(BINDIR)/
 	@echo "Installed: $(BINDIR)/vinetas (with bundles)"
 
-build-ios: ## Build the library for iOS Simulator
+build-ios: ## Build the library and VinetasUI for iOS Simulator
 	xcodebuild build \
 		-scheme $(SCHEME_LIB) \
+		-destination $(DESTINATION_IOS) \
+		-derivedDataPath $(DERIVED_DATA)
+	xcodebuild build \
+		-scheme VinetasUI \
 		-destination $(DESTINATION_IOS) \
 		-derivedDataPath $(DERIVED_DATA)
 
@@ -147,6 +151,8 @@ test-unit: ## Run macOS unit tests only (no GPU or model required; perf suites s
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasTests \
+		-only-testing:VinetasVocabularyTests \
+		-only-testing:VinetasUITests \
 		$(SKIP_PERF_SUITES) \
 		2>&1 | tee build/test-output.log; exit $${PIPESTATUS[0]}
 
@@ -271,6 +277,8 @@ test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required; p
 		-destination $(DESTINATION_IOS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SwiftVinetasTests \
+		-only-testing:VinetasVocabularyTests \
+		-only-testing:VinetasUITests \
 		$(SKIP_PERF_SUITES) \
 		2>&1 | tee build/test-output-ios.log; exit $${PIPESTATUS[0]}
 
@@ -319,6 +327,51 @@ codesign-cli: ## Sign the vinetas CLI with the App Group entitlement (run after 
 
 lint: ## Format Swift source files with swift-format
 	swift format -i -r .
+
+lint-check: ## Fail if swift-format changes any Swift file (CI lint gate)
+	@BEFORE=$$(git ls-files -z --others --exclude-standard -- '*.swift' | xargs -0 shasum 2>/dev/null); \
+	swift format -i -r . || exit 1; \
+	AFTER=$$(git ls-files -z --others --exclude-standard -- '*.swift' | xargs -0 shasum 2>/dev/null); \
+	STATUS=0; \
+	git diff --exit-code -- '*.swift' || STATUS=1; \
+	if [ "$$BEFORE" != "$$AFTER" ]; then \
+		echo "Untracked Swift files changed by swift-format:"; \
+		diff <(echo "$$BEFORE") <(echo "$$AFTER") | grep '^>' | awk '{print "  " $$3}'; \
+		STATUS=1; \
+	fi; \
+	if [ $$STATUS -ne 0 ]; then echo "lint-check: swift-format changed the files above — run 'make lint' and commit"; exit 1; fi; \
+	echo "lint-check: OK"
+
+# Build Tools/UIIsolationProbe (imports only VinetasUI) with xcodebuild and fail
+# if its binary (otool -L, nm -gU) or its compile/link log lines name an
+# inference module. EXPECT_FAIL=1 builds UIIsolationProbeEngine (links
+# SwiftVinetas) instead and succeeds only if the detector fires.
+UI_ISOLATION_PATTERN = MLX|Flux2|PixArt|Tuberia|Acervo
+
+verify-ui-isolation: ## Prove VinetasUI links no inference stack (EXPECT_FAIL=1 self-tests the detector)
+	@mkdir -p build
+	@SCHEME=$${EXPECT_FAIL:+UIIsolationProbeEngine}; SCHEME=$${SCHEME:-UIIsolationProbe}; \
+	PATTERN='$(UI_ISOLATION_PATTERN)'; \
+	LOG=build/ui-isolation.log; \
+	BIN=$(DERIVED_DATA)/ui-isolation/Build/Products/Debug/$$SCHEME; \
+	echo "verify-ui-isolation: building $$SCHEME (log: $$LOG)"; \
+	( cd Tools/UIIsolationProbe && xcodebuild build \
+		-scheme $$SCHEME \
+		-destination $(DESTINATION_MACOS) \
+		-derivedDataPath $(DERIVED_DATA)/ui-isolation \
+		2>&1 | tee ../../$$LOG; exit $${PIPESTATUS[0]} ) > /dev/null \
+		|| { echo "verify-ui-isolation: xcodebuild failed — see $$LOG"; tail -40 $$LOG; exit 2; }; \
+	test -x "$$BIN" || { echo "verify-ui-isolation: built executable not found at $$BIN"; exit 2; }; \
+	FOUND=0; \
+	if otool -L "$$BIN" | grep -E "$$PATTERN"; then echo "  ^ otool -L matched $$PATTERN"; FOUND=1; fi; \
+	if nm -gU "$$BIN" | grep -E "$$PATTERN" | head -20 | grep -E "$$PATTERN"; then echo "  ^ nm -gU matched $$PATTERN (first 20 shown)"; FOUND=1; fi; \
+	if grep -E 'SwiftCompile|CompileSwift|SwiftDriver|Ld ' $$LOG | grep -E "$$PATTERN" | head -20 | grep -E "$$PATTERN"; then echo "  ^ build log matched $$PATTERN (first 20 shown)"; FOUND=1; fi; \
+	if [ -n "$${EXPECT_FAIL:-}" ]; then \
+		if [ $$FOUND -eq 1 ]; then echo "EXPECT_FAIL: detector fired on $$SCHEME — OK"; exit 0; \
+		else echo "EXPECT_FAIL: detector did not fire"; exit 1; fi; \
+	fi; \
+	if [ $$FOUND -eq 1 ]; then echo "FAIL: $$SCHEME (VinetasUI only) links or compiles an inference module"; exit 1; fi; \
+	echo "OK: $$SCHEME links no module or symbol matching $$PATTERN"
 
 clean: ## Clean build artifacts
 	xcodebuild clean \
