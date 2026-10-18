@@ -51,7 +51,7 @@ A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see th
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.21.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.22.0")
 ]
 ```
 
@@ -243,6 +243,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.22.0** — Two new library products. `VinetasVocabulary` (`AspectRatio`, `ResolutionClamp`, `StyleConfig` moved behind a re-export shim; `StoryboardStyle` with the 19 presets, `StyleSwatchPalette`, `ModelSummary` + `ModelDescriptor.cliName`) and `VinetasUI` (the prompt panel as a reusable inspector element: `VinetasPromptPanel`, `VinetasGenerationSettingsPanel`, `VinetasStylePicker`, `VinetasPromptDraft`/`VinetasPromptComposer`, `vinetasPromptInspector`; host guide in `docs/VinetasUI.md`). Performance suites no longer run in CI (`make test-perf` locally); CI gates on ready-for-review and adds an iOS unit-test job. Depends on SwiftCompartido 7.3.0.
 
 **v0.21.0** — Reference images and provenance metadata. `vinetas generate -r/--reference` (repeatable; `-r -` reads from stdin) conditions FLUX.2 on reference images; paths, formats and per-engine reference limits are validated before any download or model load. `-o -` streams the PNG to stdout, with all library logging kept on stderr. Every PNG now embeds its generation metadata (engine, mode, references with SHA-256 and effective size, composed prompt, applied LoRAs) as a `vinetas` iTXt chunk, mirrored to the JSON sidecar. New single-image `PanelRequest` API with references and LoRA support. `vinetas info --print-io-dir`. **Breaking:** FLUX.2 Klein 9B is removed (`VinetasModel.klein9b`, `Flux2ModelDescriptor.klein9B`, `VinetasClient.klein9B`), so Klein 4B is the only FLUX.2 model. `PanelMetadata.Mode` gains `.unknown(String)`, so an exhaustive `switch` needs a `default` case. `--strength` is deprecated and has no effect. `--preview` now honors `--seed`, `--guidance`, `--style`, `--negative`, `--lora` and `-r`.
 
