@@ -1,7 +1,42 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-
+    "%lld styles" : {
+      "comment" : "The style list's count of selectable styles, including Other.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld styles"
+          }
+        }
+      }
+    },
+    "Custom prompt" : {
+      "comment" : "Caption under the Other row of the style list.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom prompt"
+          }
+        }
+      }
+    },
+    "Style" : {
+      "comment" : "Heading of the style list.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Style"
+          }
+        }
+      }
+    }
   },
   "version" : "1.0"
 }
