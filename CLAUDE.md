@@ -13,7 +13,8 @@ Prefer Makefile targets when available (`make help` lists everything):
 ```bash
 make build               # Debug build
 make test                # All macOS tests (unit + GPU)
-make test-unit           # macOS unit tests only (no GPU) — CI-safe
+make test-unit           # macOS unit tests only (no GPU, perf suites skipped) — CI-safe
+make test-perf           # Performance/timing suites only — local only, never CI
 make test-gpu            # GPU tests (local only; needs Apple Silicon + cached models)
 make test-integration    # Integration tests (local only)
 make test-fixtures       # Seed-42 cross-engine reference fixtures (local only)
@@ -25,6 +26,12 @@ make install             # Release build + install
 ```
 
 Local-only targets (`test-gpu`, `test-integration`, `test-fixtures*`, `test-pixart-repro`) require pre-cached weights and never run in CI. They depend on `link-test-models`, which hardlinks weights from the App Group container into `/tmp` and passes the path as `TEST_RUNNER_VINETAS_TEST_MODELS_DIR`.
+
+## CI Rules
+
+- **CI does not run on draft PRs.** Open drafts for work in progress; `gh pr ready <n>` runs the suite. Jobs in `tests.yml` / `pixart-integration.yml` are gated with `if: !draft` and the trigger includes `ready_for_review` (the `draft-pr-ci-gate` skill).
+- Required checks: `development` requires "Unit Tests (macOS)"; `main` requires "Unit Tests (macOS)" and "PixArt Integration (macOS)". Renaming a job silently un-requires it — update the protection in the same PR.
+- **Performance tests never run in CI.** Suites that assert on elapsed time live in `PERF_SUITES` (Makefile) and are `-skip-testing:` in `test-unit` / `test-unit-ios`; run them with `make test-perf`. Never widen a timing tolerance to make one pass on a runner — add it to `PERF_SUITES`.
 
 ## MCP Server Configuration
 
