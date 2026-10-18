@@ -3,6 +3,11 @@ name: Tests
 on:
   pull_request:
     branches: [main, development]
+    # ready_for_review is NOT in GitHub's default event set. Without it, promoting
+    # a draft PR never starts this suite. Draft PRs still receive opened/synchronize
+    # events, but every job below skips on `!draft` — a draft is a workspace, a
+    # ready PR is a merge request (see the draft-pr-ci-gate skill / AGENTS.md).
+    types: [opened, synchronize, reopened, ready_for_review]
 
 env:
   ACERVO_APP_GROUP_ID: group.intrusive-memory.models
@@ -14,6 +19,7 @@ concurrency:
 jobs:
   unit-tests:
     name: Unit Tests (macOS)
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: macos-26
     timeout-minutes: 30
 
