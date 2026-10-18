@@ -1,7 +1,7 @@
 ---
 type: project
 title: SwiftVinetas — VinetasUI, the prompt panel as a reusable inspector element
-updated: 2026-10-06
+updated: 2026-10-18
 state: draft
 supersedes: docs/REQUIREMENTS-vinetas-ui.md (2026-10-05) and the "popup metaphor" direction of 2026-10-06
 design: https://claude.ai/artifact/1JSXFojxUWxYWo9dTyztSX
@@ -79,7 +79,10 @@ statics — `Flux2ModelDescriptor.klein4B` in `Engine/Flux2Engine.swift:35` and
 
 Both list `AspectRatio.allCases`. The **CLI name** column is the vocabulary the `vinetas`
 executable and the GLOSA `<shot model="…">` attribute use
-(`Sources/VinetasCLICore/VinetasCLICore.swift:63`, `VinetasModel(rawValue:)`); it exists
+(`VinetasModel` in `Sources/SwiftVinetas/Vinetas.swift:1753`, cases `klein4b` and
+`pixartSigma = "pixart-sigma"`; the enum is `@available(*, deprecated)` at `:1749–1751`, and
+the CLI still resolves `--model` through `VinetasModel(rawValue:)` at six sites in
+`Sources/VinetasCLICore/VinetasCLICore.swift`, the help string being `:63`); it exists
 nowhere as a field on the descriptor today. A host writing a `<shot>` needs it.
 
 **The single `SwiftVinetas` target links everything.** Its dependencies are `Flux2Core`,
@@ -95,8 +98,10 @@ one difference: the UI product must **not** depend on the core product (§ 2.1).
 
 **The accessibility identifiers are load-bearing.** `Vinetas/AccessibilityID.swift` is
 mirrored into `VinetasUITests/` and `VinetasIOSUITests/` (not verbatim: the copies differ
-in imports and forwarded constants). Four UI-test files drive the panel through nineteen
-strings: `prompt.primary`, `stylePicker.list`, `stylePicker.row.<rawValue>`,
+in imports and forwarded constants). Five UI-test files drive the panel through nineteen
+strings (`VinetasUITests/{VinetasUITests,MemoryGatingUITests,ScreenshotUITests}.swift`,
+`VinetasIOSUITests/{GenerationIntegrationTests,VinetasIOSUITests}.swift`; only
+`VinetasIOSUITests.swift:275` asserts the inline `stylePicker.list`): `prompt.primary`, `stylePicker.list`, `stylePicker.row.<rawValue>`,
 `stylePicker.promptTextDisclosure` (a raw literal in both panels), `prompt.stylePicker`,
 `prompt.styleCustom`, `prompt.negativeToggle`, `prompt.negative`,
 `generation.modelPicker`, `generation.aspectRatioSelection`,
@@ -137,8 +142,8 @@ Makefile names it. The local toolchain is Xcode 27 / Swift 6.4; CI is `macos-26`
 is the truth for the UI target: no API introduced after the OS 26 SDKs.
 
 **Release mechanics.** `VinetasClient.version` and `Vinetas.version` are literal
-`"0.21.0-dev"` strings in `Vinetas.swift` (lines 48 and 1125), also in `AGENTS.md:8` and
-`README.md:42, 235`. `Package.swift` on `development` carries the `sibling(…)` helper; a
+`"0.21.0-dev"` strings in `Vinetas.swift` (lines 48 and 1125), also in `AGENTS.md:8`
+(`README.md` carries none: its `:42` is a consumer pin and `:235` a release note). `Package.swift` on `development` carries the `sibling(…)` helper; a
 release tag ships a remote-only manifest (`toggle-sibling-libraries`,
 `ship-swift-library`). Escribir's `.xcodeproj` resolves packages by **remote tag only**,
 so the host cannot begin until this is tagged.
@@ -214,7 +219,9 @@ is out of scope and is not listed, planned or mentioned (standing directive).
 `var summary: ModelSummary { get }` with a default implementation built from its own
 fields plus a `cliName` requirement, and `SwiftVinetasTests` asserts
 `Flux2ModelDescriptor.klein4B.summary == ModelSummary.klein4B` and the same for PixArt,
-and that `VinetasModel(rawValue: summary.cliName)` resolves for both. A descriptor edit
+and that each `summary.cliName` is one of `VinetasModel.allCases.map(\.rawValue)` (the
+enum is deprecated — the test silences that one warning locally rather than dropping the
+round-trip). A descriptor edit
 that forgets the summary fails the package's own unit tests, not an app's.
 
 ### 1.3 Compatibility
@@ -312,9 +319,11 @@ from the two forks:
   `aspectRatio`, `steps`, `guidance`, `seed`, `randomizeSeed` bindings; **three optional
   bindings** `useDefaultSteps`, `useDefaultGuidance`, `useDefaultAspectRatio`
   (`Binding<Bool>?`, `nil` renders no toggle, so Vinetas iOS can pass `nil` and look
-  unchanged); **plus** a `@ViewBuilder footnote` slot rendered under the model picker,
-  so iOS's memory warning (`generation.memoryWarning`, app logic) is passed *in* rather
-  than known *by* the package. No `isProActive`; no in-view reset on model change.
+  unchanged); **plus** a `@ViewBuilder footnote` slot rendered under the model picker — a
+  generic host slot for app-side notes the package must not know about. (No view renders
+  `generation.memoryWarning` today on either platform; memory gating was removed. The
+  identifier stays in `VinetasUIAccessibility` only for compatibility with the existing
+  `MemoryGatingUITests.swift:89`, which is stale.) No `isProActive`; no in-view reset on model change.
 
 And one composite for hosts that want the whole panel as one value:
 
