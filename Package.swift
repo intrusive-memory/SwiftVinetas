@@ -226,7 +226,10 @@ let package = Package(
     // Vocabulary unit tests (no GPU or MLX required — safe for CI)
     .testTarget(
       name: "VinetasVocabularyTests",
-      dependencies: ["VinetasVocabulary"]
+      dependencies: ["VinetasVocabulary"],
+      resources: [
+        .copy("Fixtures")
+      ]
     ),
 
     // GPU Tests (requires Apple Silicon GPU + downloaded models)
