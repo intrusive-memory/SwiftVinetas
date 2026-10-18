@@ -8,9 +8,10 @@ import SwiftUI
 
 /// How the style picker presents its styles.
 public enum VinetasStylePickerStyle: Sendable {
-  /// The picker chooses its presentation for the current panel layout.
+  /// The picker follows the panel layout: a button that opens a popover in
+  /// `.sidebar` and `.regular`, a chevron row in `.compact`.
   case automatic
-  /// The picker always presents its styles as a list.
+  /// The 5.5-row style list inline, whatever the layout.
   case list
 }
 

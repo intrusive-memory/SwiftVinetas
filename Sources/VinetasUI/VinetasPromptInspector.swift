@@ -46,10 +46,11 @@ extension View {
   /// Presents the prompt panel as a trailing inspector, with `header` pinned
   /// above it and `actions` pinned below it.
   ///
-  /// On macOS and iPad the inspector is non-modal, 300 to 420 points wide, and
-  /// shows `header`, then ``VinetasPromptComposer`` in a scroll view forced to
-  /// the sidebar layout, then `actions`. The package draws no action of its
-  /// own; the host supplies every control in `header` and `actions`.
+  /// On macOS and iPad the inspector is non-modal, 340 points ideal (300 min,
+  /// 420 max), and shows `header`, then ``VinetasPromptComposer`` in a scroll
+  /// view forced to the `.sidebar` layout, then `actions`. The package draws
+  /// no action of its own; the host supplies every control in `header` and
+  /// `actions`.
   ///
   /// On iPhone this modifier returns the view unchanged and, in debug builds,
   /// trips an `assertionFailure` when the view is rendered. Present the panel

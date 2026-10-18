@@ -14,7 +14,7 @@ import SwiftUI
 /// a pure function that can be asked about iOS on a macOS test pass and the
 /// other way round.
 public enum VinetasPlatform: Sendable, CaseIterable {
-  /// macOS, where the panel is always a sidebar.
+  /// macOS, where the panel is always ``VinetasPanelLayout/sidebar``.
   case macOS
   /// iOS and iPadOS, where the panel follows the horizontal size class.
   case iOS
@@ -36,11 +36,13 @@ public enum VinetasSizeClass: Sendable, CaseIterable {
 /// that wants a specific shape applies `vinetasPanelLayout(_:)`;
 /// otherwise the shape comes from ``resolve(platform:horizontalSizeClass:)``.
 public enum VinetasPanelLayout: Sendable, CaseIterable {
-  /// The macOS right-hand sidebar.
+  /// The inspector column: the default on macOS, and the layout the inspector
+  /// forces on iPad.
   case sidebar
-  /// The regular-width iOS inspector (iPad).
+  /// iOS at regular width outside an inspector (iPad full screen), with Steps
+  /// and Guidance side by side.
   case regular
-  /// The compact-width iOS pushed screen (iPhone).
+  /// iOS at compact width: the iPhone pushed screen, an inset-grouped form.
   case compact
 
   /// The layout for `platform` at `horizontalSizeClass`.
@@ -49,7 +51,7 @@ public enum VinetasPanelLayout: Sendable, CaseIterable {
   /// ``VinetasSizeClass/regular`` size class gives ``regular`` and a
   /// ``VinetasSizeClass/compact`` one gives ``compact``. An unknown size
   /// class — `nil`, which only happens outside a resolved SwiftUI hierarchy —
-  /// is treated as ``regular``: the inspector form shows every control in
+  /// is treated as ``regular``: that layout shows every control in
   /// place, so a guess never hides the panel behind a navigation push.
   public static func resolve(
     platform: VinetasPlatform,

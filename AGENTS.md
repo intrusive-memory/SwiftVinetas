@@ -34,6 +34,18 @@ See [docs/ENGINE_ABSTRACTION_REQUIREMENTS.md](docs/ENGINE_ABSTRACTION_REQUIREMEN
 See [docs/LEARNING.md](docs/LEARNING.md) for research findings.
 Active investigations / in-flight design notes live in [docs/incomplete/](docs/incomplete/); shipped/landed plans get archived to [docs/complete/](docs/complete/).
 
+## Products
+
+| Product | Kind | Links | What it is for |
+|---|---|---|---|
+| `SwiftVinetas` | library | `VinetasVocabulary`, Flux2Core, PixArtBackbone, Tuberia, SwiftAcervo, universal (MLX through Flux2Core) | On-device panel generation: `VinetasClient`, engines, pipelines |
+| `VinetasCLICore` | library | `SwiftVinetas`, plus ArgumentParser, GlosaCore, SwiftCompartido, X509 and Crypto | The `vinetas` command structs, shared by the executable and the tests |
+| `vinetas` | executable | `VinetasCLICore` (and SwiftAcervo for `--help`) | The command-line tool |
+| `VinetasVocabulary` | library | nothing beyond Foundation | Engine-free vocabulary: `StoryboardStyle`, `StyleSwatchPalette`, `AspectRatio`, `ModelSummary` |
+| `VinetasUI` | library | `VinetasVocabulary` and SwiftUI only; no inference stack (`make verify-ui-isolation` proves it) | The SwiftUI storyboard prompt panel for macOS and iOS hosts |
+
+A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see the host guide, [docs/VinetasUI.md](docs/VinetasUI.md).
+
 ## Queryable Codemap
 
 A prebuilt [graphify](https://pypi.org/project/graphifyy/) knowledge graph of this

@@ -11,9 +11,10 @@ extension EnvironmentValues {
 
   /// Whether an enclosing `NavigationStack` is available to the prompt panel.
   ///
-  /// At compact width the panel's chevron rows are `NavigationLink`s, which
-  /// need a stack. A host that presents the panel without one sets this to
-  /// `false`, and those rows open as popovers instead. Defaults to `true`.
+  /// At compact width the style picker is a chevron row, a `NavigationLink`,
+  /// which needs a stack. A host that presents the panel without one sets
+  /// this to `false`, and the style picker falls back to the button that
+  /// opens the style list in a popover. Defaults to `true`.
   @Entry public var vinetasNavigationStackAvailable: Bool = true
 }
 

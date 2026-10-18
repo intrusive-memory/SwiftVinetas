@@ -115,7 +115,8 @@ public enum StoryboardStyle: String, CaseIterable, Identifiable, Sendable {
     return "\(Self.baseNegative), \(specific)"
   }
 
-  /// Sentinel value used as the Picker tag for the "Other" option.
+  /// The style prompt that stands for *Other*, a custom style, in a picker's
+  /// selection.
   public static let customTag = "__custom__"
 
   /// Selectable preset styles (everything except `.custom`), sorted
@@ -128,7 +129,8 @@ public enum StoryboardStyle: String, CaseIterable, Identifiable, Sendable {
       }
   }
 
-  /// Find the style matching a prompt text, or nil if no match.
+  /// The preset whose ``promptText`` is `promptText`, or `nil` for free text,
+  /// the empty string and ``customTag``.
   public static func from(promptText: String) -> StoryboardStyle? {
     allCases.first { $0 != .custom && $0.promptText == promptText }
   }

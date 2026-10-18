@@ -27,16 +27,16 @@ public enum VinetasUIAccessibility {
   /// The primary prompt text editor.
   public static let promptPrimary = "prompt.primary"
 
-  /// The caption shown with the prompt (the scene heading or shot label).
+  /// The single-line caption field under the prompt.
   public static let promptCaption = "prompt.caption"
 
-  /// The style picker control inside the prompt panel.
+  /// The style picker's button or chevron row.
   public static let promptStylePicker = "prompt.stylePicker"
 
-  /// The custom style prompt text field.
+  /// The custom style field the style picker shows for free text.
   public static let promptStyleCustom = "prompt.styleCustom"
 
-  /// The toggle that shows or hides the negative prompt.
+  /// The disclosure that shows or hides the Negative Prompt section.
   public static let promptNegativeToggle = "prompt.negativeToggle"
 
   /// The negative prompt text editor.
@@ -68,22 +68,22 @@ public enum VinetasUIAccessibility {
   /// The steps slider.
   public static let generationStepsSlider = "generation.stepsSlider"
 
-  /// The control that resets steps to the model's default.
+  /// The Default toggle for steps.
   public static let generationStepsUseDefault = "generation.stepsUseDefault"
 
   /// The guidance slider.
   public static let generationGuidanceSlider = "generation.guidanceSlider"
 
-  /// The control that resets guidance to the model's default.
+  /// The Default toggle for guidance.
   public static let generationGuidanceUseDefault = "generation.guidanceUseDefault"
 
-  /// The control that resets the aspect ratio to the default.
+  /// The Default toggle for the aspect ratio.
   public static let generationAspectRatioUseDefault = "generation.aspectRatioUseDefault"
 
   /// The seed text field.
   public static let generationSeedField = "generation.seedField"
 
-  /// The control that picks a random seed.
+  /// The Randomize toggle for the seed.
   public static let generationRandomizeSeed = "generation.randomizeSeed"
 
   /// Retained for existing host UI tests only; no VinetasUI view renders it.

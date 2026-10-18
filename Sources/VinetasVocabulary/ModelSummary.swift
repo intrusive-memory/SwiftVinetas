@@ -11,7 +11,8 @@ import Foundation
 /// `AspectRatio` is not itself `Codable`, so ``supportedAspectRatios`` is
 /// encoded as an array of each ratio's `rawValue`.
 public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
-  /// Unique model identifier (e.g. `"flux2-klein-4b"`).
+  /// Unique model identifier, the value a prompt draft's `modelID` holds
+  /// (e.g. `"flux2-klein-4b"`).
   public let id: String
 
   /// Human-readable display name (e.g. `"FLUX.2 Klein 4B"`).
@@ -20,7 +21,8 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
   /// Identifier of the engine that runs this model (e.g. `"flux2"`).
   public let engineID: String
 
-  /// The name the CLI and GLOSA `model=` attributes use (e.g. `"klein4b"`).
+  /// The external name: the one the CLI and GLOSA `model=` attributes use
+  /// (e.g. `"klein4b"`).
   public let cliName: String
 
   /// Minimum system memory in GB required to run this model.

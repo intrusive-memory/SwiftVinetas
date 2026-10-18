@@ -40,19 +40,20 @@ public struct VinetasPromptDraft: Hashable, Sendable, Codable {
   /// The negative prompt.
   public var negativePrompt = ""
 
-  /// The `ModelSummary.id` of the chosen model.
+  /// The `ModelSummary.id` of the chosen model; ``model`` resolves it, and
+  /// `model?.cliName` is the external name.
   public var modelID = ModelSummary.pixartSigmaXL.id
 
-  /// The aspect ratio, or `nil` for the model's default.
+  /// The aspect ratio, or `nil` for Default: the selected model's default.
   public var aspectRatio: AspectRatio? = nil
 
-  /// The inference steps, or `nil` for the model's default.
+  /// The inference steps, or `nil` for Default: the selected model's default.
   public var steps: Int? = nil
 
-  /// The guidance scale, or `nil` for the model's default.
+  /// The guidance scale, or `nil` for Default: the selected model's default.
   public var guidance: Float? = nil
 
-  /// The seed, or `nil` to randomize it for each generation.
+  /// The seed, or `nil` for Randomize: a new seed for each generation.
   public var seed: UInt64? = nil
 
   /// Creates a draft; every parameter defaults to the value in ``empty``.
@@ -63,10 +64,10 @@ public struct VinetasPromptDraft: Hashable, Sendable, Codable {
   ///   - stylePrompt: A preset's `promptText`, or free text.
   ///   - negativePrompt: The negative prompt.
   ///   - modelID: The `ModelSummary.id` of the chosen model.
-  ///   - aspectRatio: The aspect ratio, or `nil` for the model's default.
-  ///   - steps: The inference steps, or `nil` for the model's default.
-  ///   - guidance: The guidance scale, or `nil` for the model's default.
-  ///   - seed: The seed, or `nil` to randomize it.
+  ///   - aspectRatio: The aspect ratio, or `nil` for Default.
+  ///   - steps: The inference steps, or `nil` for Default.
+  ///   - guidance: The guidance scale, or `nil` for Default.
+  ///   - seed: The seed, or `nil` for Randomize.
   public init(
     prompt: String = "",
     caption: String? = nil,
@@ -95,7 +96,7 @@ public struct VinetasPromptDraft: Hashable, Sendable, Codable {
   }
 
   /// The preset whose `promptText` is ``stylePrompt``, or `nil` for free
-  /// text and the custom tag.
+  /// text, the empty string and `StoryboardStyle.customTag`.
   public var style: StoryboardStyle? {
     StoryboardStyle.from(promptText: stylePrompt)
   }
