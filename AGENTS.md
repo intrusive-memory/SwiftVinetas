@@ -37,7 +37,7 @@ Active investigations / in-flight design notes live in [docs/incomplete/](docs/i
 ## Queryable Codemap
 
 A prebuilt [graphify](https://pypi.org/project/graphifyy/) knowledge graph of this
-codebase lives in [`graphify-out/`](graphify-out/) (2536 nodes · 4017 edges). **Prefer
+codebase lives in [`graphify-out/`](graphify-out/) (3223 nodes · 5531 edges). **Prefer
 querying it before grepping** for architecture or "what connects to what" questions:
 
 ```bash
