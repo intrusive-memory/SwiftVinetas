@@ -69,6 +69,7 @@ make build-ios           # Build library for iOS Simulator
 make release             # Release build
 make install             # Release build + copy to ./bin/vinetas
 make lint                # Format Swift sources via swift-format
+make lint-check / make verify-ui-isolation  # CI lint gate (fails if swift-format changes a file) / prove VinetasUI links no inference stack (EXPECT_FAIL=1 self-tests)
 
 # NOTE: test-gpu, test-integration, test-fixtures*, and test-pixart-repro are LOCAL-ONLY.
 # They require Apple Silicon hardware and pre-downloaded model weights.
