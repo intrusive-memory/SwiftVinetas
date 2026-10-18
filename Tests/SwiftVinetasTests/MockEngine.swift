@@ -11,6 +11,7 @@ struct MockModelDescriptor: ModelDescriptor {
   let id: String
   let displayName: String
   let engineID: String
+  var cliName: String { id }
   let license: ModelLicense
   let minimumMemoryGB: Int
   let approximateDownloadSize: String

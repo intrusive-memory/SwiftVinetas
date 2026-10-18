@@ -12,6 +12,7 @@ public struct PixArtModelDescriptor: ModelDescriptor {
   public let id: String
   public let displayName: String
   public let engineID: String
+  public var cliName: String { "pixart-sigma" }
   public let license: ModelLicense
   public let minimumMemoryGB: Int
   public let approximateDownloadSize: String

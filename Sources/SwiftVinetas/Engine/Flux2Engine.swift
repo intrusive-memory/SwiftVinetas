@@ -14,6 +14,7 @@ public struct Flux2ModelDescriptor: ModelDescriptor {
   public let id: String
   public let displayName: String
   public let engineID: String = "flux2"
+  public var cliName: String { "klein4b" }
   public let license: ModelLicense
   public let minimumMemoryGB: Int
   public let approximateDownloadSize: String
