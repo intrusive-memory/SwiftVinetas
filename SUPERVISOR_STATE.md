@@ -57,16 +57,16 @@ updated: 2026-10-18
 
 ### WU-1 VinetasVocabulary
 - Work unit state: RUNNING
-- Current sortie: 3 of 4
+- Current sortie: 4 of 4
 - Sortie state: DISPATCHED
 - Sortie type: code
-- Model: sonnet
-- Complexity score: 9 (turns ~20 → 3; 1–2 files → 0; ambiguity 0; foundation 0 + 11 dependents 5; risk 1)
+- Model: opus
+- Complexity score: 20 (turns ~30 → 5; 6–10 files → 4; ambiguity 0; foundation 5 (ModelSummary reused by S9, S10, S13) + 10 dependents 5; risk 1)
 - Attempt: 1 of 3
 - Verifier round: n/a
-- Agent: WU-1-s3 (sortie 3 implementer, sonnet)
-- Last verified: Sortie 2 all exit criteria re-run by supervisor at 6ee65f3
-- Notes: T-07b settled — `Bundle.module` loads Fixtures on macOS and the iPhone 17 (OS 26.5) run; no #filePath fallback needed. Sortie 5 may rely on it.
+- Agent: WU-1-s4 (sortie 4 implementer, opus)
+- Last verified: Sortie 3 all exit criteria re-run by supervisor at a951928
+- Notes: StyleSwatchPalette API for Sortie 7: `StyleSwatchRGB { red, green, blue: Double }`, `StyleSwatchPalette { first, second, third: StyleSwatchRGB; var colors: [StyleSwatchRGB] }`, `StoryboardStyle.swatchPalette`
 
 ### WU-2 VinetasUI
 - Work unit state: NOT_STARTED
@@ -86,8 +86,8 @@ updated: 2026-10-18
 |--------|-----------|-------|-------|----------|-----------------|-------|
 | 1 | WU-1 | COMPLETED | opus | 1/3 | 36f09a0 | start 58a9b4a; no `import VinetasVocabulary` needed inside SwiftVinetas — the shim suffices |
 | 2 | WU-1 | COMPLETED | opus | 1/3 | 6ee65f3 | start 13481a5; Bundle.module works on both destinations |
-| 3 | WU-1 | DISPATCHED | sonnet | 1/3 | — | start = state commit after 6ee65f3 |
-| 4 | WU-1 | PENDING | | 0/3 | — | |
+| 3 | WU-1 | COMPLETED | sonnet | 1/3 | a951928 | start 553e7bd; type named `StyleSwatchRGB` |
+| 4 | WU-1 | DISPATCHED | opus | 1/3 | — | start = state commit after a951928 |
 | 5 | WU-2 | PENDING | | 0/3 | — | |
 | 6 | WU-2 | PENDING | | 0/3 | — | |
 | 7 | WU-2 | PENDING | | 0/3 | — | |
@@ -103,7 +103,7 @@ updated: 2026-10-18
 
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
-| WU-1 | 3 | implementer | DISPATCHED | 1/3 | — | sonnet | 9 | WU-1-s3 | 6ee65f3 | (harness task output) | 2026-10-18 | 0/3 | — |
+| WU-1 | 4 | implementer | DISPATCHED | 1/3 | — | opus | 20 | WU-1-s4 | STARTSHA | (harness task output) | 2026-10-18 | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: armed (20-min sleep shell, from Sortie 1 dispatch; re-armed on tick while agents remain)
@@ -122,7 +122,9 @@ updated: 2026-10-18
 | 2026-10-18 | WU-1 | 2 | Model: opus | Complexity score 20 (foundation: StoryboardStyle reused by 4 sorties; 12 dependents; first resource-bearing test target) |
 | 2026-10-18 | WU-1 | 2 | COMPLETED at 6ee65f3 | All exit criteria re-verified. T-07b: `Bundle.module` worked on macOS and iPhone 17. Design note for the brief: the plan's `grep -c '^\s*case ' == 20` criterion forced the agent to replace the app's five `switch` statements with a `private static let entries` lookup table (missing row = runtime `preconditionFailure`, covered by FrozenVocabularyTests over all 20 cases). The exit criterion shaped the implementation; flag in brief |
 | 2026-10-18 | WU-1 | 3 | Model: sonnet | Complexity score 9 (pure data, two files, 11 dependents) |
+| 2026-10-18 | WU-1 | 3 | COMPLETED at a951928 | All exit criteria re-verified. iOS telemetry timing flake (`perEmissionCostIsSubMillisecond`) recurred — 2 of 3 iOS runs so far; passed on rerun each time. Pre-existing, untouched. RISK for Sortie 14's `Unit Tests (iOS)` CI job; human-owed follow-up |
+| 2026-10-18 | WU-1 | 4 | Model: opus | Complexity score 20 (ModelSummary reused by 3 later sorties; 10 dependents; touches engine files + two test targets) |
 
 ## Overall Status
 
-Mission started 2026-10-18. 2/14 sorties COMPLETED (S1 @ 36f09a0, S2 @ 6ee65f3). WU-1 RUNNING (Sortie 3 DISPATCHED, sonnet, attempt 1, start 6ee65f3). WU-2, WU-3 NOT_STARTED.
+Mission started 2026-10-18. 3/14 sorties COMPLETED (S1 @ 36f09a0, S2 @ 6ee65f3, S3 @ a951928). WU-1 RUNNING (Sortie 4 DISPATCHED, opus, attempt 1). WU-2, WU-3 NOT_STARTED.
