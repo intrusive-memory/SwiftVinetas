@@ -107,6 +107,7 @@ public struct VinetasPromptPanel: View {
   private let selectedModel: ModelSummary
 
   @Environment(\.resolvedPanelLayout) private var layout
+  @Environment(\.vinetasEmbedsCompactSections) private var embedsCompactSections
 
   /// `nil` until the user or a preset choice opens or closes the Negative
   /// Prompt section; until then it is expanded only at compact width.
@@ -146,11 +147,15 @@ public struct VinetasPromptPanel: View {
       column(spacing: 16)
         .dismissesKeyboardOnScroll()
     case .compact:
-      Form {
+      if embedsCompactSections {
         compactSections
+      } else {
+        Form {
+          compactSections
+        }
+        .formStyle(.grouped)
+        .dismissesKeyboardOnScroll()
       }
-      .formStyle(.grouped)
-      .dismissesKeyboardOnScroll()
     }
   }
 

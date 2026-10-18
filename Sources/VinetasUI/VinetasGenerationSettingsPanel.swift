@@ -56,6 +56,7 @@ public struct VinetasGenerationSettingsPanel<Footnote: View>: View {
   private let footnote: Footnote
 
   @Environment(\.resolvedPanelLayout) private var layout
+  @Environment(\.vinetasEmbedsCompactSections) private var embedsCompactSections
 
   /// Creates a generation settings panel with a footnote under the model
   /// picker.
@@ -112,10 +113,14 @@ public struct VinetasGenerationSettingsPanel<Footnote: View>: View {
     case .regular:
       column(stepsAndGuidanceSideBySide: true)
     case .compact:
-      Form {
+      if embedsCompactSections {
         compactSections
+      } else {
+        Form {
+          compactSections
+        }
+        .formStyle(.grouped)
       }
-      .formStyle(.grouped)
     }
   }
 
