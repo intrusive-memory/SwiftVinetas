@@ -1,6 +1,42 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ aspect ratio" : {
+      "comment" : "Accessibility label of an aspect-ratio tile; the argument is a ratio such as 16:9.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ aspect ratio"
+          }
+        }
+      }
+    },
+    "%lld GB RAM" : {
+      "comment" : "The selected model's minimum memory, shown as text under the model picker.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld GB RAM"
+          }
+        }
+      }
+    },
+    "%lld steps" : {
+      "comment" : "Accessibility value of the steps slider.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld steps"
+          }
+        }
+      }
+    },
     "%lld styles" : {
       "comment" : "The style list's count of selectable styles, including Other.",
       "extractionState" : "manual",
@@ -13,6 +49,30 @@
         }
       }
     },
+    "Aspect Ratio" : {
+      "comment" : "Heading of the aspect-ratio tiles.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aspect Ratio"
+          }
+        }
+      }
+    },
+    "Aspect ratio selection" : {
+      "comment" : "Accessibility label of the group of aspect-ratio tiles.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aspect ratio selection"
+          }
+        }
+      }
+    },
     "Caption" : {
       "comment" : "Label and placeholder of the single-line caption field under the prompt.",
       "extractionState" : "manual",
@@ -21,6 +81,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Caption"
+          }
+        }
+      }
+    },
+    "Choose the model to use for image generation" : {
+      "comment" : "Accessibility hint of the model picker.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the model to use for image generation"
+          }
+        }
+      }
+    },
+    "Controls how closely the image follows the prompt" : {
+      "comment" : "Accessibility hint of the guidance slider.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controls how closely the image follows the prompt"
           }
         }
       }
@@ -45,6 +129,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Custom style prompt"
+          }
+        }
+      }
+    },
+    "Default" : {
+      "comment" : "Label of the toggles that make steps, guidance or aspect ratio follow the default.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default"
           }
         }
       }
@@ -85,6 +181,18 @@
         }
       }
     },
+    "Determines the starting noise pattern for reproducible results" : {
+      "comment" : "Accessibility hint of the seed field.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Determines the starting noise pattern for reproducible results"
+          }
+        }
+      }
+    },
     "FLUX.2 responds well to detailed, descriptive prose. Include lighting, composition, and style cues." : {
       "comment" : "Prompt-writing hint shown under the prompt for FLUX.2 models.",
       "extractionState" : "manual",
@@ -93,6 +201,78 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "FLUX.2 responds well to detailed, descriptive prose. Include lighting, composition, and style cues."
+          }
+        }
+      }
+    },
+    "Guidance" : {
+      "comment" : "Heading of the guidance slider.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guidance"
+          }
+        }
+      }
+    },
+    "Guidance scale" : {
+      "comment" : "Accessibility label of the guidance slider.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guidance scale"
+          }
+        }
+      }
+    },
+    "Higher values produce more detail but take longer" : {
+      "comment" : "Accessibility hint of the steps slider.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Higher values produce more detail but take longer"
+          }
+        }
+      }
+    },
+    "Inference steps" : {
+      "comment" : "Accessibility label of the steps slider.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inference steps"
+          }
+        }
+      }
+    },
+    "Model" : {
+      "comment" : "Heading and label of the model picker.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model"
+          }
+        }
+      }
+    },
+    "Model selection" : {
+      "comment" : "Accessibility label of the model picker.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model selection"
           }
         }
       }
@@ -181,6 +361,66 @@
         }
       }
     },
+    "Randomize" : {
+      "comment" : "Label of the toggle that picks a new seed for each generation.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Randomize"
+          }
+        }
+      }
+    },
+    "Randomize seed" : {
+      "comment" : "Accessibility label of the Randomize toggle.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Randomize seed"
+          }
+        }
+      }
+    },
+    "Seed" : {
+      "comment" : "Heading and placeholder of the seed field.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seed"
+          }
+        }
+      }
+    },
+    "Seed value" : {
+      "comment" : "Accessibility label of the seed field.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seed value"
+          }
+        }
+      }
+    },
+    "Steps" : {
+      "comment" : "Heading of the steps slider.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steps"
+          }
+        }
+      }
+    },
     "Style" : {
       "comment" : "Heading of the style list.",
       "extractionState" : "manual",
@@ -201,6 +441,90 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Style prompt text"
+          }
+        }
+      }
+    },
+    "Use default aspect ratio" : {
+      "comment" : "Accessibility label of the aspect ratio's Default toggle.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use default aspect ratio"
+          }
+        }
+      }
+    },
+    "Use default guidance" : {
+      "comment" : "Accessibility label of the guidance's Default toggle.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use default guidance"
+          }
+        }
+      }
+    },
+    "Use default steps" : {
+      "comment" : "Accessibility label of the steps' Default toggle.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use default steps"
+          }
+        }
+      }
+    },
+    "When enabled, a new random seed is used for each generation" : {
+      "comment" : "Accessibility hint of the Randomize toggle.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When enabled, a new random seed is used for each generation"
+          }
+        }
+      }
+    },
+    "When enabled, locks guidance to the selected model's recommended value" : {
+      "comment" : "Accessibility hint of the guidance's Default toggle.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When enabled, locks guidance to the selected model's recommended value"
+          }
+        }
+      }
+    },
+    "When enabled, locks steps to the selected model's recommended value" : {
+      "comment" : "Accessibility hint of the steps' Default toggle.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When enabled, locks steps to the selected model's recommended value"
+          }
+        }
+      }
+    },
+    "When enabled, locks the aspect ratio to the default" : {
+      "comment" : "Accessibility hint of the aspect ratio's Default toggle.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When enabled, locks the aspect ratio to the default"
           }
         }
       }
