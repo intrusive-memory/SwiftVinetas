@@ -57,16 +57,16 @@ updated: 2026-10-18
 
 ### WU-1 VinetasVocabulary
 - Work unit state: RUNNING
-- Current sortie: 1 of 4
+- Current sortie: 2 of 4
 - Sortie state: PENDING
 - Sortie type: code
 - Model: opus
-- Complexity score: 21 (turns ~30 → 5; 6–10 files → 4; ambiguity 0; foundation 5 + 13 dependents 5; risk 2) — also force-opus override (foundation + depth ≥ 5)
+- Complexity score: 20 (turns ~30 → 5; 3–5 files → 2; ambiguity 0; foundation 5 (StoryboardStyle reused by S3, S7, S8, S10) + 12 dependents 5; risk 3 (first Bundle.module resource target))
 - Attempt: 1 of 3
 - Verifier round: n/a
 - Agent: —
-- Last verified: —
-- Notes: —
+- Last verified: Sortie 1 all exit criteria (supervisor re-ran greps, dump-package, log inspection, lint, version guard) at 36f09a0
+- Notes: Sortie 1 agent observed one flaky iOS perf failure (VinetasTelemetryNoopOverheadTests.perEmissionCostIsSubMillisecond, pre-existing SwiftVinetasTests timing test) on first run; passed on rerun
 
 ### WU-2 VinetasUI
 - Work unit state: NOT_STARTED
@@ -84,7 +84,7 @@ updated: 2026-10-18
 
 | Sortie | Work Unit | State | Model | Attempts | Verified commit | Notes |
 |--------|-----------|-------|-------|----------|-----------------|-------|
-| 1 | WU-1 | PENDING | opus | 0/3 | — | |
+| 1 | WU-1 | COMPLETED | opus | 1/3 | 36f09a0 | start 58a9b4a; no `import VinetasVocabulary` needed inside SwiftVinetas — the shim suffices |
 | 2 | WU-1 | PENDING | | 0/3 | — | |
 | 3 | WU-1 | PENDING | | 0/3 | — | |
 | 4 | WU-1 | PENDING | | 0/3 | — | |
@@ -105,8 +105,8 @@ updated: 2026-10-18
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
 ## Watchdog
-- Timer task ID: disarmed
-- Armed at: —
+- Timer task ID: armed (20-min sleep shell, from Sortie 1 dispatch; re-armed on tick while agents remain)
+- Armed at: 2026-10-18
 
 ## Decisions Log
 
@@ -116,7 +116,10 @@ updated: 2026-10-18
 | 2026-10-18 | — | — | Pre-build clean run | No Xcode DerivedData dir existed; `make clean` succeeded; dependency graph untouched |
 | 2026-10-18 | — | — | Committed the untracked mission documents (EXECUTION_PLAN.md, RECON_REPORT.md, docs/incomplete/vinetas-ui-recon-2026-10-07/, SUPERVISOR_STATE.md) as the first commit on the mission branch | Sortie 1's entry criterion requires a clean tree; these are supervisor artifacts, not production code |
 | 2026-10-18 | WU-1 | 1 | Model: opus | Complexity score 21; force-opus override (foundation sortie, 13 dependents) |
+| 2026-10-18 | WU-1 | 1 | COMPLETED at 36f09a0 | All exit criteria re-verified by supervisor. Note for later sorties: test logs print Swift Testing display names (`Suite "AspectRatio Tests" passed`), class names appear only on build lines — grep display names too |
+| 2026-10-18 | WU-1 | 1 | Flaky iOS perf test noted | `VinetasTelemetryNoopOverheadTests.perEmissionCostIsSubMillisecond` failed once under simulator load (0.0041s vs 0.001s limit), pre-existing, untouched by the mission; passed on rerun. Not a mission defect; candidate for the brief |
+| 2026-10-18 | WU-1 | 2 | Model: opus | Complexity score 20 (foundation: StoryboardStyle reused by 4 sorties; 12 dependents; first resource-bearing test target) |
 
 ## Overall Status
 
-Mission started 2026-10-18. 0/14 sorties COMPLETED. WU-1 RUNNING (Sortie 1 PENDING → dispatching). WU-2, WU-3 NOT_STARTED.
+Mission started 2026-10-18. 1/14 sorties COMPLETED (S1 @ 36f09a0). WU-1 RUNNING (Sortie 2 PENDING → dispatching, opus). WU-2, WU-3 NOT_STARTED.
