@@ -13,9 +13,15 @@
 #
 # Instead, we partition the test suite using -only-testing: flags:
 #
-#   test-unit         SwiftVinetasTests               CI-safe, no GPU
+#   test-unit         SwiftVinetasTests               CI-safe, no GPU, perf suites skipped
+#   test-perf         SwiftVinetasTests (filtered)    Performance/timing suites only (local, never CI)
 #   test-gpu          SwiftVinetasGPUTests            All GPU tests (unit + integration)
 #   test-integration  SwiftVinetasGPUTests (filtered) Integration suites only (by class name)
+#
+# Performance tests NEVER run in CI. Suites that assert on elapsed time or
+# throughput are listed in PERF_SUITES; test-unit / test-unit-ios pass them as
+# -skip-testing: flags (no workflow references test-perf). Add new timing suites
+# to PERF_SUITES — never widen a tolerance to make one pass on a shared runner.
 #
 # LIMITATION: Swift Testing tags (.integration, .gpu, .flux2, .pixart) defined
 # in Tests/SwiftVinetasGPUTests/TestTags.swift are NOT directly filterable via
@@ -65,7 +71,18 @@ INTEGRATION_SUITES = \
 	-only-testing:SwiftVinetasGPUTests/AllModelsExampleTests \
 	-only-testing:SwiftVinetasTests/TelemetryIntegrationTests
 
-.PHONY: build release test test-unit test-gpu test-integration test-fixtures test-pixart-repro profile-pixart-memory test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help check-acervo-warnings test-telemetry-debug codesign-cli lint-check verify-ui-isolation
+# Performance / timing test suites (class names within SwiftVinetasTests).
+# These assert on elapsed time (ContinuousClock, sub-millisecond budgets) and
+# flake on shared CI runners and simulators, so they are excluded from
+# test-unit / test-unit-ios and run only via `make test-perf` locally.
+# Update this list when adding new performance test suites.
+PERF_SUITES = \
+	SwiftVinetasTests/VinetasTelemetryNoopOverheadTests
+
+SKIP_PERF_SUITES = $(addprefix -skip-testing:,$(PERF_SUITES))
+ONLY_PERF_SUITES = $(addprefix -only-testing:,$(PERF_SUITES))
+
+.PHONY: build release test test-unit test-perf test-gpu test-integration test-fixtures test-pixart-repro profile-pixart-memory test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help check-acervo-warnings test-telemetry-debug codesign-cli lint-check verify-ui-isolation
 
 help: ## Show all available targets with descriptions
 	@echo "SwiftVinetas — Makefile targets"
@@ -76,7 +93,8 @@ help: ## Show all available targets with descriptions
 	@echo "Examples:"
 	@echo "  make build            # Debug build (macOS CLI)"
 	@echo "  make test             # Run all macOS tests"
-	@echo "  make test-unit        # Unit tests only (no GPU)"
+	@echo "  make test-unit        # Unit tests only (no GPU, perf suites skipped)"
+	@echo "  make test-perf        # Performance/timing suites only (local, never CI)"
 	@echo "  make test-gpu         # GPU tests only (requires Apple Silicon + model)"
 	@echo "  make test-integration # Integration tests only (download + generation)"
 	@echo "  make test-ios         # Run all iOS Simulator tests"
@@ -126,7 +144,7 @@ test: ## Run all macOS tests (unit + GPU)
 		-destination $(DESTINATION_MACOS) \
 		-derivedDataPath $(DERIVED_DATA)
 
-test-unit: ## Run macOS unit tests only (no GPU or model required); output captured to build/test-output.log
+test-unit: ## Run macOS unit tests only (no GPU or model required; perf suites skipped); output captured to build/test-output.log
 	@mkdir -p build
 	TEST_RUNNER_CI=$${CI:-} TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
@@ -135,7 +153,17 @@ test-unit: ## Run macOS unit tests only (no GPU or model required); output captu
 		-only-testing:SwiftVinetasTests \
 		-only-testing:VinetasVocabularyTests \
 		-only-testing:VinetasUITests \
+		$(SKIP_PERF_SUITES) \
 		2>&1 | tee build/test-output.log; exit $${PIPESTATUS[0]}
+
+test-perf: ## Run the performance/timing suites only (macOS, local only — never referenced by CI); output captured to build/test-output-perf.log
+	@mkdir -p build
+	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) xcodebuild test \
+		-scheme $(SCHEME_PKG) \
+		-destination $(DESTINATION_MACOS) \
+		-derivedDataPath $(DERIVED_DATA) \
+		$(ONLY_PERF_SUITES) \
+		2>&1 | tee build/test-output-perf.log; exit $${PIPESTATUS[0]}
 
 link-test-models: ## Hardlink all model weights + tokenizer files from App Group container to /tmp so xctest can open them
 	@SHARED="$(PIXART_SHARED_MODELS)"; \
@@ -242,7 +270,7 @@ test-ios: ## Run all iOS Simulator tests
 		-destination $(DESTINATION_IOS) \
 		-derivedDataPath $(DERIVED_DATA)
 
-test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required); output captured to build/test-output-ios.log
+test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required; perf suites skipped); output captured to build/test-output-ios.log
 	@mkdir -p build
 	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
@@ -251,6 +279,7 @@ test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required); 
 		-only-testing:SwiftVinetasTests \
 		-only-testing:VinetasVocabularyTests \
 		-only-testing:VinetasUITests \
+		$(SKIP_PERF_SUITES) \
 		2>&1 | tee build/test-output-ios.log; exit $${PIPESTATUS[0]}
 
 check-acervo-warnings: ## Fail if build/test-output.log contains SwiftAcervo regression warnings (run after test-unit)

@@ -49,7 +49,7 @@ A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see th
 ## Queryable Codemap
 
 A prebuilt [graphify](https://pypi.org/project/graphifyy/) knowledge graph of this
-codebase lives in [`graphify-out/`](graphify-out/) (2536 nodes · 4017 edges). **Prefer
+codebase lives in [`graphify-out/`](graphify-out/) (3223 nodes · 5531 edges). **Prefer
 querying it before grepping** for architecture or "what connects to what" questions:
 
 ```bash
@@ -69,7 +69,8 @@ Refresh after significant changes with `/codemap` (or `graphify . --update`).
 # Using Makefile (preferred) — `make help` lists every target
 make build               # Debug build + copy to ./bin/vinetas
 make test                # All macOS tests (unit + GPU)
-make test-unit           # macOS unit tests only (no GPU) — CI-safe
+make test-unit           # macOS unit tests only (no GPU, perf suites skipped) — CI-safe
+make test-perf           # Performance/timing suites only (PERF_SUITES in the Makefile) — local only, never CI
 make test-gpu            # GPU tests only (requires Apple Silicon + cached models) — local only
 make test-integration    # Integration tests: model download + image generation — local only
 make test-fixtures       # Generate seed-42 reference fixtures for both engines (PNGs + JSON) — local only
@@ -83,9 +84,12 @@ make install             # Release build + copy to ./bin/vinetas
 make lint                # Format Swift sources via swift-format
 make lint-check / make verify-ui-isolation  # CI lint gate (fails if swift-format changes a file) / prove VinetasUI links no inference stack (EXPECT_FAIL=1 self-tests)
 
-# NOTE: test-gpu, test-integration, test-fixtures*, and test-pixart-repro are LOCAL-ONLY.
-# They require Apple Silicon hardware and pre-downloaded model weights.
-# CI (GitHub Actions) only runs `make test-unit` and `make test-unit-ios`.
+# NOTE: test-gpu, test-integration, test-fixtures*, test-pixart-repro, and test-perf are LOCAL-ONLY.
+# The GPU targets require Apple Silicon hardware and pre-downloaded model weights; test-perf
+# asserts on wall-clock timing, which is noise on shared runners.
+# CI (GitHub Actions, tests.yml) runs `make build` + `make test-unit`. test-unit and
+# test-unit-ios pass every suite in PERF_SUITES as -skip-testing:, so performance tests
+# never run in CI — add new timing suites to PERF_SUITES, never widen a tolerance.
 # The GPU-test Makefile targets depend on `link-test-models`, which hardlinks model
 # weights from the App Group container into /tmp so the xctest process can open them
 # (the Makefile passes them through as TEST_RUNNER_VINETAS_TEST_MODELS_DIR).
@@ -234,10 +238,18 @@ SwiftVinetas/
 
 ## Git Workflow
 
-- Branch: `development` -> PR -> `main`
+- Branch: feature/fix branch -> PR -> `development` -> PR -> `main`
 - Never commit directly to `main`
-- CI: Unit tests (macOS + iOS) must pass before merge to main
-- Required status checks: "Unit Tests (macOS)", "Unit Tests (iOS Simulator)"
+- **CI does not run on draft PRs.** Open work-in-progress as a draft; mark it
+  ready for review to run the suite (`gh pr ready <n>`). Every job in
+  `tests.yml` and `pixart-integration.yml` carries `if: !draft`, and the
+  `pull_request` trigger includes `ready_for_review`. Pattern: the
+  `draft-pr-ci-gate` skill.
+- Required status checks (job `name:` values — keep them stable, or update the
+  branch protection in the same PR):
+  - `development`: "Unit Tests (macOS)"
+  - `main`: "Unit Tests (macOS)", "PixArt Integration (macOS)"
+- Performance tests never run in CI — see `PERF_SUITES` in the Makefile.
 
 ## Platform Constraints
 
