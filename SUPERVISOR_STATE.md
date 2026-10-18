@@ -83,14 +83,16 @@ updated: 2026-10-18
 
 ### WU-3 Release phase
 - Work unit state: RUNNING
-- Current sortie: 12 of 14 (S12–S14)
+- Current sortie: 13 of 14 (S12–S14)
 - Sortie state: PENDING
 - Sortie type: code
 - Model: opus
-- Complexity score: 15 (turns ~30 → 5; 7 files (Makefile, probe Package.swift + 2 main.swift, .gitignore, AGENTS.md, CLAUDE.md) → 4; ambiguity 0; 2 dependents 2; risk 4 — new tooling: xcodebuild probe, otool/nm detectors with EXPECT_FAIL self-test, Make shell quoting)
+- Complexity score: 15 (turns ~38 → 8; 11+ files (guide, 2 tests, README, AGENTS, DocC wording across Sources/VinetasUI + 3 vocabulary files) → 6; ambiguity 0; 1 dependent 0; risk 1)
 - Attempt: 0 of 3
-- Agent: — (dispatching WU-3-s12)
-- Notes: gate opened by WU-2 COMPLETED at 0d60dd3. Fix PR #71 not merged at this boundary → Sortie 12's skip-line criterion is recorded "fix not yet merged"; iOS tolerance applies
+- Verifier round: 0 of 2 ([judgment]: DocC summaries consistent with the guide)
+- Agent: — (dispatching WU-3-s13)
+- Last verified: Sortie 12 COMPLETED at 144816a — supervisor re-ran every exit criterion: `make lint-check` 0 on the clean tree, negative check (untracked misformatted Scratch.swift) exit 2 then reverted; probe manifest 2 executableTargets, tools-version 6.2 = root; import grep `import VinetasUI` only; `swift (build|run)` grep empty (Makefile:3 comment intact); `make verify-ui-isolation` 0 + log exists; `EXPECT_FAIL=1` exit 0, 21 matched lines (nm `SwiftAcervo…NoopTelemetryReporter` symbols + SwiftDriver SwiftAcervo log line; otool does not fire — static linking), tail `EXPECT_FAIL: detector fired on UIIsolationProbeEngine — OK`; `make build-ios` 0 with 72 `VinetasUI` lines / 2 BUILD SUCCEEDED; target-scoped only-testing 6; skip-testing diff 0 and Makefile count 0 → skip-line criterion recorded "fix not yet merged"; DESTINATION_IOS line 32, OS=latest empty; AGENTS/CLAUDE 1 each; probe status grep 0 (`.gitignore:3 Tools/UIIsolationProbe/.build/`); version guard empty; Sources/Tests untouched; probe lint 0; logs fresh (14:02/14:03): macOS 831/99 and iOS 831/99 TEST SUCCEEDED, flake did not fire. No formatting-only commit was needed (`make lint` changed nothing). Deviations accepted: `lint-check` diffs `-- '*.swift'` and checksums untracked Swift files (plain `git diff --exit-code` misses untracked files, so the plan's negative check could never fire) — bash process substitution, Makefile `SHELL := /bin/bash`; docs got one combined line per file. Brief notes: verify-ui-isolation ~54 s cold / ~5 s incremental; the probe's path dependency resolves the root graph into `/tmp/SwiftVinetasBuild/ui-isolation/SourcePackages/checkouts` (not siblings) — a cold CI run fetches the whole graph; `build/ui-isolation.log` is overwritten by whichever scheme ran last
+- Notes: gate opened by WU-2 COMPLETED at 0d60dd3. Fix PR #71 still OPEN/DRAFT at the Sortie 12 boundary (origin/development b787215) → no merge; tolerance stands for Sortie 13
 
 ## Sortie Ledger
 
@@ -107,8 +109,8 @@ updated: 2026-10-18
 | 9 | WU-2 | COMPLETED | opus | 1/3 | 46878fd | start c846269; iOS green, no flake |
 | 10 | WU-2 | COMPLETED | opus | 1/3 | a58d947 | start 46878fd / re-dispatch ff565d8; REPLAN → plan ff565d8 → WU-2-s10b; e596cc3 amended message-only (trailer); iOS: only failure perEmissionCostIsSubMillisecond (tolerated, user rule) |
 | 11 | WU-2 | COMPLETED | sonnet | 1/3 | 0d60dd3 | start 2819d09; mechanical criteria re-run by the supervisor; verifier round 1 PASS; iOS green, no flake |
-| 12 | WU-3 | PENDING | opus | 0/3 | — | gate opened at 0d60dd3 |
-| 13 | WU-3 | PENDING | | 0/3 | — | [judgment] criterion → verifier |
+| 12 | WU-3 | COMPLETED | opus | 1/3 | 144816a | start 78022e6; skip-line criterion "fix not yet merged"; iOS green, no flake; lint-check narrowed to `*.swift` + untracked checksum (accepted) |
+| 13 | WU-3 | PENDING | opus | 0/3 | — | start 144816a (code HEAD); [judgment] criterion → verifier |
 | 14 | WU-3 | PENDING | | 0/3 | — | opens draft PR → development |
 
 ## Active Agents
@@ -117,7 +119,7 @@ updated: 2026-10-18
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
 ## Watchdog
-- Timer task ID: b6p8reiji (armed at Sortie 10 dispatch; still running — carries over to Sortie 11)
+- Timer task ID: buiobb8o5 (tick 1 at HEAD 144816a — the agent has already committed once; progress evident, strikes 0)
 - Armed at: 2026-10-18 (resume)
 
 ## Decisions Log
@@ -182,11 +184,15 @@ updated: 2026-10-18
 | 2026-10-18 | — | — | WU-2 COMPLETED → gate check: WU-3 → RUNNING, Sortie 12 → PENDING | Layer 2 done; 11/14 |
 | 2026-10-18 | — | — | Clean-tree boundary after Sortie 11: origin/development still b787215; fix PR is **#71** `ci: performance tests out of CI, draft-gated workflows, codemap refresh` (`fix/no-perf-tests-in-ci` @ ae44ddb), OPEN and DRAFT, its own checks SKIPPED (the draft gate it introduces already applies to it) | Not merged → no merge into the mission branch; tolerance stands; Sortie 12 records its skip-line criterion as "fix not yet merged". Re-check after Sortie 12. Note for Sortie 14: #71's title confirms the merged `tests.yml` will be draft-gated — the user's fallback (local logs + actionlint) is expected to apply |
 | 2026-10-18 | WU-3 | 12 | Model: opus | Complexity score 15 (7 files, new tooling with a self-test, Make shell quoting; `make lint` on the whole repo may need its own formatting-only commit first) |
+| 2026-10-18 | — | — | WATCHDOG tick 1 (b6p8reiji): Sortie 12 agent at HEAD 144816a already — progress, strikes 0; re-armed as buiobb8o5 | First snapshot stored |
+| 2026-10-18 | WU-3 | 12 | COMPLETED at 144816a | All exit criteria re-run by the supervisor (see WU-3 Last verified); iOS green without the tolerance. Accepted deviation: `lint-check` scopes `git diff --exit-code -- '*.swift'` and checksums untracked `*.swift` files — the plan's bare `git diff --exit-code` cannot see an untracked scratch file, so its own negative check was unsatisfiable as written; flag in the brief as a plan-criterion fix made by the implementer, not a plan defect that stopped work |
+| 2026-10-18 | — | — | Clean-tree boundary after Sortie 12: origin/development still b787215; PR #71 OPEN, DRAFT, not merged | No merge; tolerance stands; re-check after Sortie 13 |
+| 2026-10-18 | WU-3 | 13 | Model: opus | Complexity score 15 (largest sortie at ~38 turns; DocC wording reconciliation touches every public file in Sources/VinetasUI + 3 vocabulary files; two tests incl. a doc↔test byte-equality sync; [judgment] → verifier) |
 | 2026-10-18 | WU-1 | 4 | Note on the agent's own design call | `AspectRatio` is not `Codable`, so `ModelSummary` hand-codes `init(from:)`/`encode(to:)` with ratios as `rawValue` strings; `AspectRatio` itself untouched. Not a plan defect; worth a look when the plan is amended (Sortie 10's `VinetasPromptDraft: Codable` holds `aspectRatio: AspectRatio?` and will hit the same wall) |
 
 ## Overall Status
 
-Resumed a third time 2026-10-18 (Sortie 10 REPLAN applied by the human as ff565d8). 11/14 COMPLETED (S10 @ a58d947 iOS flake tolerated; S11 @ 0d60dd3 verifier PASS). WU-1, WU-2 COMPLETED; WU-3 RUNNING, Sortie 12 dispatching (opus). Fix PR #71 open+draft, not merged. Perf-skip fix PR still not on origin/development (b787215). New user instruction: Sortie 14's PR stays DRAFT (no `gh pr ready`, no merge); CI-log criterion falls back to local logs + actionlint if no run starts on the draft. Previous status follows.
+Resumed a third time 2026-10-18 (Sortie 10 REPLAN applied by the human as ff565d8). 12/14 COMPLETED (S10 @ a58d947 iOS flake tolerated; S11 @ 0d60dd3 verifier PASS; S12 @ 144816a). WU-1, WU-2 COMPLETED; WU-3 RUNNING, Sortie 13 dispatching (opus, [judgment] → verifier). Fix PR #71 open+draft, not merged. Perf-skip fix PR still not on origin/development (b787215). New user instruction: Sortie 14's PR stays DRAFT (no `gh pr ready`, no merge); CI-log criterion falls back to local logs + actionlint if no run starts on the draft. Previous status follows.
 
 Previously: mission started 2026-10-18; resumed twice (Sortie 4 REPLAN applied as 3778c27; Sortie 5 REPLAN applied as 97c4ac7). 9/14 sorties COMPLETED (S1 @ 36f09a0, S2 @ 6ee65f3, S3 @ a951928, S4 @ 0203ff5, S5 @ 2b4a171, S6 @ a0e0963, S7 @ 96c4040, S8 @ c846269, S9 @ 46878fd — iOS flake tolerated on S7 and S8). **WU-2 BLOCKED — Sortie 10 REPLAN** (plan-scope defect: the compact composer needs edits to the two panel files, outside Sortie 10's file list; no code written). WU-3 NOT_STARTED. Perf-skip fix PR: not yet on origin/development (still b787215). Mission halted awaiting a human edit to EXECUTION_PLAN.md (Sortie 10 task 2 file list + exit criterion), then `/mission-supervisor resume` — re-check at every boundary. Previous status follows.
 
