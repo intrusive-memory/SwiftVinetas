@@ -175,9 +175,18 @@ Rules:
 
 - `KeychainAPIKeyStore.shared` is the grouped, data-protection store on macOS
   and the plain per-app store on iOS (no CLI there, so no group).
-- Both `Vinetas/Vinetas.entitlements` and `VinetasCLI/VinetasCLI.entitlements`
-  gain `keychain-access-groups = ["$(AppIdentifierPrefix)io.intrusive-memory.Vinetas.shared"]`
+- `Vinetas/Vinetas.entitlements` (the macOS app) gains
+  `keychain-access-groups = ["$(AppIdentifierPrefix)io.intrusive-memory.Vinetas.shared"]`
   (§6).
+- **The bundled `VinetasCLI` does not get the group (yet).** It is signed with
+  no provisioning profile and no `com.apple.application-identifier`
+  (`CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO`). On macOS `keychain-access-groups`
+  is a restricted entitlement validated against an embedded profile, so adding
+  it to a bare command-line tool would get the binary refused at launch. Until
+  the CLI is re-packaged as a bundled helper with its own App ID and profile,
+  the CLI resolves keys from the **environment only**, and GUI-saved keys do
+  not reach it. The library needs no change for either outcome: an
+  unentitled read of the shared store returns nil and the chain falls through.
 - **Migration (app, one shot, idempotent):** on first launch after the floor
   bump, `KeychainAPIKeyStore.migrateKeys(from: .legacy, to: .shared)` copies
   each provider's key from the un-grouped item into the group and deletes the
@@ -189,8 +198,10 @@ Rules:
   unsigned `vinetas` from `make build` — reads no key from the shared store
   (`errSecMissingEntitlement` is swallowed) and falls through to the
   environment variable. That is the supported path for developers.
-- Mac App Store review: a shared keychain group between an app and its
-  bundled helper is standard; no extra capability is needed.
+- Mac App Store review: a keychain access group under the app's own team
+  prefix is the standard Keychain Sharing capability; no extra request is
+  needed for the app. Re-packaging the CLI as a provisioned helper is a
+  separate decision, to be verified against a real App Store signature.
 
 ## 5. CLI behaviour (`VinetasCLICore`)
 
@@ -234,9 +245,11 @@ process exits with its code.
 - `MemoryValidator`: drop the `is CloudModelDescriptor` short-circuit.
 - `AppDefaults.resolveDefaultModel()`: drop the `CloudModelDescriptor.byID`
   special case (the router lists cloud models now).
-- Add `keychain-access-groups` to both entitlements files (§4.2); on the
-  app's first launch call `KeychainAPIKeyStore.migrateKeys(from: .legacy, to: .shared)`
-  once and silently. `CloudProviderRegistry` and the app's own key reads
+- Add `keychain-access-groups` to the macOS app's entitlements only (§4.2);
+  on launch call `KeychainAPIKeyStore.migrateKeys(from: .legacy, to: .shared)`
+  silently (idempotent). The migration is required: the library's default
+  engines read `.shared`, so un-migrated keys would surface as
+  `missingAPIKey`. `CloudProviderRegistry` and the app's own key reads
   use `KeychainAPIKeyStore.shared` (which is now the grouped store on macOS).
 - `VinetasTests/CloudEngineTests.swift`: keep the registry, view-model gating
   and routing suites; delete the adapter suites (they moved upstream).
@@ -266,9 +279,9 @@ process exits with its code.
    `vinetas generate --model openai-gpt-image-2.5-flare "…"` writes a PNG and
    exits 0. — `CloudLiveSmokeTests` (GPU/integration target; skipped when the
    variable is unset, never in CI) plus the stubbed `CloudCLITests`.
-2. With a key saved in the GUI and no env var, the same command succeeds from
-   a Terminal in the same user session. — Manual QA after §6 ships; needs the
-   signed, bundled CLI.
+2. **Deferred.** A key saved in the GUI reaching the bundled CLI needs the CLI
+   re-packaged as a provisioned helper (§4.2). Until then the bundled CLI
+   uses the environment variable, and with none set it exits 78 naming it.
 3. With neither, it exits **78** and names the variable. — `CloudCLITests`.
 4. `vinetas list` / `list --json` output contains no substring of any
    configured key. — `CloudCLITests` (key `SECRET-KEY-XYZ-123`).

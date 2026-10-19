@@ -52,9 +52,10 @@ Keys are resolved in this order; the first hit wins:
    | Stability AI | `STABILITY_API_KEY` | |
 
 2. **Shared keychain** — the key saved in Vinetas → Settings → Cloud
-   Engines. Readable by the signed `VinetasCLI` bundled in `Vinetas.app` from
-   a Terminal in the same user session. A locally built `vinetas` has no
-   entitlement for that keychain group and uses the environment variable.
+   Engines, read by the app and by any process holding the app's keychain
+   access group. The command-line tool does not hold it today — neither the
+   locally built `vinetas` nor the `VinetasCLI` bundled in `Vinetas.app` — so
+   **from the CLI, supply the key through the environment variable.**
 
 There is deliberately **no `--api-key` flag**: a flag lands in shell history
 and `ps` output. Scope the variable to one invocation instead:
