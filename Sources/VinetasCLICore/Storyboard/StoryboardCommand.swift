@@ -26,8 +26,9 @@ public struct Storyboard: AsyncParsableCommand {
 
   @Option(
     name: .long,
-    help:
-      "Fleet default model for shots that declare none: klein4b (default) or pixart-sigma."
+    help: ArgumentHelp(
+      "Fleet default model for shots that declare none: klein4b (default), pixart-sigma, "
+        + "or a cloud model id such as bfl-flux-2-pro (see `vinetas list`).")
   )
   public var model: String = "klein4b"
 
@@ -50,9 +51,8 @@ public struct Storyboard: AsyncParsableCommand {
 
   public func run() async throws {
     // Validate the fleet default up front so a bad --model fails fast.
-    guard let fleetModel = VinetasModel(rawValue: model) else {
-      let valid = VinetasModel.allCases.map(\.rawValue).joined(separator: ", ")
-      throw ValidationError("Unknown model '\(model)'. Valid models: \(valid)")
+    guard let fleetModel = CLIModel.resolve(model) else {
+      throw CLIModel.unknownModelError(model)
     }
 
     // 1. Parse screenplay → shots + diagnostics.
@@ -101,47 +101,46 @@ public struct Storyboard: AsyncParsableCommand {
     // 5. Download every model the plan needs, up front (union), mirroring batch.
     //    Check the Pro gate for the whole union first: a board that is half
     //    FLUX.2 should fail before panel 1, not twenty panels in.
-    let neededModels = Set(plan.map(\.model))
+    //    Cloud models have nothing to download and are never Pro-gated; a
+    //    missing API key surfaces from the first panel as exit code 78.
+    let neededModels = Set(plan.map(\.model)).sorted { $0.name < $1.name }
     for needed in neededModels {
       try await ProGate.requireAccess(to: needed)
     }
-    for needed in neededModels where !CLIEnvironment.skipDownload {
-      stderrPrint("[vinetas] Checking model cache: \(needed.rawValue)...")
-      try await Vinetas.download(model: needed) { progress in
-        stderrPrint(
-          "[vinetas] Downloading \(needed.rawValue): \(String(format: "%.1f", progress.overallProgress * 100))%"
-        )
-      }
+    for needed in neededModels {
+      try await downloadIfNeeded(needed)
     }
 
     // 6. Generate each panel in order — one prompt per shot.
     var succeeded = 0
     var failures: [(panel: Int, error: Error)] = []
 
-    for item in plan {
-      let panelURL = outputURL(for: item, in: outputDirURL)
-      stderrPrint(
-        "[vinetas] Panel \(item.panelNumber)/\(plan.count) (\(item.model.rawValue)) → \(panelURL.lastPathComponent)"
-      )
-      do {
-        // Always through the PanelRequest path — including preview panels,
-        // whose steps/width/height overrides are already folded into
-        // `item.style` by `resolvePlan` — so `writePanel` records what this
-        // panel actually used (RI-13). `VinetasClient.preview(prompt:)` would
-        // skip that: it returns a bare `CGImage` with no metadata.
-        let generated = try await CLIEnvironment.client.generate(
-          PanelRequest(prompt: item.prompt, style: item.style, model: item.model.descriptor))
-        try ImageOutput.writePanel(
-          image: generated.image, metadata: generated.metadata, to: panelURL)
-        stderrPrint("[vinetas] Wrote \(panelURL.lastPathComponent)")
-        succeeded += 1
-      } catch {
-        failures.append((item.panelNumber, error))
-        if continueOnError {
-          stderrPrint("[vinetas] Panel \(item.panelNumber) FAILED: \(error). Continuing.")
-        } else {
-          stderrPrint("[vinetas] Panel \(item.panelNumber) FAILED: \(error). Stopping.")
-          throw error
+    try await reportingCloudErrors {
+      for item in plan {
+        let panelURL = outputURL(for: item, in: outputDirURL)
+        stderrPrint(
+          "[vinetas] Panel \(item.panelNumber)/\(plan.count) (\(item.model.name)) → \(panelURL.lastPathComponent)"
+        )
+        do {
+          // Always through the PanelRequest path — including preview panels,
+          // whose steps/width/height overrides are already folded into
+          // `item.style` by `resolvePlan` — so `writePanel` records what this
+          // panel actually used (RI-13). `VinetasClient.preview(prompt:)` would
+          // skip that: it returns a bare `CGImage` with no metadata.
+          let generated = try await CLIEnvironment.client.generate(
+            PanelRequest(prompt: item.prompt, style: item.style, model: item.model.descriptor))
+          try ImageOutput.writePanel(
+            image: generated.image, metadata: generated.metadata, to: panelURL)
+          stderrPrint("[vinetas] Wrote \(panelURL.lastPathComponent)")
+          succeeded += 1
+        } catch {
+          failures.append((item.panelNumber, error))
+          if continueOnError {
+            stderrPrint("[vinetas] Panel \(item.panelNumber) FAILED: \(error). Continuing.")
+          } else {
+            stderrPrint("[vinetas] Panel \(item.panelNumber) FAILED: \(error). Stopping.")
+            throw error
+          }
         }
       }
     }
@@ -160,7 +159,7 @@ public struct Storyboard: AsyncParsableCommand {
   struct PanelPlan {
     var panelNumber: Int
     var prompt: String
-    var model: VinetasModel
+    var model: CLIModel
     var style: StyleConfig
     var usePreview: Bool
     var output: String?
@@ -170,15 +169,16 @@ public struct Storyboard: AsyncParsableCommand {
   /// `generate` command's StyleConfig construction. Unrecognized `model`/`aspect`
   /// values warn and fall back (fleet model / no aspect) rather than aborting the
   /// whole run.
-  func resolvePlan(for shot: Shot, panelNumber: Int, fleetModel: VinetasModel) -> PanelPlan {
-    // Resolve model: shot value wins; unknown → warn + fleet default.
-    let resolvedModel: VinetasModel
+  func resolvePlan(for shot: Shot, panelNumber: Int, fleetModel: CLIModel) -> PanelPlan {
+    // Resolve model: shot value wins (on-device short name or cloud model id);
+    // unknown → warn + fleet default.
+    let resolvedModel: CLIModel
     if let raw = shot.model {
-      if let m = VinetasModel(rawValue: raw) {
+      if let m = CLIModel.resolve(raw) {
         resolvedModel = m
       } else {
         stderrPrint(
-          "[vinetas] Panel \(panelNumber): unknown model '\(raw)', using '\(fleetModel.rawValue)'.")
+          "[vinetas] Panel \(panelNumber): unknown model '\(raw)', using '\(fleetModel.name)'.")
         resolvedModel = fleetModel
       }
     } else {
@@ -216,13 +216,31 @@ public struct Storyboard: AsyncParsableCommand {
     if let lora = shot.lora { style.loraPath = lora }
     if let loraScale = shot.loraScale { style.loraScale = Float(loraScale) }
 
+    // Cloud engines cannot apply a LoRA and ignore the flags their vendor
+    // doesn't take. Warn per panel and keep going — a storyboard should not
+    // abort twenty panels in over one shot's attribute.
+    if let cloud = resolvedModel.cloud {
+      if style.loraPath != nil {
+        stderrPrint(
+          "[vinetas] Panel \(panelNumber): \(cloud.id) is a cloud model and cannot apply a LoRA; ignoring lora."
+        )
+        style.loraPath = nil
+      }
+      let warnings = cloudCapabilityWarnings(
+        for: cloud, steps: shot.steps, guidance: shot.guidance.map { Float($0) },
+        seed: shot.seed, negative: shot.negative)
+      for line in warnings {
+        stderrPrint("[vinetas] Panel \(panelNumber): \(line)")
+      }
+    }
+
     // Preview is FLUX Klein-4B only (forces 4 steps / 512×512). If a shot asks
-    // for preview on another model, warn and drop preview rather than silently
-    // ignoring --model.
+    // for preview on another model — on-device or cloud — warn and drop
+    // preview rather than silently ignoring the model. Previews stay local.
     var usePreview = shot.preview ?? false
     if usePreview && resolvedModel != .klein4b {
       stderrPrint(
-        "[vinetas] Panel \(panelNumber): --preview is Klein-4B only; ignoring preview for '\(resolvedModel.rawValue)'."
+        "[vinetas] Panel \(panelNumber): --preview is Klein-4B only; ignoring preview for '\(resolvedModel.name)'."
       )
       usePreview = false
     }

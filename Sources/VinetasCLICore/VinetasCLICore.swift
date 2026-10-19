@@ -60,7 +60,18 @@ public struct Generate: AsyncParsableCommand {
 
   @Option(
     name: .long,
-    help: "Model variant: klein4b (default) or pixart-sigma."
+    help: ArgumentHelp(
+      "Model: klein4b (default), pixart-sigma, or a cloud model id such as "
+        + "openai-gpt-image-2.5-flare or bfl-flux-2-pro.",
+      discussion: """
+        Cloud models run on the vendor's servers with your own API key and are
+        never Pro-gated. Supply the key through the environment
+        (OPENAI_API_KEY, GEMINI_API_KEY, BFL_API_KEY, STABILITY_API_KEY) or
+        save it in Vinetas → Settings → Cloud Engines; `vinetas list` shows
+        every cloud model and whether a key resolves. There is deliberately no
+        --api-key flag.
+        """
+    )
   )
   public var model: String = "klein4b"
 
@@ -161,25 +172,48 @@ public struct Generate: AsyncParsableCommand {
       telemetry ? try await CLITelemetryBootstrap.enable(mode: .full) : nil
     defer { Task { await bootstrap?.finish() } }
 
-    guard let vinetasModel = VinetasModel(rawValue: model) else {
-      let valid = VinetasModel.allCases.map(\.rawValue).joined(separator: ", ")
-      throw ValidationError("Unknown model '\(model)'. Valid models: \(valid)")
+    try await reportingCloudErrors { try await generatePanel() }
+  }
+
+  /// The body of `run()`, split out so a `CloudEngineError` maps to its exit
+  /// code in one place (`reportingCloudErrors`).
+  private func generatePanel() async throws {
+    guard let cliModel = CLIModel.resolve(model) else {
+      throw CLIModel.unknownModelError(model)
     }
-    try await ProGate.requireAccess(to: vinetasModel)
+    try await ProGate.requireAccess(to: cliModel)
 
     // --preview is a FLUX-only fast path (forces Klein 4B at 4 steps, 512×512).
-    // Combining it with a non-Klein-4B model would silently ignore --model.
-    if preview && vinetasModel != .klein4b {
+    // Combining it with another model — on-device or cloud — would silently
+    // ignore --model. Previews are free by design and always stay on-device.
+    if preview && cliModel != .klein4b {
       throw ValidationError(
-        "--preview is FLUX.2-only (Klein 4B, 4 steps, 512×512). "
+        "--preview is FLUX.2-only (Klein 4B, 4 steps, 512×512) and always runs on-device. "
           + "Drop --model or omit --preview."
       )
+    }
+
+    // Cloud vendors ignore flags they don't take: say so once, up front,
+    // instead of after a paid call. LoRA is the one hard refusal — a cloud
+    // engine cannot apply an adapter at all.
+    var warnedNegative = false
+    if let cloud = cliModel.cloud {
+      if lora != nil {
+        throw ValidationError(
+          "'\(cloud.id)' is a cloud model; cloud engines cannot apply LoRA adapters. "
+            + "Drop --lora or use an on-device model (klein4b)."
+        )
+      }
+      let warnings = cloudCapabilityWarnings(
+        for: cloud, steps: steps, guidance: guidance, seed: seed, negative: negative)
+      for line in warnings { stderrPrint(line) }
+      warnedNegative = warnings.contains { $0.contains("--negative") }
     }
 
     // Seed StyleConfig with this model's per-engine defaults so PixArt's
     // recommended guidance (4.5) and steps don't get overridden by FLUX-tuned
     // defaults. User-supplied --steps / --guidance still take precedence.
-    let descriptor = vinetasModel.descriptor
+    let descriptor = cliModel.descriptor
 
     // Load and validate reference images BEFORE any download or engine call
     // (RI-1 – RI-5): a bad path, an unsupported engine, or too many
@@ -235,18 +269,13 @@ public struct Generate: AsyncParsableCommand {
     }
 
     stderrPrint("[vinetas] Generating panel...")
-    stderrPrint("[vinetas] Model: \(vinetasModel.rawValue)")
+    stderrPrint("[vinetas] Model: \(cliModel.name)")
     stderrPrint("[vinetas] Dimensions: \(styleConfig.width)x\(styleConfig.height)")
     stderrPrint("[vinetas] Steps: \(styleConfig.steps)")
 
-    // Download model if not already cached (zero-config first run)
-    if !CLIEnvironment.skipDownload {
-      stderrPrint("[vinetas] Checking model cache...")
-      try await Vinetas.download(model: vinetasModel) { progress in
-        stderrPrint(
-          "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
-      }
-    }
+    // Download model if not already cached (zero-config first run). A cloud
+    // model has nothing to download.
+    try await downloadIfNeeded(cliModel)
 
     // --preview goes through the same PanelRequest path (its Klein 4B /
     // 4-step / 512×512 overrides are already applied to styleConfig above), so
@@ -255,7 +284,7 @@ public struct Generate: AsyncParsableCommand {
       PanelRequest(
         prompt: prompt, style: styleConfig, model: descriptor, references: loadedReferences))
 
-    if negative != nil, panel.metadata.negativeApplied == false {
+    if negative != nil, !warnedNegative, panel.metadata.negativeApplied == false {
       let engineName = panel.metadata.engine ?? descriptor.engineID
       stderrPrint("warning: \(engineName) does not apply negative prompts; --negative ignored")
     }
@@ -292,7 +321,18 @@ public struct Batch: AsyncParsableCommand {
 
   @Option(
     name: .long,
-    help: "Model variant: klein4b (default) or pixart-sigma."
+    help: ArgumentHelp(
+      "Model: klein4b (default), pixart-sigma, or a cloud model id such as "
+        + "openai-gpt-image-2.5-flare or bfl-flux-2-pro.",
+      discussion: """
+        Cloud models run on the vendor's servers with your own API key and are
+        never Pro-gated. Supply the key through the environment
+        (OPENAI_API_KEY, GEMINI_API_KEY, BFL_API_KEY, STABILITY_API_KEY) or
+        save it in Vinetas → Settings → Cloud Engines; `vinetas list` shows
+        every cloud model and whether a key resolves. There is deliberately no
+        --api-key flag.
+        """
+    )
   )
   public var model: String = "klein4b"
 
@@ -335,8 +375,17 @@ public struct Batch: AsyncParsableCommand {
       telemetry ? try await CLITelemetryBootstrap.enable(mode: .full) : nil
     defer { Task { await bootstrap?.finish() } }
 
-    let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
-    try await ProGate.requireAccess(to: vinetasModel)
+    try await reportingCloudErrors { try await generateBatch() }
+  }
+
+  /// The body of `run()`, split out so a `CloudEngineError` maps to its exit
+  /// code in one place. Panels run sequentially — cloud vendors rate-limit,
+  /// so there is no parallel fan-out.
+  private func generateBatch() async throws {
+    guard let cliModel = CLIModel.resolve(model) else {
+      throw CLIModel.unknownModelError(model)
+    }
+    try await ProGate.requireAccess(to: cliModel)
     let promptURL = URL(fileURLWithPath: promptsFile)
     let outputDirURL = URL(fileURLWithPath: outputDir)
 
@@ -357,23 +406,18 @@ public struct Batch: AsyncParsableCommand {
 
     stderrPrint("[vinetas] Batch generating from: \(promptsFile)")
     stderrPrint("[vinetas] Output directory: \(outputDirURL.path)")
-    stderrPrint("[vinetas] Model: \(vinetasModel.rawValue)")
+    stderrPrint("[vinetas] Model: \(cliModel.name)")
     if let aspectName = aspect, let ratio = AspectRatio(rawValue: aspectName) {
       stderrPrint("[vinetas] Aspect ratio: \(aspectName) (\(ratio.width)x\(ratio.height))")
     }
 
-    // Download model if not cached (zero-config first run)
-    if !CLIEnvironment.skipDownload {
-      stderrPrint("[vinetas] Checking model cache...")
-      try await Vinetas.download(model: vinetasModel) { progress in
-        stderrPrint(
-          "[vinetas] Downloading: \(String(format: "%.1f", progress.overallProgress * 100))%")
-      }
-    }
+    // Download model if not cached (zero-config first run). A cloud model has
+    // nothing to download.
+    try await downloadIfNeeded(cliModel)
 
     let panels = try await Self.generatePanels(
       from: promptURL,
-      descriptor: vinetasModel.descriptor,
+      descriptor: cliModel.descriptor,
       client: CLIEnvironment.client,
       progress: { current, total in
         stderrPrint("[vinetas] Panel \(current)/\(total)...")
@@ -439,12 +483,23 @@ public struct Download: AsyncParsableCommand {
 
   @Option(
     name: .shortAndLong,
-    help: "Model to download: klein4b or pixart-sigma."
+    help: "Model to download: klein4b or pixart-sigma. A cloud model id is accepted and is a no-op."
   )
   public var model: String = "klein4b"
 
   public func run() async throws {
-    let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
+    guard let cliModel = CLIModel.resolve(model) else {
+      throw CLIModel.unknownModelError(model)
+    }
+    if let cloud = cliModel.cloud {
+      print(
+        "'\(cloud.id)' is a cloud model served by \(cloud.provider.displayName) — nothing to download. "
+          + "Set \(cloud.provider.environmentVariable) (or add the key in Vinetas → Settings → "
+          + "Cloud Engines) and run `vinetas generate --model \(cloud.id)`."
+      )
+      return
+    }
+    let vinetasModel = cliModel.local ?? .klein4b
     try await ProGate.requireAccess(to: vinetasModel)
 
     stderrPrint("[vinetas] Downloading model: \(vinetasModel.rawValue)")
@@ -464,7 +519,7 @@ public struct Download: AsyncParsableCommand {
 public struct ListModels: AsyncParsableCommand {
   public static let configuration = CommandConfiguration(
     commandName: "list",
-    abstract: "List downloaded models and their cache status."
+    abstract: "List models: on-device cache status and cloud API-key status."
   )
 
   public init() {}
@@ -472,53 +527,114 @@ public struct ListModels: AsyncParsableCommand {
   @Flag(name: .long, help: "Output model information as JSON.")
   public var json: Bool = false
 
+  /// One cloud row: the catalog entry plus whether a key resolves and a
+  /// key-free description of where it came from.
+  struct CloudRow {
+    var model: CloudModelDescriptor
+    var configured: Bool
+    var source: String?
+  }
+
   public func run() async throws {
-    let models = await Vinetas.listModels()
+    let client = CLIEnvironment.client
+    let registered = await client.router.allModels
 
-    if json {
-      let isoFormatter = ISO8601DateFormatter()
-      isoFormatter.formatOptions = [.withInternetDateTime]
+    // Cloud rows come from the registered cloud descriptors in catalog
+    // (provider → model) order; on-device rows keep the cache-status surface
+    // `listModels()` has always had.
+    let cloudModels = CloudModelDescriptor.all.filter { catalog in
+      registered.contains { $0.id == catalog.id }
+    }
+    let cloudDisplayNames = Set(cloudModels.map(\.displayName))
+    let localModels = await client.listModels().filter { !cloudDisplayNames.contains($0.name) }
 
-      // Report the Pro gate alongside the cache state so a tool driving the CLI
-      // can tell "you have not downloaded this" apart from "you cannot use
-      // this", which are very different problems with very different fixes.
-      let isUnlocked = await ProGate.status().isUnlocked
-
-      let jsonModels: [[String: Any]] = models.map { info in
-        var entry: [String: Any] = [
-          "name": info.name,
-          "size": info.size,
-          "formattedSize": info.formattedSize,
-          "isDownloaded": info.isDownloaded,
-        ]
-        if let model = VinetasModel.allCases.first(where: {
-          $0.descriptor.displayName == info.name
-        }) {
-          entry["model"] = model.rawValue
-          let requiresPro = ProGate.requiresPro(model)
-          entry["requiresPro"] = requiresPro
-          if requiresPro { entry["isUnlocked"] = isUnlocked }
-        }
-        if let date = info.downloadDate {
-          entry["downloadDate"] = isoFormatter.string(from: date)
-        }
-        return entry
-      }
-      let data = try JSONSerialization.data(
-        withJSONObject: jsonModels,
-        options: [.prettyPrinted, .sortedKeys]
-      )
-      if let jsonString = String(data: data, encoding: .utf8) {
-        print(jsonString)
-      }
-      return
+    var cloudRows: [CloudRow] = []
+    for cloud in cloudModels {
+      let status = await cloudKeyStatus(for: cloud, client: client)
+      cloudRows.append(CloudRow(model: cloud, configured: status.configured, source: status.source))
     }
 
+    if json {
+      try await printJSON(local: localModels, cloud: cloudRows)
+    } else {
+      printTable(local: localModels, cloud: cloudRows)
+    }
+  }
+
+  private func printJSON(local: [VinetasModelInfo], cloud: [CloudRow]) async throws {
+    let isoFormatter = ISO8601DateFormatter()
+    isoFormatter.formatOptions = [.withInternetDateTime]
+
+    // Report the Pro gate alongside the cache state so a tool driving the CLI
+    // can tell "you have not downloaded this" apart from "you cannot use
+    // this", which are very different problems with very different fixes.
+    let isUnlocked = await ProGate.status().isUnlocked
+
+    var jsonModels: [[String: Any]] = local.map { info in
+      var entry: [String: Any] = [
+        "name": info.name,
+        "size": info.size,
+        "formattedSize": info.formattedSize,
+        "isDownloaded": info.isDownloaded,
+        "cloud": false,
+      ]
+      if let model = VinetasModel.allCases.first(where: {
+        $0.descriptor.displayName == info.name
+      }) {
+        entry["model"] = model.rawValue
+        let requiresPro = ProGate.requiresPro(model)
+        entry["requiresPro"] = requiresPro
+        if requiresPro { entry["isUnlocked"] = isUnlocked }
+      }
+      if let date = info.downloadDate {
+        entry["downloadDate"] = isoFormatter.string(from: date)
+      }
+      return entry
+    }
+
+    // Cloud entries: same `model` / `requiresPro` / `isDownloaded` keys an
+    // agent already reads, plus the key status and how to configure it. No
+    // key material, ever.
+    for row in cloud {
+      let cloud = row.model
+      var entry: [String: Any] = [
+        "name": cloud.displayName,
+        "model": cloud.id,
+        "cloud": true,
+        "provider": cloud.provider.rawValue,
+        "vendorModelID": cloud.vendorModelID,
+        "engineID": cloud.engineID,
+        "requiresPro": false,
+        "configured": row.configured,
+        "isDownloaded": row.configured,
+        "size": 0,
+        "formattedSize": "Cloud",
+        "environmentVariable": cloud.provider.environmentVariable,
+        "supportsSteps": cloud.supportsSteps,
+        "supportsGuidance": cloud.supportsGuidance,
+        "supportsSeed": cloud.supportsSeed,
+        "supportsNegativePrompt": cloud.supportsNegativePrompt,
+        "pricingHint": cloud.pricingHint,
+      ]
+      if let source = row.source { entry["keySource"] = source }
+      jsonModels.append(entry)
+    }
+
+    let data = try JSONSerialization.data(
+      withJSONObject: jsonModels,
+      options: [.prettyPrinted, .sortedKeys]
+    )
+    if let jsonString = String(data: data, encoding: .utf8) {
+      print(jsonString)
+    }
+  }
+
+  private func printTable(local: [VinetasModelInfo], cloud: [CloudRow]) {
     let header = "%-40@  %-14@  %-24@  %@"
     print(String(format: header, "Name", "Size", "Downloaded", "Status"))
     print(String(repeating: "-", count: 86))
 
-    for info in models {
+    for info in local {
       let dateStr: String
       if let date = info.downloadDate {
         let fmt = DateFormatter()
@@ -534,6 +650,21 @@ public struct ListModels: AsyncParsableCommand {
           format: "%-40@  %-14@  %-24@  %@",
           info.name, info.formattedSize, dateStr, status))
     }
+
+    guard !cloud.isEmpty else { return }
+    print("")
+    print("Cloud models (your own API key; billed by the vendor, never Pro-gated)")
+    let cloudHeader = "%-34@  %-18@  %-30@  %@"
+    print(String(format: cloudHeader, "Model", "Vendor", "API key", "Configure with"))
+    print(String(repeating: "-", count: 104))
+    for row in cloud {
+      let key = row.configured ? "configured (\(row.source ?? "configured"))" : "no key"
+      print(
+        String(
+          format: cloudHeader,
+          row.model.id, row.model.provider.displayName, key,
+          row.model.provider.environmentVariable))
+    }
   }
 }
 
@@ -548,7 +679,7 @@ public struct Info: AsyncParsableCommand {
 
   @Option(
     name: .shortAndLong,
-    help: "Model variant: klein4b or pixart-sigma."
+    help: "Model: klein4b, pixart-sigma, or a cloud model id (see `vinetas list`)."
   )
   public var model: String = "klein4b"
 
@@ -578,7 +709,14 @@ public struct Info: AsyncParsableCommand {
       return
     }
 
-    let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
+    guard let cliModel = CLIModel.resolve(model) else {
+      throw CLIModel.unknownModelError(model)
+    }
+    if let cloud = cliModel.cloud {
+      await printCloudInfo(cloud)
+      return
+    }
+    let vinetasModel = cliModel.local ?? .klein4b
 
     print("Model:              \(vinetasModel.rawValue)")
     print("HuggingFace Repo:   \(vinetasModel.repoId)")
@@ -586,14 +724,42 @@ public struct Info: AsyncParsableCommand {
     print("Min. Memory (GB):   \(vinetasModel.minimumMemoryGB) GB")
 
     // Show cache status
-    let allModels = await Vinetas.listModels()
-    if let info = allModels.first(where: { $0.name == vinetasModel.repoId }) {
+    let allModels = await CLIEnvironment.client.listModels()
+    if let info = allModels.first(where: { $0.name == vinetasModel.descriptor.displayName }) {
       let cacheStatus =
         info.isDownloaded
         ? "Downloaded (\(info.formattedSize))"
         : "Not downloaded"
       print("Cache Status:       \(cacheStatus)")
     }
+  }
+
+  /// `info` for a cloud model: vendor, capability flags, price hint, and key
+  /// status. Never prints a key or any prefix of one.
+  private func printCloudInfo(_ cloud: CloudModelDescriptor) async {
+    func yesNo(_ value: Bool) -> String { value ? "yes" : "no" }
+    let status = await cloudKeyStatus(for: cloud, client: CLIEnvironment.client)
+    print("Model:              \(cloud.id)")
+    print("Display name:       \(cloud.displayName)")
+    print("Vendor:             \(cloud.provider.displayName)")
+    print("Vendor model:       \(cloud.vendorModelID)")
+    print("Engine:             \(cloud.engineID)")
+    print(
+      "Supports:           steps \(yesNo(cloud.supportsSteps)) · guidance \(yesNo(cloud.supportsGuidance)) · "
+        + "seed \(yesNo(cloud.supportsSeed)) · negative prompt \(yesNo(cloud.supportsNegativePrompt))"
+    )
+    print(
+      "Aspect ratios:      \(cloud.supportedAspectRatios.map(\.rawValue).joined(separator: ", "))")
+    print("Price hint:         \(cloud.pricingHint) (billed by the vendor; not Pro-gated)")
+    if status.configured {
+      print("API key:            configured — \(status.source ?? "configured")")
+    } else {
+      print(
+        "API key:            not configured — set \(cloud.provider.environmentVariable) "
+          + "or add it in Vinetas → Settings → Cloud Engines")
+    }
+    print("Get a key:          \(cloud.provider.consoleURL.absoluteString)")
+    print("Terms:              \(cloud.provider.termsURL.absoluteString)")
   }
 
   /// The name of the CLI's staging subdirectory, a sibling of Acervo's
@@ -673,7 +839,7 @@ public struct Preview: AsyncParsableCommand {
 
     // Preview is hardwired to Klein 4B, which is a FLUX.2 model — so it is
     // Pro-gated even though it takes no --model.
-    try await ProGate.requireAccess(to: .klein4b)
+    try await ProGate.requireAccess(to: VinetasModel.klein4b)
 
     stderrPrint("[vinetas] Generating preview (Klein 4B, 4 steps, 512x512)...")
 
@@ -913,6 +1079,11 @@ public struct CharacterCommand: AsyncParsableCommand {
     public var model: String = "klein4b"
 
     public func run() async throws {
+      if let cloud = CLIModel.resolve(model)?.cloud {
+        throw ValidationError(
+          "'\(cloud.id)' is a cloud model; reference sheets use FLUX.2 reference conditioning, "
+            + "which runs on-device only. Use --model klein4b.")
+      }
       guard let vinetasModel = VinetasModel(rawValue: model) else {
         throw ValidationError("Unknown model '\(model)'. Valid: klein4b")
       }
@@ -1031,6 +1202,10 @@ public struct CharacterCommand: AsyncParsableCommand {
 
     public func run() async throws {
       let character = try Vinetas.loadCharacter(slug: slug)
+      if let cloud = CLIModel.resolve(model)?.cloud {
+        throw ValidationError(
+          "'\(cloud.id)' is a cloud model; LoRA training runs on-device only. Use --model klein4b.")
+      }
       let vinetasModel = VinetasModel(rawValue: model) ?? .klein4b
       try await ProGate.requireAccess(to: vinetasModel)
       let config = TrainingConfig(rank: rank, steps: steps)
