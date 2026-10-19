@@ -91,7 +91,7 @@ let package = Package(
     // parser glosa-tools uses, so the screenplay→notes extraction has one
     // source of truth.
     .package(
-      url: "https://github.com/intrusive-memory/SwiftCompartido.git", .upToNextMajor(from: "7.3.0")),
+      url: "https://github.com/intrusive-memory/SwiftCompartido.git", .upToNextMajor(from: "7.3.1")),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),

@@ -11,6 +11,10 @@ import VinetasUI
     (VinetasUIAccessibility.promptStyleCustom, "prompt.styleCustom"),
     (VinetasUIAccessibility.promptNegativeToggle, "prompt.negativeToggle"),
     (VinetasUIAccessibility.promptNegative, "prompt.negative"),
+    (
+      VinetasUIAccessibility.promptNegativeUnsupportedNote,
+      "prompt.negativeUnsupportedNote"
+    ),
     (VinetasUIAccessibility.stylePickerList, "stylePicker.list"),
     (VinetasUIAccessibility.stylePickerRowPrefix, "stylePicker.row"),
     (
@@ -33,12 +37,21 @@ import VinetasUI
     ),
     (VinetasUIAccessibility.generationSeedField, "generation.seedField"),
     (VinetasUIAccessibility.generationRandomizeSeed, "generation.randomizeSeed"),
+    (
+      VinetasUIAccessibility.generationStepsUnsupportedNote,
+      "generation.stepsUnsupportedNote"
+    ),
+    (
+      VinetasUIAccessibility.generationGuidanceUnsupportedNote,
+      "generation.guidanceUnsupportedNote"
+    ),
+    (VinetasUIAccessibility.generationSeedUnsupportedNote, "generation.seedUnsupportedNote"),
     (VinetasUIAccessibility.generationMemoryWarning, "generation.memoryWarning"),
   ]
 
-  @Test func contractHasTwentyIdentifiers() {
-    #expect(Self.contract.count == 20)
-    #expect(Set(Self.contract.map(\.expected)).count == 20)
+  @Test func contractHasTwentyFourIdentifiers() {
+    #expect(Self.contract.count == 24)
+    #expect(Set(Self.contract.map(\.expected)).count == 24)
   }
 
   @Test func everyConstantEqualsItsDocumentedString() {

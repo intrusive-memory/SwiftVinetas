@@ -8,8 +8,15 @@ import Foundation
 /// stack. The two shipped models are ``klein4B`` and ``pixartSigmaXL``; ``all``
 /// lists them in display order.
 ///
+/// The four `supports…` flags say which generation controls the model
+/// honours; a host disables the matching control when one is `false`. They,
+/// ``engineName`` and ``subtitle`` exist for cloud models: the on-device
+/// models answer `true` to every flag and `nil` to both names.
+///
 /// `AspectRatio` is not itself `Codable`, so ``supportedAspectRatios`` is
-/// encoded as an array of each ratio's `rawValue`.
+/// encoded as an array of each ratio's `rawValue`. A summary encoded before
+/// the capability fields existed (0.22.0, 0.23.0) still decodes: a missing
+/// flag reads `true` and a missing name reads `nil`.
 public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
   /// Unique model identifier, the value a prompt draft's `modelID` holds
   /// (e.g. `"flux2-klein-4b"`).
@@ -40,7 +47,35 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
   /// Aspect ratios this model supports for generation.
   public let supportedAspectRatios: [AspectRatio]
 
+  /// Whether the model accepts an inference step count. `true` for every
+  /// on-device model.
+  public let supportsSteps: Bool
+
+  /// Whether the model accepts a guidance scale. `true` for every on-device
+  /// model.
+  public let supportsGuidance: Bool
+
+  /// Whether the model accepts a seed, and so can reproduce an image. `true`
+  /// for every on-device model.
+  public let supportsSeed: Bool
+
+  /// Whether the model accepts a negative prompt. `true` for every on-device
+  /// model.
+  public let supportsNegativePrompt: Bool
+
+  /// The short engine name a picker section or engine badge shows (e.g.
+  /// `"OpenAI"` for a cloud model), or `nil` to let the host name the engine
+  /// from ``engineID``.
+  public let engineName: String?
+
+  /// One line describing the model in a picker (e.g. `"OpenAI · ~$0.03/image"`
+  /// for a cloud model), or `nil` to show the download size and memory.
+  public let subtitle: String?
+
   /// Creates a model summary from its individual fields.
+  ///
+  /// The capability flags default to `true` and the two names to `nil`,
+  /// which is what an on-device model reports.
   public init(
     id: String,
     displayName: String,
@@ -50,7 +85,13 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     approximateDownloadSize: String,
     defaultSteps: Int,
     defaultGuidance: Float,
-    supportedAspectRatios: [AspectRatio]
+    supportedAspectRatios: [AspectRatio],
+    supportsSteps: Bool = true,
+    supportsGuidance: Bool = true,
+    supportsSeed: Bool = true,
+    supportsNegativePrompt: Bool = true,
+    engineName: String? = nil,
+    subtitle: String? = nil
   ) {
     self.id = id
     self.displayName = displayName
@@ -61,6 +102,12 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     self.defaultSteps = defaultSteps
     self.defaultGuidance = defaultGuidance
     self.supportedAspectRatios = supportedAspectRatios
+    self.supportsSteps = supportsSteps
+    self.supportsGuidance = supportsGuidance
+    self.supportsSeed = supportsSeed
+    self.supportsNegativePrompt = supportsNegativePrompt
+    self.engineName = engineName
+    self.subtitle = subtitle
   }
 
   // MARK: - Codable
@@ -75,9 +122,19 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     case defaultSteps
     case defaultGuidance
     case supportedAspectRatios
+    case supportsSteps
+    case supportsGuidance
+    case supportsSeed
+    case supportsNegativePrompt
+    case engineName
+    case subtitle
   }
 
   /// Decodes a summary, reading ``supportedAspectRatios`` as `rawValue` strings.
+  ///
+  /// A missing capability flag decodes as `true` and a missing
+  /// ``engineName`` or ``subtitle`` as `nil`, so summaries encoded by 0.22.0
+  /// and 0.23.0 still decode.
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     id = try container.decode(String.self, forKey: .id)
@@ -99,9 +156,19 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
       }
       return ratio
     }
+    supportsSteps = try container.decodeIfPresent(Bool.self, forKey: .supportsSteps) ?? true
+    supportsGuidance = try container.decodeIfPresent(Bool.self, forKey: .supportsGuidance) ?? true
+    supportsSeed = try container.decodeIfPresent(Bool.self, forKey: .supportsSeed) ?? true
+    supportsNegativePrompt =
+      try container.decodeIfPresent(Bool.self, forKey: .supportsNegativePrompt) ?? true
+    engineName = try container.decodeIfPresent(String.self, forKey: .engineName)
+    subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
   }
 
   /// Encodes a summary, writing ``supportedAspectRatios`` as `rawValue` strings.
+  ///
+  /// The capability flags are always written; a `nil` ``engineName`` or
+  /// ``subtitle`` is omitted.
   public func encode(to encoder: any Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(id, forKey: .id)
@@ -113,6 +180,12 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     try container.encode(defaultSteps, forKey: .defaultSteps)
     try container.encode(defaultGuidance, forKey: .defaultGuidance)
     try container.encode(supportedAspectRatios.map(\.rawValue), forKey: .supportedAspectRatios)
+    try container.encode(supportsSteps, forKey: .supportsSteps)
+    try container.encode(supportsGuidance, forKey: .supportsGuidance)
+    try container.encode(supportsSeed, forKey: .supportsSeed)
+    try container.encode(supportsNegativePrompt, forKey: .supportsNegativePrompt)
+    try container.encodeIfPresent(engineName, forKey: .engineName)
+    try container.encodeIfPresent(subtitle, forKey: .subtitle)
   }
 
   // MARK: - Shipped models

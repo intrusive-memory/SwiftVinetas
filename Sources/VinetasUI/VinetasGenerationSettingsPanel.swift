@@ -22,6 +22,13 @@ import VinetasVocabulary
 /// binding (the default) renders no toggle. The `footnote` is drawn under
 /// the model picker.
 ///
+/// When the selected model's `supportsSteps`, `supportsGuidance` or
+/// `supportsSeed` is `false`, the matching control (the seed field together
+/// with Randomize) is disabled and dimmed, and a short note under it says the
+/// model does not use it. Each engine group is titled with its models'
+/// `engineName` when they carry one, and a model's `subtitle`, when it has
+/// one, replaces the download size and memory text.
+///
 /// The panel takes its shape from the resolved panel layout:
 ///
 /// - `.sidebar`: one column — Model, Aspect Ratio as one horizontal strip of
@@ -39,8 +46,9 @@ import VinetasVocabulary
 /// `.generationAspectRatioSelection`, `aspectRatioTile(_:)`,
 /// `.generationStepsSlider`, `.generationStepsUseDefault`,
 /// `.generationGuidanceSlider`, `.generationGuidanceUseDefault`,
-/// `.generationAspectRatioUseDefault`, `.generationSeedField` and
-/// `.generationRandomizeSeed`.
+/// `.generationAspectRatioUseDefault`, `.generationSeedField`,
+/// `.generationRandomizeSeed`, and the notes `.generationStepsUnsupportedNote`,
+/// `.generationGuidanceUnsupportedNote` and `.generationSeedUnsupportedNote`.
 public struct VinetasGenerationSettingsPanel<Footnote: View>: View {
 
   private let models: [ModelSummary]
@@ -188,6 +196,8 @@ public struct VinetasGenerationSettingsPanel<Footnote: View>: View {
             .checkboxToggleOnMacOS()
             .fixedSize()
         }
+        .inactive(!selectedModel.supportsSeed)
+        unsupportedNote(for: .seed)
       }
     }
     .padding()
@@ -206,6 +216,7 @@ public struct VinetasGenerationSettingsPanel<Footnote: View>: View {
         }
       }
       stepsSlider
+      unsupportedNote(for: .steps)
     }
   }
 
@@ -222,6 +233,7 @@ public struct VinetasGenerationSettingsPanel<Footnote: View>: View {
         }
       }
       guidanceSlider
+      unsupportedNote(for: .guidance)
     }
   }
 
@@ -264,6 +276,8 @@ public struct VinetasGenerationSettingsPanel<Footnote: View>: View {
         stepsDefaultToggle(useDefaultSteps)
           .toggleStyle(.switch)
       }
+    } footer: {
+      unsupportedNote(for: .steps)
     }
 
     Section {
@@ -275,17 +289,24 @@ public struct VinetasGenerationSettingsPanel<Footnote: View>: View {
         guidanceDefaultToggle(useDefaultGuidance)
           .toggleStyle(.switch)
       }
+    } footer: {
+      unsupportedNote(for: .guidance)
     }
 
     Section {
-      LabeledContent(localized("Seed")) {
-        seedField
-          .multilineTextAlignment(.trailing)
+      Group {
+        LabeledContent(localized("Seed")) {
+          seedField
+            .multilineTextAlignment(.trailing)
+        }
+        randomizeToggle
+          .toggleStyle(.switch)
       }
-      randomizeToggle
-        .toggleStyle(.switch)
+      .inactive(!selectedModel.supportsSeed)
     } header: {
       Text(localized("Seed"))
+    } footer: {
+      unsupportedNote(for: .seed)
     }
   }
 
@@ -323,14 +344,34 @@ public struct VinetasGenerationSettingsPanel<Footnote: View>: View {
     .accessibilityIdentifier(VinetasUIAccessibility.generationModelPicker)
   }
 
-  /// The selected model's download size and minimum memory, as text.
+  /// The selected model's subtitle, or else its download size and minimum
+  /// memory, as text.
   private var modelInfoRow: some View {
-    HStack(spacing: 12) {
-      Label(selectedModel.approximateDownloadSize, systemImage: "arrow.down.circle")
-      Label(localized("\(selectedModel.minimumMemoryGB) GB RAM"), systemImage: "memorychip")
+    Group {
+      if let subtitle = selectedModel.subtitle {
+        Text(verbatim: subtitle)
+      } else {
+        HStack(spacing: 12) {
+          Label(selectedModel.approximateDownloadSize, systemImage: "arrow.down.circle")
+          Label(localized("\(selectedModel.minimumMemoryGB) GB RAM"), systemImage: "memorychip")
+        }
+      }
     }
     .font(.caption)
     .foregroundStyle(VinetasStylePalette.secondaryText)
+  }
+
+  /// The note under a control the selected model does not use; nothing when
+  /// the model supports it.
+  @ViewBuilder
+  private func unsupportedNote(for control: Control) -> some View {
+    if let note = Self.unsupportedNote(for: control, model: selectedModel) {
+      Text(note)
+        .font(.caption)
+        .foregroundStyle(VinetasStylePalette.secondaryText)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityIdentifier(control.noteIdentifier)
+    }
   }
 
   private var aspectRatioTiles: some View {
@@ -350,8 +391,7 @@ public struct VinetasGenerationSettingsPanel<Footnote: View>: View {
       in: 1...50,
       step: 1
     )
-    .disabled(stepsLocked)
-    .opacity(stepsLocked ? 0.5 : 1)
+    .inactive(stepsLocked || !selectedModel.supportsSteps)
     .accessibilityLabel(localized("Inference steps"))
     .accessibilityHint(localized("Higher values produce more detail but take longer"))
     .accessibilityValue(localized("\(steps) steps"))
@@ -367,8 +407,7 @@ public struct VinetasGenerationSettingsPanel<Footnote: View>: View {
       in: 1.0...20.0,
       step: 0.5
     )
-    .disabled(guidanceLocked)
-    .opacity(guidanceLocked ? 0.5 : 1)
+    .inactive(guidanceLocked || !selectedModel.supportsGuidance)
     .accessibilityLabel(localized("Guidance scale"))
     .accessibilityHint(localized("Controls how closely the image follows the prompt"))
     .accessibilityValue(guidanceText)
@@ -425,6 +464,44 @@ public struct VinetasGenerationSettingsPanel<Footnote: View>: View {
   nonisolated static func engineName(of models: [ModelSummary]) -> String {
     guard let first = models.first else { return "" }
     return VinetasPromptPanel.engineBadge(for: first)
+  }
+
+  // MARK: - Capabilities
+
+  /// A generation control a model may not use.
+  enum Control: CaseIterable, Sendable {
+    case steps
+    case guidance
+    case seed
+
+    /// The accessibility identifier of the note drawn under this control.
+    var noteIdentifier: String {
+      switch self {
+      case .steps: return VinetasUIAccessibility.generationStepsUnsupportedNote
+      case .guidance: return VinetasUIAccessibility.generationGuidanceUnsupportedNote
+      case .seed: return VinetasUIAccessibility.generationSeedUnsupportedNote
+      }
+    }
+  }
+
+  /// Whether `model` uses `control`.
+  nonisolated static func supports(_ control: Control, model: ModelSummary) -> Bool {
+    switch control {
+    case .steps: return model.supportsSteps
+    case .guidance: return model.supportsGuidance
+    case .seed: return model.supportsSeed
+    }
+  }
+
+  /// The note drawn under `control` when `model` does not use it, or `nil`
+  /// when it does.
+  nonisolated static func unsupportedNote(for control: Control, model: ModelSummary) -> String? {
+    guard !supports(control, model: model) else { return nil }
+    switch control {
+    case .steps: return localized("Steps is not used by \(model.displayName).")
+    case .guidance: return localized("Guidance is not used by \(model.displayName).")
+    case .seed: return localized("Seed is not used by \(model.displayName).")
+    }
   }
 }
 
@@ -516,6 +593,13 @@ extension View {
     #else
       self
     #endif
+  }
+
+  /// Disabled and dimmed when `isInactive`: the selected model does not
+  /// use the control, or its Default toggle locks it.
+  fileprivate func inactive(_ isInactive: Bool) -> some View {
+    disabled(isInactive)
+      .opacity(isInactive ? 0.5 : 1)
   }
 
   /// The aspect-ratio tile group: dimmed and disabled while `locked`, and

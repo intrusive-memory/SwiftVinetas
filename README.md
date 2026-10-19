@@ -51,7 +51,7 @@ A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see th
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.22.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.24.0")
 ]
 ```
 
@@ -254,6 +254,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.24.0** — Model capabilities in `ModelSummary`. `ModelSummary` gains `supportsSteps`, `supportsGuidance`, `supportsSeed`, `supportsNegativePrompt` (default `true`) and `engineName` / `subtitle` (default `nil`); existing initializer calls compile unchanged, and summaries encoded by 0.22.0/0.23.0 still decode. `ModelDescriptor.summary` fills them from `CloudModelDescriptor` (vendor flags, provider short name, "vendor · price hint"). `VinetasGenerationSettingsPanel` disables and dims Steps, Guidance and Seed + Randomize when the selected model does not use them, with a note under each (`generation.stepsUnsupportedNote`, `.guidanceUnsupportedNote`, `.seedUnsupportedNote`), titles engine groups and the badge with `engineName`, and shows `subtitle` in place of size · RAM; `VinetasPromptPanel` notes when the negative prompt is ignored (`prompt.negativeUnsupportedNote`).
 
 **v0.23.0** — Cloud engines in the library and the CLI. The API-key-backed vendors the Vinetas app shipped (OpenAI GPT Image 2.5, Google Nano Banana / Gemini image models, Black Forest Labs FLUX.2 [pro]/[flex], Stability AI Core/Ultra) move into SwiftVinetas as `Sources/SwiftVinetas/Cloud/`: `CloudProvider`, `CloudModelDescriptor`, `CloudImageEngine`, `CloudEngineError`, and the key stores (`KeychainAPIKeyStore` with a shared app↔CLI access group, new `EnvironmentAPIKeyStore` and `ChainedAPIKeyStore`, `migrateKeys`). `EngineRouter` gains `register(_:)` / `unregister(engineID:)` / `registeredEngineIDs`, and `VinetasClient.init()` registers one cloud engine per vendor by default. `vinetas generate|batch|storyboard --model <cloud-id>` run through them (never Pro-gated; unsupported flags warn; `--lora`, `-r`, `--preview` refused); `list`/`info` show key status without ever printing a key; `download` is a no-op for cloud ids; exit codes 78 / 65 / 69 for missing key / moderation / vendor error. Shared adapters retry 429/503 with back-off. `PanelMetadata.width/height` now record the produced image's size (vendors snap). Adds `CloudEngineTests`, `CloudCLITests`, and a key-gated live smoke test.
 

@@ -19,7 +19,9 @@ import VinetasVocabulary
 /// chosen with ``VinetasStylePicker``, and the `negativePrompt` — and, when
 /// the host passes a `caption` binding, a single-line caption under the
 /// prompt. `selectedModel` only labels the prompt with an engine badge and
-/// writing hints; the panel never changes the model.
+/// writing hints; the panel never changes the model. When the model's
+/// `supportsNegativePrompt` is `false`, a note under the negative prompt says
+/// the model ignores it.
 ///
 /// Choosing a preset style writes that style's `negativePromptText` into
 /// `negativePrompt` and reveals the Negative Prompt section, so the change is
@@ -40,8 +42,8 @@ import VinetasVocabulary
 /// The panel draws no outer background and no action buttons; the host's
 /// container supplies both. Its controls are identified
 /// `VinetasUIAccessibility.promptPrimary`, `.promptCaption`,
-/// `.promptNegativeToggle`, `.promptNegative` and
-/// `.stylePickerPromptTextDisclosure`.
+/// `.promptNegativeToggle`, `.promptNegative`, `.promptNegativeUnsupportedNote`
+/// and `.stylePickerPromptTextDisclosure`.
 public struct VinetasPromptPanel: View {
 
   /// Writes the negative prompt a style prompt implies.
@@ -64,8 +66,10 @@ public struct VinetasPromptPanel: View {
     layout == .regular ? 140 : 100
   }
 
-  /// The short engine name shown in the badge beside the Prompt label.
+  /// The short engine name shown in the badge beside the Prompt label: the
+  /// model's `engineName` when it carries one.
   nonisolated static func engineBadge(for model: ModelSummary) -> String {
+    if let engineName = model.engineName { return engineName }
     switch model.engineID {
     case "flux2": return "FLUX.2"
     case "pixart-sigma": return "PixArt"
@@ -87,6 +91,13 @@ public struct VinetasPromptPanel: View {
     default:
       return nil
     }
+  }
+
+  /// The note drawn under the negative prompt when `model` ignores it, or
+  /// `nil` when it does not.
+  nonisolated static func negativeUnsupportedNote(for model: ModelSummary) -> String? {
+    guard !model.supportsNegativePrompt else { return nil }
+    return localized("\(engineBadge(for: model)) ignores negative prompts for this model.")
   }
 
   /// Negative-prompt guidance for `model`'s engine, or `nil` when there is none.
@@ -223,7 +234,7 @@ public struct VinetasPromptPanel: View {
             .frame(minHeight: 60, maxHeight: 120)
             .editorChrome()
             .padding(.top, 4)
-          hint(Self.negativeHint(for: selectedModel))
+          negativeNotes
         }
       } label: {
         Text(localized("Negative Prompt"))
@@ -291,7 +302,7 @@ public struct VinetasPromptPanel: View {
       .accessibilityIdentifier(VinetasUIAccessibility.promptNegativeToggle)
     } footer: {
       if negativeExpanded.wrappedValue {
-        hint(Self.negativeHint(for: selectedModel))
+        negativeNotes
       }
     }
   }
@@ -357,6 +368,17 @@ public struct VinetasPromptPanel: View {
       .padding(.vertical, 2)
       .background(VinetasStylePalette.rowBackground, in: Capsule())
       .textCase(nil)
+  }
+
+  /// The unsupported note, when the model ignores negative prompts, and the
+  /// engine's negative-prompt hint.
+  @ViewBuilder
+  private var negativeNotes: some View {
+    if let note = Self.negativeUnsupportedNote(for: selectedModel) {
+      hint(note)
+        .accessibilityIdentifier(VinetasUIAccessibility.promptNegativeUnsupportedNote)
+    }
+    hint(Self.negativeHint(for: selectedModel))
   }
 
   @ViewBuilder

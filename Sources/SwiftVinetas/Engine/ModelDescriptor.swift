@@ -64,9 +64,13 @@ extension ModelDescriptor {
   /// The engine-free ``ModelSummary`` of this descriptor.
   ///
   /// Built from the descriptor's own fields plus ``cliName``; ``license`` and
-  /// ``componentIds`` are not part of the summary.
+  /// ``componentIds`` are not part of the summary. A ``CloudModelDescriptor``
+  /// also carries its capability flags, its provider's short name as the
+  /// engine name, and "provider · price hint" as the subtitle; every other
+  /// descriptor reports all capabilities and no names.
   public var summary: ModelSummary {
-    ModelSummary(
+    let cloud = self as? CloudModelDescriptor
+    return ModelSummary(
       id: id,
       displayName: displayName,
       engineID: engineID,
@@ -75,7 +79,13 @@ extension ModelDescriptor {
       approximateDownloadSize: approximateDownloadSize,
       defaultSteps: defaultSteps,
       defaultGuidance: defaultGuidance,
-      supportedAspectRatios: supportedAspectRatios
+      supportedAspectRatios: supportedAspectRatios,
+      supportsSteps: cloud?.supportsSteps ?? true,
+      supportsGuidance: cloud?.supportsGuidance ?? true,
+      supportsSeed: cloud?.supportsSeed ?? true,
+      supportsNegativePrompt: cloud?.supportsNegativePrompt ?? true,
+      engineName: cloud?.provider.shortName,
+      subtitle: cloud.map { "\($0.provider.displayName) · \($0.pricingHint)" }
     )
   }
 }

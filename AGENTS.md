@@ -5,7 +5,7 @@ updated: 2026-10-18
 
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.23.0
+**Version**: 0.24.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
