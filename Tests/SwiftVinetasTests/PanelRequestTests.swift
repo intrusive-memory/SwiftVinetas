@@ -113,18 +113,20 @@ struct PanelRequestTests {
 
   // MARK: - Effective size and metadata fields
 
-  @Test("metadata records the clamped effective size")
+  @Test("the engine receives the clamped effective size; metadata records the produced image")
   func effectiveSizeIsClamped() async throws {
     let engine = MockEngine()
     let style = StyleConfig(width: 8192, height: 8192)
     let expected = ResolutionClamp.clampedDimensions(width: 8192, height: 8192)
     let panel = try await makeClient(engine).generate(
       PanelRequest(prompt: "a cat", style: style, model: MockModelDescriptor()))
-    #expect(panel.metadata.width == expected.width)
-    #expect(panel.metadata.height == expected.height)
     let request = try #require(await engine.lastRequest)
     #expect(request.width == expected.width)
     #expect(request.height == expected.height)
+    // Metadata describes the PNG it travels with (the mock renders 1×1), not
+    // the request — cloud vendors snap sizes, so the two can differ.
+    #expect(panel.metadata.width == panel.image.width)
+    #expect(panel.metadata.height == panel.image.height)
   }
 
   @Test("metadata records prompts, mode, engine, model, steps, guidance, loras")

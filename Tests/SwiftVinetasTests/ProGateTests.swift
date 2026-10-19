@@ -25,12 +25,12 @@ struct ProGateModelTests {
 
   @Test("FLUX.2 Klein 4B requires Pro")
   func fluxRequiresPro() {
-    #expect(ProGate.requiresPro(.klein4b))
+    #expect(ProGate.requiresPro(VinetasModel.klein4b))
   }
 
   @Test("PixArt is free")
   func pixartIsFree() {
-    #expect(!ProGate.requiresPro(.pixartSigma))
+    #expect(!ProGate.requiresPro(VinetasModel.pixartSigma))
   }
 
   @Test("Every model is classified as exactly one of gated or free")

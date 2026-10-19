@@ -19,10 +19,10 @@ import Foundation
 public actor EngineRouter {
 
   /// The registered engines, keyed by engine ID for O(1) lookup.
-  private let enginesByID: [String: any ImageGenerationEngine]
+  private var enginesByID: [String: any ImageGenerationEngine]
 
-  /// All registered engines.
-  private let engines: [any ImageGenerationEngine]
+  /// All registered engines, in registration order.
+  private var engines: [any ImageGenerationEngine]
 
   /// The currently installed telemetry reporter, propagated from
   /// ``VinetasClient/setTelemetry(_:)``. Engines receive their own copy via
@@ -42,6 +42,46 @@ public actor EngineRouter {
       map[engine.engineID] = engine
     }
     self.enginesByID = map
+  }
+
+  // MARK: - Registration
+
+  /// Register an engine after construction, replacing any engine already
+  /// registered under the same `engineID`.
+  ///
+  /// This is how a host adds engines the library does not construct itself
+  /// (or swaps a default one for a configured instance — e.g. a
+  /// ``CloudImageEngine`` with a custom ``CloudAPIKeyStoring``). The current
+  /// telemetry reporter, if any, is installed on the new engine so it emits
+  /// like the engines passed to ``init(engines:)``.
+  ///
+  /// - Parameter engine: The engine to register.
+  public func register(_ engine: any ImageGenerationEngine) async {
+    if let index = engines.firstIndex(where: { $0.engineID == engine.engineID }) {
+      engines[index] = engine
+    } else {
+      engines.append(engine)
+    }
+    enginesByID[engine.engineID] = engine
+    if let telemetry {
+      await engine.setTelemetry(telemetry)
+    }
+  }
+
+  /// Remove the engine registered under `engineID`. A no-op for an unknown
+  /// ID. The engine's resident model, if any, is unloaded first.
+  ///
+  /// - Parameter engineID: The unique engine identifier to remove.
+  public func unregister(engineID: String) async {
+    guard let engine = enginesByID[engineID] else { return }
+    await engine.unloadModel()
+    enginesByID[engineID] = nil
+    engines.removeAll { $0.engineID == engineID }
+  }
+
+  /// The IDs of every registered engine, in registration order.
+  public var registeredEngineIDs: [String] {
+    engines.map(\.engineID)
   }
 
   // MARK: - Model Catalog

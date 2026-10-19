@@ -19,10 +19,11 @@ updated: 2026-09-23
 
 - **Library**: `SwiftVinetas` wraps `Flux2Core` (from flux-2-swift-mlx) via an engine abstraction layer
 - **Engine Layer**: `ImageGenerationEngine` protocol + `EngineRouter` dispatcher — supports multiple backends
-- **Engines**: `Flux2Engine` (wraps Flux2Core), `PixArtEngine` (wraps PixArtBackbone via SwiftTubería pipeline)
+- **Engines**: `Flux2Engine` (wraps Flux2Core), `PixArtEngine` (wraps PixArtBackbone via SwiftTubería pipeline), and one `CloudImageEngine` per `CloudProvider` (OpenAI, Google, Black Forest Labs, Stability AI — the user's own API key, never Pro-gated; `Sources/SwiftVinetas/Cloud/`)
 - **Public API**: `VinetasClient` (instance-based, `.shared` singleton) — replaces deprecated static `Vinetas` enum
 - **CLI**: `vinetas` for testing and standalone use
-- **Models**: FLUX.2 Klein 4B (default, the only FLUX model) and PixArt-Sigma XL, extensible via `ModelDescriptor` protocol
+- **Models**: FLUX.2 Klein 4B (default, the only on-device FLUX model) and PixArt-Sigma XL, plus nine cloud `CloudModelDescriptor`s addressed by id (`openai-gpt-image-2.5-flare`, `bfl-flux-2-pro`, …); extensible via `ModelDescriptor` protocol
+- **Cloud keys**: `ChainedAPIKeyStore.default` — environment (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `BFL_API_KEY`, `STABILITY_API_KEY`) then the shared keychain group. Never written to disk in plaintext, never printed; no `--api-key` flag. See [docs/REQUIREMENTS-CLOUD-ENGINES.md](docs/REQUIREMENTS-CLOUD-ENGINES.md)
 - **Style**: LoRA adapters in safetensors format, tagged with `compatibleEngines: [String]`
 - **Prompt files**: YAML parsed via `marcprux/universal`
 - **Model cache**: App Group container (`group.intrusive-memory.models`) via SwiftAcervo, with Application Support fallback — sandbox-safe on all platforms
@@ -38,7 +39,7 @@ Active investigations / in-flight design notes live in [docs/incomplete/](docs/i
 
 | Product | Kind | Links | What it is for |
 |---|---|---|---|
-| `SwiftVinetas` | library | `VinetasVocabulary`, Flux2Core, PixArtBackbone, Tuberia, SwiftAcervo, universal (MLX through Flux2Core) | On-device panel generation: `VinetasClient`, engines, pipelines |
+| `SwiftVinetas` | library | `VinetasVocabulary`, Flux2Core, PixArtBackbone, Tuberia, SwiftAcervo, universal (MLX through Flux2Core) | Panel generation: `VinetasClient`, the on-device engines, the API-key-backed cloud engines, pipelines |
 | `VinetasCLICore` | library | `SwiftVinetas`, plus ArgumentParser, GlosaCore, SwiftCompartido, X509 and Crypto | The `vinetas` command structs, shared by the executable and the tests |
 | `vinetas` | executable | `VinetasCLICore` (and SwiftAcervo for `--help`) | The command-line tool |
 | `VinetasVocabulary` | library | nothing beyond Foundation | Engine-free vocabulary: `StoryboardStyle`, `StyleSwatchPalette`, `AspectRatio`, `ModelSummary` |
@@ -186,10 +187,18 @@ SwiftVinetas/
 │   │   │   ├── EngineRouter.swift           # Actor dispatcher
 │   │   │   ├── Flux2Engine.swift            # FLUX.2 conformance
 │   │   │   └── PixArtEngine.swift           # PixArt-Sigma conformance
+│   │   ├── Cloud/              # API-key-backed vendor engines (v0.23.0+)
+│   │   │   ├── CloudProvider.swift          # Vendor enum: engine id, env var, catalog
+│   │   │   ├── CloudModelDescriptor.swift   # The nine cloud models
+│   │   │   ├── CloudImageEngine.swift       # ImageGenerationEngine over HTTPS
+│   │   │   ├── CloudAPIKeyStore.swift       # Keychain / Environment / Chained / InMemory stores
+│   │   │   ├── CloudHTTP.swift              # Shared HTTP, retry, decoding, dimension fitting
+│   │   │   └── {OpenAI,Gemini,BFL,Stability}ImageClient.swift
 │   │   ├── Character/          # Character pipeline, LoRA training
 │   │   └── Understanding/      # ViT-B/16, DINOv2, image preprocessing
 │   ├── VinetasCLICore/         # Testable CLI logic library (v0.9.0+)
-│   │   └── VinetasCLICore.swift
+│   │   ├── VinetasCLICore.swift
+│   │   └── CLIModel.swift      # --model resolution (local names + cloud ids), cloud exit codes
 │   └── vinetas/                # CLI executable (thin wrapper over VinetasCLICore)
 │       └── VinetasCLI.swift
 ├── Tests/
@@ -204,6 +213,8 @@ SwiftVinetas/
 │   │   ├── LoRACompatibilityTests.swift     # LoRA<->engine compatibility checks
 │   │   ├── ConcurrentClientTests.swift      # Actor isolation stress tests
 │   │   ├── PlatformRegistrationTests.swift  # Engine/component registration on cold start
+│   │   ├── CloudEngineTests.swift           # Cloud catalog, key stores, router registration, vendor adapters (stubbed URLProtocol)
+│   │   ├── CLITests/CloudCLITests.swift     # --model <cloud-id> across generate/batch/storyboard/list/info/download
 │   │   ├── …                                # plus: Aspect/Character/Classification/Prompt/Style/Verification suites
 │   │   └── MockEngine.swift                 # Test double for ImageGenerationEngine
 │   └── SwiftVinetasGPUTests/                # Local-only GPU + integration tests
@@ -225,6 +236,7 @@ SwiftVinetas/
 │   ├── GUI_REQUIREMENTS.md
 │   ├── ENGINE_ABSTRACTION_REQUIREMENTS.md
 │   ├── REQUIREMENTS-REFERENCE-IMAGES.md     # reference images for `vinetas generate` (requirements)
+│   ├── REQUIREMENTS-CLOUD-ENGINES.md        # cloud vendors in the library + CLI: keys, keychain group, exit codes
 │   ├── REQUIREMENTS-STORYBOARD-COMMAND.md   # `vinetas storyboard` spec
 │   ├── REQUIREMENTS-IOS-BACKGROUND-DOWNLOADS.md
 │   ├── REQUIREMENTS-PIXART-MEMORY.md
