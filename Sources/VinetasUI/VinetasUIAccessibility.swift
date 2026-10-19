@@ -42,6 +42,9 @@ public enum VinetasUIAccessibility {
   /// The negative prompt text editor.
   public static let promptNegative = "prompt.negative"
 
+  /// The note under the negative prompt when the selected model ignores it.
+  public static let promptNegativeUnsupportedNote = "prompt.negativeUnsupportedNote"
+
   // MARK: - Style picker
 
   /// The list of styles in the style picker.
@@ -85,6 +88,16 @@ public enum VinetasUIAccessibility {
 
   /// The Randomize toggle for the seed.
   public static let generationRandomizeSeed = "generation.randomizeSeed"
+
+  /// The note under the steps slider when the selected model does not use steps.
+  public static let generationStepsUnsupportedNote = "generation.stepsUnsupportedNote"
+
+  /// The note under the guidance slider when the selected model does not use
+  /// guidance.
+  public static let generationGuidanceUnsupportedNote = "generation.guidanceUnsupportedNote"
+
+  /// The note under the seed when the selected model does not use a seed.
+  public static let generationSeedUnsupportedNote = "generation.seedUnsupportedNote"
 
   /// Retained for existing host UI tests only; no VinetasUI view renders it.
   public static let generationMemoryWarning = "generation.memoryWarning"

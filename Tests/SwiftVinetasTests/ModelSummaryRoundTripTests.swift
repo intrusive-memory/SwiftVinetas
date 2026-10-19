@@ -20,6 +20,32 @@ struct ModelSummaryRoundTripTests {
   }
 
   @Test
+  func cloudDescriptorSummaryCarriesCapabilitiesAndVendorNames() {
+    let summary = CloudModelDescriptor.gptImage25Flare.summary
+    #expect(!summary.supportsSteps)
+    #expect(!summary.supportsGuidance)
+    #expect(!summary.supportsSeed)
+    #expect(!summary.supportsNegativePrompt)
+    #expect(summary.engineName == "OpenAI")
+    #expect(summary.subtitle == "OpenAI · ~$0.03–0.25/image")
+  }
+
+  @Test
+  func everyCloudSummaryMirrorsItsDescriptor() {
+    for provider in CloudProvider.allCases {
+      for model in provider.models {
+        let summary = model.summary
+        #expect(summary.supportsSteps == model.supportsSteps)
+        #expect(summary.supportsGuidance == model.supportsGuidance)
+        #expect(summary.supportsSeed == model.supportsSeed)
+        #expect(summary.supportsNegativePrompt == model.supportsNegativePrompt)
+        #expect(summary.engineName == provider.shortName)
+        #expect(summary.subtitle == "\(provider.displayName) · \(model.pricingHint)")
+      }
+    }
+  }
+
+  @Test
   func cliNamesMatchVinetasModelRawValues() {
     let legacy = Self.legacyModelRawValues()
     let summaries = ModelSummary.all.map(\.cliName)

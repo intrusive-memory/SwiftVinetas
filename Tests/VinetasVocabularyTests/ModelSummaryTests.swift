@@ -31,6 +31,83 @@ struct ModelSummaryTests {
   }
 
   @Test(arguments: [ModelSummary.klein4B, ModelSummary.pixartSigmaXL])
+  func onDeviceModelsSupportEveryControlAndCarryNoNames(summary: ModelSummary) {
+    #expect(summary.supportsSteps)
+    #expect(summary.supportsGuidance)
+    #expect(summary.supportsSeed)
+    #expect(summary.supportsNegativePrompt)
+    #expect(summary.engineName == nil)
+    #expect(summary.subtitle == nil)
+  }
+
+  /// A summary as 0.22.0 / 0.23.0 encoded it, before the capability fields.
+  static let legacyJSON = """
+    {
+      "id": "flux2-klein-4b",
+      "displayName": "FLUX.2 Klein 4B",
+      "engineID": "flux2",
+      "cliName": "klein4b",
+      "minimumMemoryGB": 16,
+      "approximateDownloadSize": "~11 GB",
+      "defaultSteps": 8,
+      "defaultGuidance": 3.5,
+      "supportedAspectRatios": ["square", "wide"]
+    }
+    """
+
+  @Test
+  func legacyJSONWithoutCapabilityKeysDecodesToDefaults() throws {
+    let decoded = try JSONDecoder().decode(
+      ModelSummary.self, from: Data(Self.legacyJSON.utf8))
+    #expect(decoded.id == "flux2-klein-4b")
+    #expect(decoded.supportedAspectRatios == [.square, .wide])
+    #expect(decoded.supportsSteps)
+    #expect(decoded.supportsGuidance)
+    #expect(decoded.supportsSeed)
+    #expect(decoded.supportsNegativePrompt)
+    #expect(decoded.engineName == nil)
+    #expect(decoded.subtitle == nil)
+  }
+
+  @Test
+  func capabilityFieldsRoundTrip() throws {
+    let summary = ModelSummary(
+      id: "openai-gpt-image-2.5-flare",
+      displayName: "GPT Image 2.5 Flare",
+      engineID: "cloud-openai",
+      cliName: "openai-gpt-image-2.5-flare",
+      minimumMemoryGB: 0,
+      approximateDownloadSize: "Cloud",
+      defaultSteps: 1,
+      defaultGuidance: 1.0,
+      supportedAspectRatios: [.square, .wide],
+      supportsSteps: false,
+      supportsGuidance: false,
+      supportsSeed: true,
+      supportsNegativePrompt: false,
+      engineName: "OpenAI",
+      subtitle: "OpenAI · ~$0.03/image"
+    )
+    let data = try JSONEncoder().encode(summary)
+    let decoded = try JSONDecoder().decode(ModelSummary.self, from: data)
+    #expect(decoded == summary)
+    let object = try #require(
+      try JSONSerialization.jsonObject(with: data) as? [String: Any])
+    #expect(object["supportsSteps"] as? Bool == false)
+    #expect(object["engineName"] as? String == "OpenAI")
+  }
+
+  @Test
+  func nilNamesAreOmittedFromTheEncoding() throws {
+    let data = try JSONEncoder().encode(ModelSummary.klein4B)
+    let object = try #require(
+      try JSONSerialization.jsonObject(with: data) as? [String: Any])
+    #expect(object["engineName"] == nil)
+    #expect(object["subtitle"] == nil)
+    #expect(object["supportsNegativePrompt"] as? Bool == true)
+  }
+
+  @Test(arguments: [ModelSummary.klein4B, ModelSummary.pixartSigmaXL])
   func supportsEveryAspectRatio(summary: ModelSummary) {
     #expect(summary.supportedAspectRatios == AspectRatio.allCases)
   }

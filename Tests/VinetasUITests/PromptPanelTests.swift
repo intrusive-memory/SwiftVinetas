@@ -113,6 +113,29 @@ import VinetasVocabulary
     }
   }
 
+  @Test func negativeNoteNamesTheEngineWhenUnsupported() throws {
+    let cloud = GenerationSettingsPanelTests.cloudModel
+    #expect(VinetasPromptPanel.engineBadge(for: cloud) == "OpenAI")
+    let note = try #require(VinetasPromptPanel.negativeUnsupportedNote(for: cloud))
+    #expect(note == "OpenAI ignores negative prompts for this model.")
+    for model in ModelSummary.all {
+      #expect(VinetasPromptPanel.negativeUnsupportedNote(for: model) == nil)
+    }
+  }
+
+  @Test @MainActor func cloudModelPanelInstantiatesForEveryLayout() {
+    for layout in VinetasPanelLayout.allCases {
+      render(
+        VinetasPromptPanel(
+          prompt: .constant("A lighthouse at dusk"),
+          stylePrompt: .constant(StoryboardStyle.noirGraphicNovel.promptText),
+          negativePrompt: .constant("blurry"),
+          selectedModel: GenerationSettingsPanelTests.cloudModel
+        )
+        .vinetasPanelLayout(layout))
+    }
+  }
+
   @Test func promptEditorIsTallerAtRegularWidth() {
     #expect(VinetasPromptPanel.promptEditorMinHeight(for: .regular) == 140)
     #expect(VinetasPromptPanel.promptEditorMinHeight(for: .compact) == 100)
