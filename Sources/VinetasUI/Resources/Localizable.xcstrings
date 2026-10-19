@@ -13,6 +13,18 @@
         }
       }
     },
+    "%@ ignores negative prompts for this model." : {
+      "comment" : "Note under the negative prompt when the selected model ignores it; the argument is the engine's short name, such as OpenAI.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ignores negative prompts for this model."
+          }
+        }
+      }
+    },
     "%lld GB RAM" : {
       "comment" : "The selected model's minimum memory, shown as text under the model picker.",
       "extractionState" : "manual",
@@ -217,6 +229,18 @@
         }
       }
     },
+    "Guidance is not used by %@." : {
+      "comment" : "Note under the guidance slider when the selected model does not use guidance; the argument is the model's display name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guidance is not used by %@."
+          }
+        }
+      }
+    },
     "Guidance scale" : {
       "comment" : "Accessibility label of the guidance slider.",
       "extractionState" : "manual",
@@ -397,6 +421,18 @@
         }
       }
     },
+    "Seed is not used by %@." : {
+      "comment" : "Note under the seed field when the selected model does not use a seed; the argument is the model's display name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seed is not used by %@."
+          }
+        }
+      }
+    },
     "Seed value" : {
       "comment" : "Accessibility label of the seed field.",
       "extractionState" : "manual",
@@ -417,6 +453,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Steps"
+          }
+        }
+      }
+    },
+    "Steps is not used by %@." : {
+      "comment" : "Note under the steps slider when the selected model does not use steps; the argument is the model's display name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steps is not used by %@."
           }
         }
       }
