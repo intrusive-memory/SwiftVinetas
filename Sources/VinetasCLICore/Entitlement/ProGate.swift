@@ -50,6 +50,12 @@ public enum ProGate {
     model.descriptor.engineID == "flux2"
   }
 
+  /// Whether `model` needs the Pro unlock. Cloud models never do — the user
+  /// pays the vendor directly, so a Pro gate would double-charge.
+  public static func requiresPro(_ model: CLIModel) -> Bool {
+    model.local.map(requiresPro) ?? false
+  }
+
   /// Read and verify the marker.
   ///
   /// Never throws: any failure — absent, unreadable, malformed, forged, wrong
@@ -119,6 +125,13 @@ public enum ProGate {
     #else
       return nil
     #endif
+  }
+
+  /// Throw unless `model` may be used on this machine. Cloud models always
+  /// pass (``requiresPro(_:)-CLIModel``).
+  public static func requireAccess(to model: CLIModel) async throws {
+    guard let local = model.local else { return }
+    try await requireAccess(to: local)
   }
 
   /// Throw unless `model` may be used on this machine.

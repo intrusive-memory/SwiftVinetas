@@ -1,6 +1,6 @@
 ---
 type: doc
-updated: 2026-09-23
+updated: 2026-10-18
 ---
 
 # SwiftVinetas
@@ -28,7 +28,7 @@ SwiftVinetas generates sequential visual panels from text descriptions using FLU
 
 | Product | Kind | Links | What it is for |
 |---|---|---|---|
-| `SwiftVinetas` | library | `VinetasVocabulary`, Flux2Core, PixArtBackbone, Tuberia, SwiftAcervo, universal (MLX through Flux2Core) | On-device panel generation: `VinetasClient`, engines, pipelines |
+| `SwiftVinetas` | library | `VinetasVocabulary`, Flux2Core, PixArtBackbone, Tuberia, SwiftAcervo, universal (MLX through Flux2Core) | Panel generation: `VinetasClient`, the on-device engines, the API-key-backed cloud engines, pipelines |
 | `VinetasCLICore` | library | `SwiftVinetas`, plus ArgumentParser, GlosaCore, SwiftCompartido, X509 and Crypto | The `vinetas` command structs, shared by the executable and the tests |
 | `vinetas` | executable | `VinetasCLICore` (and SwiftAcervo for `--help`) | The command-line tool |
 | `VinetasVocabulary` | library | nothing beyond Foundation | Engine-free vocabulary: `StoryboardStyle`, `StyleSwatchPalette`, `AspectRatio`, `ModelSummary` |
@@ -114,6 +114,10 @@ vinetas generate "A detective" --lora comic-style.safetensors --lora-scale 0.8
 # Model management
 vinetas download --model klein4b
 vinetas list
+
+# Cloud models — your own API key, billed by the vendor, never Pro-gated
+OPENAI_API_KEY=… vinetas generate "A detective" --model openai-gpt-image-2.5-flare
+BFL_API_KEY=…    vinetas storyboard script.fountain --model bfl-flux-2-pro
 ```
 
 ### YAML Prompt File Format
@@ -190,6 +194,12 @@ Prints (and creates, if missing) the absolute path to a scratch directory inside
 
 Models are downloaded from HuggingFace on first use and cached in the App Group container (`group.intrusive-memory.models`) or `Application Support/SwiftAcervo/SharedModels/` as fallback. All paths are sandbox-safe for App Store distribution.
 
+### Cloud models
+
+Nine commercial models run side by side with the on-device engines, each behind the user's own API key: OpenAI (`openai-gpt-image-2.5-flare`, `openai-gpt-image-2.5-sunburst`), Google (`google-nano-banana-2.1`, `google-gemini-3.1-flash-image`, `google-gemini-3-pro-image`), Black Forest Labs (`bfl-flux-2-pro`, `bfl-flux-2-flex`) and Stability AI (`stability-core`, `stability-ultra`). `VinetasClient` registers one `CloudImageEngine` per vendor by default; they route through `EngineRouter` like any other engine, are never Pro-gated, and need nothing downloaded.
+
+Keys resolve from the environment first (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `BFL_API_KEY`, `STABILITY_API_KEY`), then from the keychain item the Vinetas app writes (a shared keychain access group; the CLI itself does not hold that group yet, so from the command line use the environment variable). There is no `--api-key` flag, and no key is ever written to disk in plaintext or printed. Cloud failures map to documented exit codes (78 no key, 65 moderated, 69 vendor error). See [docs/CLI_REFERENCE.md § Models and `--model`](docs/CLI_REFERENCE.md#models-and---model) and [docs/REQUIREMENTS-CLOUD-ENGINES.md](docs/REQUIREMENTS-CLOUD-ENGINES.md).
+
 ## Telemetry
 
 Every `vinetas` subcommand accepts `--telemetry`, which writes a JSONL trace of every cross-library handoff (engine routing, weight loads, per-step denoise, model downloads, etc.) to `~/Library/Caches/vinetas/telemetry/<timestamp>.jsonl`. The trace path is printed to stderr when the command exits.
@@ -240,9 +250,12 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Engine Abstraction Requirements](docs/ENGINE_ABSTRACTION_REQUIREMENTS.md) — Engine protocol and multi-backend design
 - [Storyboard Command Requirements](docs/REQUIREMENTS-STORYBOARD-COMMAND.md) — `vinetas storyboard`: screenplay → `<shot>` → panels
 - [Reference Images Requirements](docs/REQUIREMENTS-REFERENCE-IMAGES.md) — reference images for `vinetas generate`
+- [Cloud Engines Requirements](docs/REQUIREMENTS-CLOUD-ENGINES.md) — API-key-backed vendors in the library and the CLI: key resolution, shared keychain, exit codes
 - [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.23.0** — Cloud engines in the library and the CLI. The API-key-backed vendors the Vinetas app shipped (OpenAI GPT Image 2.5, Google Nano Banana / Gemini image models, Black Forest Labs FLUX.2 [pro]/[flex], Stability AI Core/Ultra) move into SwiftVinetas as `Sources/SwiftVinetas/Cloud/`: `CloudProvider`, `CloudModelDescriptor`, `CloudImageEngine`, `CloudEngineError`, and the key stores (`KeychainAPIKeyStore` with a shared app↔CLI access group, new `EnvironmentAPIKeyStore` and `ChainedAPIKeyStore`, `migrateKeys`). `EngineRouter` gains `register(_:)` / `unregister(engineID:)` / `registeredEngineIDs`, and `VinetasClient.init()` registers one cloud engine per vendor by default. `vinetas generate|batch|storyboard --model <cloud-id>` run through them (never Pro-gated; unsupported flags warn; `--lora`, `-r`, `--preview` refused); `list`/`info` show key status without ever printing a key; `download` is a no-op for cloud ids; exit codes 78 / 65 / 69 for missing key / moderation / vendor error. Shared adapters retry 429/503 with back-off. `PanelMetadata.width/height` now record the produced image's size (vendors snap). Adds `CloudEngineTests`, `CloudCLITests`, and a key-gated live smoke test.
 
 **v0.22.0** — Two new library products. `VinetasVocabulary` (`AspectRatio`, `ResolutionClamp`, `StyleConfig` moved behind a re-export shim; `StoryboardStyle` with the 19 presets, `StyleSwatchPalette`, `ModelSummary` + `ModelDescriptor.cliName`) and `VinetasUI` (the prompt panel as a reusable inspector element: `VinetasPromptPanel`, `VinetasGenerationSettingsPanel`, `VinetasStylePicker`, `VinetasPromptDraft`/`VinetasPromptComposer`, `vinetasPromptInspector`; host guide in `docs/VinetasUI.md`). Performance suites no longer run in CI (`make test-perf` locally); CI gates on ready-for-review and adds an iOS unit-test job. Depends on SwiftCompartido 7.3.0.
 

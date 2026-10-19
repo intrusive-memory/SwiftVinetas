@@ -45,7 +45,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.22.0"
+  public static let version = "0.23.0"
 
   /// Configures a CDN base URL for model downloads.
   ///
@@ -120,10 +120,23 @@ public final class VinetasClient: Sendable {
   /// surfaced per-model, advisory-only, via ``validateMemory(for:)`` at load
   /// time — the engine is always present so the model can be downloaded and
   /// the app decides what to do with a `.warning`/`.insufficient` verdict.
+  ///
+  /// One ``CloudImageEngine`` per ``CloudProvider`` is registered as well,
+  /// each resolving its API key through ``ChainedAPIKeyStore/default``
+  /// (environment variable, then the shared keychain). A cloud engine with
+  /// no key is still registered — its models list as `notAvailable` and
+  /// `loadModel` throws ``CloudEngineError/missingAPIKey(_:)`` — so
+  /// ``EngineRouter/allModels`` is the same catalog on every machine. Hosts
+  /// that want a different key store call ``EngineRouter/register(_:)`` with
+  /// their own instance.
   public init() {
     let totalMemoryGB = DeviceCapability.current.totalMemoryGB
     let deviceArch = DeviceCapability.current.chipGeneration.rawValue
-    let engines: [any ImageGenerationEngine] = [PixArtEngine(), Flux2Engine()]
+    let localEngines: [any ImageGenerationEngine] = [PixArtEngine(), Flux2Engine()]
+    let cloudEngines: [any ImageGenerationEngine] = CloudProvider.allCases.map {
+      CloudImageEngine(provider: $0)
+    }
+    let engines = localEngines + cloudEngines
     self.router = EngineRouter(engines: engines)
 
     // Emit telemetry events for client init + engine registration. The reporter
@@ -139,6 +152,10 @@ public final class VinetasClient: Sendable {
           .engineRegistered(engineID: "pixart-sigma", reason: "always-registered"))
         await reporter.capture(
           .engineRegistered(engineID: "flux2", reason: "always-registered"))
+        for cloud in cloudEngines {
+          await reporter.capture(
+            .engineRegistered(engineID: cloud.engineID, reason: "default"))
+        }
         await reporter.capture(
           .clientInitialized(
             version: VinetasClient.version,
@@ -375,14 +392,18 @@ extension VinetasClient {
     let negative = style.negativePrompt.flatMap { $0.isEmpty ? nil : $0 }
     let isoFormatter = ISO8601DateFormatter()
     isoFormatter.formatOptions = [.withInternetDateTime]
+    // Record the dimensions of the image the engine actually produced, not
+    // the request: on-device engines render the (clamped) request exactly,
+    // but cloud vendors snap to their own size grid or aspect presets, and
+    // the metadata must describe the PNG it travels with.
     let metadata = ImageOutput.PanelMetadata(
       prompt: prompt,
       model: model.id,
       seed: result.seed,
       steps: engineRequest.steps,
       guidance: engineRequest.guidanceScale,
-      width: engineRequest.width,
-      height: engineRequest.height,
+      width: result.image.width,
+      height: result.image.height,
       durationSeconds: durationSeconds,
       loras: appliedLoRAs,
       generatedAt: isoFormatter.string(from: Date()),
@@ -1122,7 +1143,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.22.0"
+  public static let version = "0.23.0"
 
   // MARK: - Generation
 

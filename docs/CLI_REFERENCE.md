@@ -1,6 +1,6 @@
 ---
 type: doc
-updated: 2026-09-26
+updated: 2026-10-18
 ---
 
 # `vinetas` CLI Reference
@@ -25,6 +25,78 @@ authoritative text always lives there. Summary:
 | `ACERVO_CDN_BASE_URL` | Base URL every model download/manifest fetch is built from. |
 | `ACERVO_OFFLINE` | Set to `1` to forbid all network access; only already-cached models resolve. |
 
+## Models and `--model`
+
+Every generating subcommand takes `--model`. Two vocabularies are accepted:
+
+| Kind | `--model` values | Runs | Pro gate | Key |
+|---|---|---|---|---|
+| On-device | `klein4b` (default), `pixart-sigma` | locally on Apple Silicon | FLUX.2 (`klein4b`) requires the Vinetas Pro unlock; PixArt is free | none |
+| Cloud | `openai-gpt-image-2.5-flare`, `openai-gpt-image-2.5-sunburst`, `google-nano-banana-2.1`, `google-gemini-3.1-flash-image`, `google-gemini-3-pro-image`, `bfl-flux-2-pro`, `bfl-flux-2-flex`, `stability-core`, `stability-ultra` | on the vendor's servers | **never** — you pay the vendor | your own API key |
+
+An unknown value is a validation error naming both lists. `vinetas list`
+shows every model and, for cloud models, whether a key resolves.
+
+### Cloud API keys
+
+Keys are resolved in this order; the first hit wins:
+
+1. **Environment variable** — how agents, scripts and CI supply a key. No
+   keychain, no GUI session.
+
+   | Vendor | Variable | Also accepted |
+   |---|---|---|
+   | OpenAI | `OPENAI_API_KEY` | |
+   | Google | `GEMINI_API_KEY` | `GOOGLE_API_KEY` |
+   | Black Forest Labs | `BFL_API_KEY` | |
+   | Stability AI | `STABILITY_API_KEY` | |
+
+2. **Shared keychain** — the key saved in Vinetas → Settings → Cloud
+   Engines, read by the app and by any process holding the app's keychain
+   access group. The command-line tool does not hold it today — neither the
+   locally built `vinetas` nor the `VinetasCLI` bundled in `Vinetas.app` — so
+   **from the CLI, supply the key through the environment variable.**
+
+There is deliberately **no `--api-key` flag**: a flag lands in shell history
+and `ps` output. Scope the variable to one invocation instead:
+
+```bash
+env OPENAI_API_KEY="$OPENAI_API_KEY" vinetas generate "a lighthouse at dusk" \
+  --model openai-gpt-image-2.5-flare -o panel.png
+```
+
+The CLI never writes a key anywhere, never prints one (or any prefix of one),
+and reaches no network endpoint other than the chosen vendor's documented API.
+
+### What changes with a cloud model
+
+- `--steps`, `--guidance`, `--seed`, `--negative` that the vendor does not
+  honour are **ignored with one `warning:` line each on stderr**; the run
+  continues. `vinetas info --model <id>` shows which flags a model takes.
+- `--lora` is a validation error: cloud engines cannot apply adapters.
+- `-r`/`--reference` is refused before any network call (no cloud model
+  takes reference images in v1).
+- `--preview` is a validation error — previews are free by design and always
+  run on-device (`vinetas preview` takes no model at all).
+- Nothing is downloaded; `vinetas download --model <cloud-id>` prints that
+  and exits 0.
+- The sidecar/embedded metadata records the vendor's **actual** output size
+  (vendors snap to their own size grids), the engine (`cloud-openai`, …), and
+  the seed when the vendor reports one (`0` otherwise).
+- 429 / 503 responses are retried twice with back-off before failing.
+
+### Cloud exit codes
+
+| Condition | Exit code | Meaning (`sysexits`) |
+|---|---|---|
+| No API key resolved for the vendor | **78** | `EX_CONFIG` — the stderr line names the variable to set |
+| The vendor declined the prompt or output (moderation) | **65** | `EX_DATAERR` — rewrite the prompt |
+| Vendor HTTP error, timeout, or undecodable reply | **69** | `EX_UNAVAILABLE` — the vendor's own message is on stderr verbatim |
+| Unknown model, or `--lora` / `--preview` / `-r` with a cloud model | 64 | `EX_USAGE` |
+
+Every cloud failure is printed as `error: …` on stderr before the process
+exits.
+
 ## `vinetas generate`
 
 Generate a single panel from a text prompt.
@@ -39,8 +111,9 @@ OPTIONS:
   -s, --style <style>     Style prompt for consistent look (e.g., 'noir comic').
   -o, --output <output>   Output PNG path, or - to write the PNG (with embedded
                           metadata, no sidecar) to stdout. (default: panel.png)
-  --model <model>         Model variant: klein4b (default) or pixart-sigma.
-                          (default: klein4b)
+  --model <model>         Model: klein4b (default), pixart-sigma, or a cloud
+                          model id such as openai-gpt-image-2.5-flare or
+                          bfl-flux-2-pro. (default: klein4b)
   --lora <lora>           Path to a LoRA safetensors file.
   --lora-scale <lora-scale>
                           LoRA scale (0.0-1.0). (default: 0.8)
@@ -59,6 +132,11 @@ OPTIONS:
 ```
 
 `generate` is the default subcommand: `vinetas "a detective in a rain-soaked alley"` is equivalent to `vinetas generate "a detective in a rain-soaked alley"`.
+
+```bash
+# Same command, rendered by Black Forest Labs' hosted FLUX.2 [pro]
+BFL_API_KEY=… vinetas generate "a detective in a rain-soaked alley" --model bfl-flux-2-pro -o panel.png
+```
 
 ### Reference images (`-r`/`--reference`)
 
@@ -147,6 +225,7 @@ USAGE: vinetas batch <prompts-file> [--output-dir <output-dir>] [--model <model>
 Each panel in the file is generated via the same client path as `generate`
 and written with `writePanel` (PNG + sidecar), so per-panel metadata reflects
 the actual steps/guidance/seed used for that panel, not the file's defaults.
+With a cloud `--model`, panels run **sequentially** (vendors rate-limit).
 See the [YAML Prompt File Format](../README.md#yaml-prompt-file-format) in
 the README.
 
@@ -162,6 +241,12 @@ Accepts `.fountain`, `.highland`, `.fdx`. `--dry-run` resolves and prints the
 storyboard's prompts without generating. See
 [docs/REQUIREMENTS-STORYBOARD-COMMAND.md](REQUIREMENTS-STORYBOARD-COMMAND.md).
 
+`--model` and a shot's `model="…"` attribute both accept cloud model ids. On a
+cloud panel a `lora` attribute is dropped with a warning, unsupported
+steps/guidance/seed/negative attributes warn, and `preview` is dropped
+(previews stay on-device). Cloud models are never Pro-gated and nothing is
+downloaded for them.
+
 ## `vinetas download` / `vinetas list`
 
 ```
@@ -170,8 +255,17 @@ USAGE: vinetas list [--json]
 ```
 
 `download` fetches a model's weights ahead of time; `generate`/`batch`/etc.
-download on first use otherwise. `list` shows every known model's cache
-status (`--json` for machine-readable output).
+download on first use otherwise. For a cloud model id it prints "nothing to
+download" and exits 0.
+
+`list` shows every on-device model's cache status, then a "Cloud models"
+section with each model's vendor, `configured (<where the key came from>)` or
+`no key`, and the environment variable that would configure it. `--json`
+emits one object per model; cloud entries carry `"cloud": true`, `provider`,
+`vendorModelID`, `configured`, `keySource` (when configured),
+`environmentVariable`, `supportsSteps` / `supportsGuidance` / `supportsSeed`
+/ `supportsNegativePrompt`, `pricingHint`, and `requiresPro: false`. The
+output never contains a key.
 
 ## `vinetas info`
 
@@ -184,7 +278,10 @@ USAGE: vinetas info --print-io-dir
 ```
 
 `--model` (default `klein4b`) prints the model's HuggingFace repo,
-quantization, minimum memory, and cache status.
+quantization, minimum memory, and cache status. For a cloud model id it
+prints the vendor, vendor model id, engine, which flags the model honours,
+supported aspect ratios, a price hint, the key status (with the variable to
+set when absent), and the vendor's console and terms URLs.
 
 ### `vinetas info --print-io-dir`
 
@@ -207,7 +304,8 @@ a real path on disk.
 
 ## `vinetas preview`
 
-Fast, low-quality preview: always Klein 4B, 4 steps, 512×512.
+Fast, low-quality preview: always Klein 4B, 4 steps, 512×512, always
+on-device. There is no `--model`; previews never go to a cloud vendor.
 
 ```
 USAGE: vinetas preview <prompt> [--output <output>] [--telemetry]
@@ -245,6 +343,10 @@ SUBCOMMANDS:
 | `prepare` | `vinetas character prepare <slug> [--include-source]` |
 | `train` | `vinetas character train <slug> [--steps <steps>] [--rank <rank>] [--model <model>]` |
 | `verify` | `vinetas character verify <slug> [--threshold <threshold>]` |
+
+A cloud `--model` is refused up front by `reference` (reference sheets need
+FLUX.2 reference conditioning, which is on-device only) and by `train` (LoRA
+training is on-device only).
 
 ### `character reference` hardening
 
@@ -284,5 +386,6 @@ event catalogue and which libraries emit on which command.
 
 - [README.md § Reference images and streams](../README.md#reference-images-and-streams)
 - [docs/REQUIREMENTS-REFERENCE-IMAGES.md](REQUIREMENTS-REFERENCE-IMAGES.md) — the requirements this CLI surface implements
+- [docs/REQUIREMENTS-CLOUD-ENGINES.md](REQUIREMENTS-CLOUD-ENGINES.md) — cloud models, API-key resolution, exit codes
 - [docs/TELEMETRY.md](TELEMETRY.md)
 - [docs/REQUIREMENTS-STORYBOARD-COMMAND.md](REQUIREMENTS-STORYBOARD-COMMAND.md)
