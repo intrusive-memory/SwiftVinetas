@@ -1,0 +1,741 @@
+>GRANVILLE USA<
+
+>Episode 1<
+
+>Cold Open<
+
+[[ <shot style="photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light" aspect="wide" model="klein4b" steps="8" guidance="3.5" seed="22" negative="text, lettering, watermark, logo, cartoon, illustration, extra limbs, deformed hands, blurry"/> ]]
+
+EST. SOMEWHERE IN THE MIDDLE OF THE COUNTRY - SUNSET
+
+[[ <shot prompt="Wide establishing shot at sunset in the flat middle of the country: a dust-caked SUV towing a U-Haul trailer down an empty two-lane road, a low plume of dust behind it; a small-town water tower reading GRANVILLE and a cluster of grain silos on the far horizon; the road bending toward a tree-lined gravel driveway; long shadows across the fields, deep blue dusk gathering at the tree line. No people visible anywhere in the frame." output="storyboards/ep1_sc1_01_establishing.png"/> ]]
+
+NARRATOR
+Our story today opens on a dirty SUV. It's pulling a u-haul trailer down a two-lane country road. They pass a water tower that reads "GRANVILLE". Grain silos punctuate the otherwise flat land. Then they turn down a tree-lined gravel driveway.
+
+EXT. RHODES HOUSE — GRAVEL DRIVE — MAGIC HOUR
+
+NARRATOR
+The Yard could use a good mow and the fence a fresh coat of paint, but it has the well-worn look and feel of a pair of old jeans.
+
+[[ <shot prompt="The end of a tree-lined gravel driveway at magic hour: an old two-story Midwestern farmhouse with a deep front porch, the porch light already burning warm gold, a shaggy unmowed yard and a wooden fence wanting paint; exactly one vehicle in the whole image: a single dust-caked SUV with one small orange-and-white U-Haul box trailer hitched directly behind it, just stopped on the gravel, engine ticking, a last haze of dust hanging gold in the air; no other cars, trucks or vans anywhere; cicada-loud twilight. No people visible anywhere in the frame; the vehicle is empty and parked." output="storyboards/ep1_sc1_02_arrival.png"/> ]]
+
+NARRATOR
+There's a house at the end of the gravel with the light already burning. They're expecting somebody tonight. Ray and Joann Rhodes have been expecting him a while.
+
+NARRATOR
+Their son Hunter and grandson Toby Rhodes are coming home to Granville.
+
+NARRATOR
+After hunter parks and shuts off the car, tick of cooling engine competes with the cicadas to be heard in the gathering dark.
+
+[[ <shot prompt="Wide shot at dusk from the gravel drive, looking past a parked vehicle toward an old two-story Midwestern farmhouse with a deep front porch and a warm porch light already burning. Three people only. In the foreground a dust-caked SUV with a small U-Haul trailer behind it, its driver's door open: a big man in his late forties with thick jet-black hair and a dense black beard, in a plain grey rolled-sleeve work shirt and jeans, climbing out and stretching. At the SUV's open rear door, one slim ten-year-old boy with short messy dark brown hair and freckles in a green t-shirt, hopping down onto the gravel. Far beyond them, up on the farmhouse porch at the top of the steps, one tall rangy clean-shaven man in his late sixties with short grey hair receding at the temples, in a worn chambray work shirt, stands still with one hand on the porch post, watching them arrive; he stays up on the porch and does not come down, and nobody else is on the porch or in the yard. Shaggy unmowed yard, a wooden fence wanting paint, long shadows, deep blue dusk at the tree line. The man on the porch is the man from the first reference image. The man at the driver's door is the man from the second reference image, fully clothed. The boy is the boy from the third reference image. Exactly three people in the image, one of each. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms, no extra children, no extra men. No text or lettering anywhere in the image." seed="7" ref="RAY,HUNTER,TOBY" output="storyboards/ep1_sc1_03_from-the-porch.png"/> ]]
+
+RAY
+(An accusation)
+You came in off the county road.
+
+HUNTER
+(smirking)
+Hi, Dad.
+
+RAY
+(simple statement of fact)
+The bypass is four minutes faster. Four. I timed it.
+
+HUNTER
+(said as an excuse)
+I wanted to show Toby downtown.
+
+RAY
+(simple statement of fact)
+The GPS does not know that they re-did the light at Fenmore. I do and that's why I warned you in advance. I'll draw it on a napkin.
+
+HUNTER
+(flatly)
+You don't have to draw it on a napkin.
+
+RAY
+I'll draw it on a napkin. You go past the grain co-op, you hang your left before the--where are you going? Don't walk off while I’m...
+
+[[ <shot prompt="Medium two-shot at magic hour on the gravel drive: a big man in his late forties with short thick jet-black hair, a neatly trimmed dense black beard and dark eyes, in a plain grey rolled-sleeve work shirt and jeans, wrapping his rangy clean-shaven father, a man in his late sixties with short grey hair receding at the temples and no beard, in a worn chambray work shirt, in a long, tight embrace, both of the son's arms around the older man's back, the older man stiff for a moment and then giving in with a sigh, eyes closed, his own two arms hanging at his sides; low golden raking light, the farmhouse and its warm porch light out of focus behind them, long shadows stretching across the gravel. The bearded son has exactly the face, hair and beard of the man in the first reference image. The father has exactly the face and hair of the man in the second reference image, clean-shaven with no beard, moustache or stubble. The farmhouse, porch and gravel drive are the same house shown in the third reference image. Exactly two people in the image, two human men only, no animals of any kind, four arms in total. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image." seed="41" ref="HUNTER,RAY,house" output="storyboards/ep1_sc1_05_bear-hug.png"/> ]]
+
+Hunter stops Dad's argument, by enclosing his father in a bear hug. Dad submits, with a sigh.
+
+RAY (CONT'D)
+(quietly)
+Good to have you home, son.
+
+HUNTER
+(simply, honestly)
+Good to be here, Dad.
+
+[[ <shot prompt="Wide shot across the yard at dusk: a woman of about fifty-seven with a salt-and-pepper shoulder-length bob, in a plain white shirt, hurrying down the porch steps with both arms open; a slim ten-year-old boy with short messy dark brown hair and freckles in a green t-shirt running up the gravel to meet her; the bearded father in his late forties smiling as he watches from beside the car; porch light glowing warm behind her. The woman is the woman from the first reference image. The boy is the boy from the second reference image. The bearded father is the man from the third reference image, fully clothed in a rolled-sleeve work shirt and jeans. An old two-story Midwestern farmhouse with a deep front porch behind them. Exactly three people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image." ref="JOANN,TOBY,HUNTER" output="storyboards/ep1_sc1_06_grandmothers-joy.png"/> ]]
+
+JOANN
+(cutting the whole yard in half)
+There he is! There's my grandson!
+
+HUNTER smiles watching his mom hug Toby.
+
+HUNTER
+Good to see you too, mom.
+
+JOANN (CONT'D)
+(Grandma greeting her grandchild)
+Oh, look at you. Look at this face. I have a whole plate of cookies, just to make that face smile.
+
+HUNTER
+(a father's automatic reaction, spoken almost without thinking)
+Not before dinner.
+
+JOANN
+(Matronly)
+Nope. Sorry. First twenty-four hours living in Grandma's house doesn't count. Cookies anytime you want them.
+
+TOBY
+...Cookies before dinner?
+
+JOANN
+(matter of fact)
+Cookies before dinner. Staying up late. Whatever you want. That is the entire job of a grandmother and I intend to do it thoroughly.
+
+RAY
+(herding, already lobbying)
+All right, all right, in the house, before we end up on the evening news. Toby, come tell your grandma what a fella likes to do for fun, while your father and uncle catch up.
+
+[[ <shot prompt="Medium shot of a farmhouse porch at dusk from the yard: a grey-haired man in his late sixties and a woman with a salt-and-pepper bob steering a slim ten-year-old boy through the front screen door toward warm yellow kitchen light inside, the screen door caught mid-swing; three grown men left behind on the porch in silhouette, one of them very large; a glowing blue bug zapper at the far end of the porch. The grey-haired man is the man from the first reference image, in a worn chambray work shirt. The woman is the woman from the second reference image, in a plain white shirt. The boy is the boy from the third reference image, in a green t-shirt. The three men on the porch are dark backlit silhouettes with no visible faces. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image." ref="RAY,JOANN,TOBY" output="storyboards/ep1_sc1_07_screen-door.png"/> ]]
+
+NARRATOR
+Ray and Joann sweep Toby toward the kitchen light. The screen door claps behind them.
+
+NARRATOR
+Now, inside, JOANN is already breaking every rule she ever made Hunter and his brothers obey. Three men stay behind on the porch.
+
+[[ <shot prompt="Wide shot of a well-worn farmhouse front porch in blue twilight: three men along the rail with sweating glasses of iced tea; at left a big bearded man in his late forties with thick black hair; at center the largest of them, a broad barrel-chested gentle giant of thirty-nine with sandy hair and a short beard in a red plaid shirt; at right a slim fine-boned man of thirty-nine with dark hair swept back, clean-shaven, in a maroon sweater; a glowing blue mosquito zapper at the far end of the porch; warm kitchen light spilling from the windows behind them. The bearded man at left is the man from the first reference image, fully clothed in a rolled-sleeve work shirt and jeans. The gentle giant at center is the man from the second reference image, in a red plaid shirt. The slim man at right is the man from the third reference image, in a maroon sweater. Exactly three people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image." ref="HUNTER,GARETH,KEVIN" output="storyboards/ep1_sc1_08_three-men.png"/> ]]
+
+NARRATOR
+The men don't so much hug, as lean against each other, and exchange slaps on the back. Gareth hands out the glasses of iced tea, and everyone sits.
+
+NARRATOR
+On the opposite end of the porch, the glowing blue mosquito zapper claims another victim with a buzz.
+
+KEVIN
+(droll)
+Okay, so. The house looks the same, Mom's cooking too much, Dad already drew you a map, and you've been home ninety seconds. I'd say we're right on schedule.
+
+HUNTER
+He offered a napkin.
+
+KEVIN
+(droll)
+He always offers the napkin. The napkin is love. You want to see a man cry, accept the napkin. How long has it been since you've been back?
+
+HUNTER
+Too long. When dad was sick.
+
+KEVIN
+And you left early.
+
+HUNTER
+Kevin, I know you were disappointed I couldn't--
+
+KEVIN
+Look, don't. Ok. That's water under the bridge. We've already--
+
+HUNTER
+No, it wasn't fair, that the responsibility of mom and dad, all fell on you. I'm here to help. I want to do what I can to help.
+
+[[ <shot prompt="Wide shot of a well-worn farmhouse front porch in blue twilight, three men only: at left, standing at the porch rail with his back half turned and his jaw tight, gripping the rail, a slim clean-shaven man of thirty-nine with dark hair swept back, in a maroon sweater; at center, seated in a porch chair, a very heavy man of thirty-nine with short untidy sandy light-brown hair and a short sandy beard, in a red plaid shirt, one big hand raised palm-out in a quiet stay gesture; at right, seated and frozen in his chair as if slapped, a man in his late forties with thick jet-black hair and a dense black beard, in a plain grey rolled-sleeve work shirt. A glowing blue mosquito zapper at the far end of the porch, warm kitchen light from the windows behind them. The man at left is the man from the first reference image. The man at right is the man from the second reference image, fully clothed, no plaid. The man at center is the man from the third reference image. Exactly three people in the image, one of each. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image." seed="7" ref="KEVIN,HUNTER,GARETH" output="storyboards/ep1_sc1_09_i-dont-believe-you.png"/> ]]
+
+NARRATOR
+Kevin stops talking and seems to draw into himself. When he speaks again, it’s with gritted teeth and almost a whisper.
+
+KEVIN
+I don’t fucking believe you.
+
+NARRATOR
+Hunter reacts like he’s been slapped.
+
+HUNTER
+What did I say?
+
+NARRATOR
+Gareth knows what's coming and can’t watch this. He's heard this before. Many times. Kevin stands and walks to the other side of the porch.
+
+KEVIN
+No, I can’t—
+
+NARRATOR
+Hunter starts to rise, but gets a “stay” hand motion from Gareth. He emphasizes it again watching Kevin pace.
+
+KEVIN
+I can’t believe you.
+
+HUNTER
+If you’d just tell me what—
+
+KEVIN
+(barely above a whisper)
+For two years I’ve dealt with one thing after another with them. Dad’s colon cancer, Mom’s arthritis. Both of their blood sugar.
+
+KEVIN
+I’ve taken them to appointment after appointment, and I’ve sat by their beds, and chemo chairs, whenever it was needed, and now you think you can waltz back in here, and be the favorite son—
+
+HUNTER
+I was never—
+
+KEVIN
+You. Have. ALWAYS. Been the favorite. You’re the favorite, and I’m the pain in the ass.
+
+From inside the house mom yells:
+
+JOANN
+Kevin, please. Language!
+
+KEVIN
+(whispering)
+See! You have always been their favorite.
+
+HUNTER
+Well, maybe if you weren't such a potty mouth--
+
+KEVIN
+I’m the one that's always wrong. I'm the one that needs to be "managed."
+
+[[ <shot prompt="Tight two-shot on the porch at night: the slim clean-shaven dark-haired man of thirty-nine leaning in close, face inches from his bearded brother, whispering through gritted teeth with furious hurt in his eyes; the big bearded man in his late forties holding his ground, stunned and quiet; a single warm porch bulb overhead, moths circling, the dark yard behind. The slim dark-haired man is the man from the first reference image, in a maroon sweater. The big bearded man is the man from the second reference image, fully clothed in a rolled-sleeve work shirt and jeans. The porch is the porch of the house shown in the third reference image, now at night. Exactly two people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image." ref="KEVIN,HUNTER,house" output="storyboards/ep1_sc1_10_i-was-here.png"/> ]]
+
+NARRATOR
+Kevin leans in for emphasis.
+
+KEVIN
+I'm the one that was **HERE**. 
+
+KEVIN
+You couldn’t have come down more than once?
+
+HUNTER
+You ever think to ask yourself why?
+
+KEVIN
+I just figured it was because you were a selfish entitled asshole.
+
+HUNTER
+The one time I did come down, I had to fly back before I even wanted to. Holly had a meltdown, and left our nine-year-old son at the elementary school until ten at night.
+
+[[ <shot prompt="Medium shot on the porch at night: the slim dark-haired man of thirty-nine stopped mid-pace, mouth open, all the fight gone out of him; a man in his late forties with thick jet-black hair and a dense black beard, in a plain grey work shirt, seated and looking down at his hands as he speaks; behind them a much heavier man of thirty-nine with short untidy sandy light-brown hair, in a red plaid shirt, wearing an exaggerated worried face; warm porch bulb, deep blue night beyond the rail. The slim dark-haired man is the man from the first reference image, in a maroon sweater. The black-haired, black-bearded man is the man from the second reference image, fully clothed in a plain grey rolled-sleeve work shirt and jeans, no plaid. The heavy sandy-haired man is the man from the third reference image, in a red plaid shirt. Exactly three people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image." ref="KEVIN,HUNTER,GARETH" output="storyboards/ep1_sc1_11_the-hidden-burden.png"/> ]]
+
+This takes the wind out of Kevin’s sails. Gareth pulls a super-concerned face.
+
+KEVIN
+Whaaaat?
+
+HUNTER
+Toby called me and told me the janitor had to drive him home and Mom won’t come out of the bathroom. When I got there, Toby hadn’t eaten since the day before.
+
+GARETH
+Hunter, We had no idea.
+
+HUNTER
+She wouldn’t let me tell anyone. She was scared it would get back to her friends. The important part is that Toby is here. He’s happy, healthy and being spoiled rotten by his grandparents. I’m here now Kevin. Will you let me help where I can?
+
+KEVIN
+Be careful what you ask for.
+
+HUNTER
+I’m serious. I’m here. Use me. I want to help.
+
+KEVIN
+Ok, well, can you... help him fart?
+
+HUNTER
+I'm sorry, what?
+
+KEVIN
+After having part of his colon removed, he sometimes has stomach gas that he can't expel.
+
+KEVIN
+So I have to take him two towns over, to River City, to an appointment. Every two weeks, dad can fart.
+
+[[ <shot prompt="Medium close shot on a farmhouse porch at night, three men only, side by side under a single warm porch bulb with moths circling: at left, a man in his late forties with thick jet-black hair and a dense black beard, in a plain grey rolled-sleeve work shirt, huffing a laugh that is already fading into something sadder, an iced tea glass forgotten in his hand; at center, a slim clean-shaven man of thirty-nine with dark hair swept back, in a maroon sweater, with a dry resigned half-smile; at right, a very heavy man of thirty-nine with short untidy sandy light-brown hair and a short sandy beard, in a red plaid shirt, chuckling softly. Deep blue night beyond the porch rail. The man at left is the man from the first reference image, fully clothed, no plaid. The man at center is the man from the second reference image. The man at right is the man from the third reference image. Exactly three people in the image, one of each. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image." seed="7" ref="HUNTER,KEVIN,GARETH" output="storyboards/ep1_sc1_12_fart-appointment.png"/> ]]
+
+NARRATOR
+Hunter huffs a laugh. Then it stops being funny. This is what Kevin has been doing every day he was gone.
+
+HUNTER
+I'll take him to the doctor's appointment, Kevin. Whatever it's for. But why is it all the way over in River City?
+
+KEVIN
+Dad doesn't want to take the chance that it gets back to any of his old codger friends, that he's having trouble farting.
+
+KEVIN
+Because he'll never hear the end of it.
+
+NARRATOR
+Hunter rolls his eyes.
+
+HUNTER
+It's fine. Text me the where and when and I'll make sure he's there. Speaking of, how is Miss Roxy, Granville's most celebrated drag queen?
+
+KEVIN
+I book a few shows occasionally at the Bone-N-Brew. And most of the town likes having me host, whenever there's a party. But I only really book shows when my fan-club is in town.
+
+NARRATOR
+Kevin looks up at Gareth, who smiles sheepishly, drawing Hunter's attention.
+
+HUNTER
+You still doing "Inland Empire" to Jacksonville, right?
+
+GARETH
+Yup. A lot of nuthin till ya get to Louisiana.
+
+HUNTER
+When's your next run?
+
+GARETH
+(low, easy)
+Dawn. There and back. Couple weeks.
+
+KEVIN
+(too breezy)
+Couple weeks. Nothing. That's nothing. I'll repaint the bathroom, I'll finally deal with the... It's nothing. Really.
+
+[[ <shot prompt="Medium shot from inside a farmhouse front hall looking out: a broad barrel-chested very heavy man of thirty-nine with short untidy sandy light-brown hair, a short sandy beard and a ruddy face, in a red plaid shirt, ducking and turning his shoulders to fit through the too-small front door, framed by warm yellow hall light; beyond him on the dark porch the two brothers still seated, blue zapper glow at the rail. The heavy sandy-haired man in the doorway is the man from the first reference image, in a red plaid shirt. The two seated brothers on the porch beyond are the men from the second and third reference images, small and out of focus: the black-haired, black-bearded one fully clothed in a plain grey work shirt, the slim clean-shaven one in a maroon sweater. Exactly three people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image." ref="GARETH,HUNTER,KEVIN" output="storyboards/ep1_sc1_13_too-small-door.png"/> ]]
+
+NARRATOR
+Gareth folds himself back through the too-small door, always just a little too big for the space he inhabits, mostly because a heart that big can't fit in anything smaller.
+
+GARETH
+(sotto)
+I'll go see if Joann needs a hand.
+
+[[ <shot prompt="Wide shot at night from the porch toward the gravel drive: two brothers hauling suitcases and duffels out of the back of a dusty SUV and its U-Haul trailer, the big bearded man in his late forties carrying two bags, the slim dark-haired man of thirty-nine dragging a roller case over the gravel, both mid-argument; the farmhouse porch light throwing long warm shadows down the drive, stars coming out over the dark fields. The big bearded man is the man from the first reference image, fully clothed in a rolled-sleeve work shirt and jeans. The slim dark-haired man is the man from the second reference image, in a maroon sweater. The farmhouse, porch and gravel drive are the same house shown in the third reference image. Exactly two people in the image. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image." ref="HUNTER,KEVIN,house" output="storyboards/ep1_sc1_14_suitcases.png"/> ]]
+
+NARRATOR
+We follow two brothers back to the car. They grab suitcases and haul them back to the house, working through the running list of arguments they keep on file.
+
+INT. RHODES HOUSE — KITCHEN - CONTINUOUS
+
+KEVIN
+You're carrying that wrong.
+
+NARRATOR
+Indexed by subject matter, theirs is a steady rhythmic bicker. It is never, even once, about what it is really about.
+
+HUNTER
+I'm carrying it fine.
+
+KEVIN
+You're carrying it like it owes you money.
+
+HUNTER
+I don't know what that means. I don't speak drag queen, Roxy.
+
+KEVIN
+Your back's been shot since you were nineteen. Give me the dinosaur one, before I make you extinct.
+
+HUNTER
+I've got the dinosaur.
+
+KEVIN
+A dinosaur carrying a dinosaur. Never mind, keep it. It's completely on brand.
+
+HUNTER
+(yelling)
+MOM! Kevin's bothering me!
+
+JOANN
+(passing the door on her way downstairs, not even slowing)
+Stop bothering your brother, Kevin. Let him at least get in the door.
+
+NARRATOR
+Hunter shakes his head. 
+
+HUNTER
+I can't believe that still works.
+
+KEVIN
+(whisper)
+I. Hate. You.
+
+NARRATOR
+They drop the bags in Hunter's childhood bedroom — where the boy will sleep, and where, for these first few nights at least, so will Hunter. The brothers turn to leave the room, but Kevin embraces him, suddenly.
+
+KEVIN
+(quietly)
+...It's good you're back. I mean it.
+
+HUNTER
+(quietly)
+Thanks.
+
+INT. Rhodes House - KITCHEN - CONTINUOUS
+
+NARRATOR
+Downstairs. Toby sets the table for six. He's remembering a Christmas when they had to drag in an extra chair. Tonight his mother isn't here.
+
+NARRATOR
+He's still standing there when Grandma sets down a steaming bowl of mashed potatoes with three pats of butter melting on top. Grandma's mashed potatoes can break any melancholy.
+
+Toby sits and the family joins him.
+
+RAY
+(over the noise, to Toby)
+Pass your old grandpa the potatoes before Uncle Kevin takes the whole bowl.
+
+KEVIN
+(joking)
+Settle down, old man. Nobody's takin' your potatoes.
+
+JOANN
+Honestly, Kevin. Leave some for everyone else.
+
+NARRATOR
+Everyone settles into eating silently. Then, because someone always does—
+
+JOANN
+(carefully)
+And how's Holly doing, honey?
+
+HUNTER
+(smooth, flat)
+She's dealing with some health issues. She's fine. Toby, you want more of the—
+
+KEVIN
+(a question)
+"Health issues"?
+
+HUNTER
+Yes, health issues.
+
+KEVIN
+Is it a vagina problem?
+
+Dad sets down his fork, forcefully, suddenly not as hungry.
+
+KEVIN
+It might be a vagina problem.
+
+JOANN
+Kevin, honestly. At the table?
+
+TOBY
+Dad, what's a vagina?
+
+HUNTER
+It's not a female reproductive problem.
+
+KEVIN
+I'm not... I'm just asking. It's me. It's us. We're your family. You can say the actual words at the actual table. I've spent the last two years, knee-deep in health problems, with people I love. I can take--
+
+JOANN
+(bright, steering)
+Let's not get into all that at supper. Toby, sweetheart, there is a pie with your name on—
+
+HUNTER
+(gently)
+Mom. It's okay. I want him to hear this. Because-
+
+Hunter has one hand covering Toby's and one covering his mother's.
+
+JOANN
+Hunter—
+
+HUNTER
+Mom, it's okay. Really.
+
+This part is for the family: the grown-ups. Toby already knows it and eats in silence.
+
+HUNTER
+There's nothing shameful here. Nobody's done anything to apologize for, and nobody should be thought of as weak. Holly is sick. That's the plain truth, she's sick. And she is doing the hard, brave work of getting better.
+
+TOBY
+She's doing...
+(to his dad)
+What's that word?
+
+HUNTER
+Introspection.
+
+TOBY
+"INSPECTION"
+
+The mispronunciation makes Kevin and Joann smile. Dad doesn't know what to think.
+
+HUNTER
+Which, given her history, is actually one of the strongest moves she could make. And this family is not going to whisper about that, or pretend it isn't happening.
+
+RAY
+(gruff)
+Nobody's whispering. Which might actually be the problem.
+
+HUNTER
+*I whispered*. For a long time I couldn't say any of this. But I'm not going to live that way and I'm not going to teach it to Toby.
+
+HUNTER
+So here's the rule now. The only way we get through the hard stuff is we say what we're feeling out loud. Even when it's scary. Especially when it's scary. Isn't that right, Tobes?
+
+TOBY
+(agreeing)
+We tell the truth. Even about the sad stuff.
+
+HUNTER
+Even about the sad stuff.
+
+HUNTER
+(to the table)
+So here it is, straight. Holly is battling depression. There were some days when she couldn't get off the couch. So we started seeing a counselor.
+
+HUNTER
+And when we sat in that room, what came up wasn't anybody being a villain. It was the way she and I had wired ourselves together — leaning so hard on each other there was no healthy way to stay married.
+
+HUNTER
+When it ended, she's the one who said, "Take Toby." Not because she doesn't love you. The opposite.
+
+HUNTER
+She knew she couldn't fight her way well and hold a job and raise you all at once, and something had to be set down so the rest could be carried.
+
+TOBY
+(quiet)
+So you carried me.
+
+HUNTER
+All the way home. To Granville. And I took the job at the planning office, and here we are. Your mom's back in Minneapolis doing the work.
+
+HUNTER
+And her doctors set some real markers — real signs she's getting stronger. And one of them, buddy, one of the big ones, is her making the trip down here. On her own. To see you. That's going to happen soon.
+
+TOBY
+(not asking — telling the table, because he already knows)
+She's coming to see me. Soon.
+
+HUNTER
+Soon. I promise.
+
+KEVIN
+(thin, letting it go)
+Well. Won't that be... nice.
+
+JOANN
+And you, Gareth? All those miles? Weeks alone in that cab, it's not right, a person shouldn't—
+
+HUNTER
+(quiet, to Kevin)
+What I want to know is what about you, Kev?
+
+KEVIN
+What about me?
+
+HUNTER
+Gareth’s trip seems like the perfect time for Roxy to go "On Tour".
+
+Everyone reacts--little surprise, but mom smiles and that gives Hunter the courage to go all-in.
+
+HUNTER
+Sure. Do it. Go on the road. Ride along. Weeks in a cab beats weeks painting a bathroom alone. Book some gay clubs in the square states. They still have those, right?
+
+KEVIN
+(too fast)
+No. No, I can't just— somebody's got to drive Dad to his—
+
+RAY
+(waving it off, head of the table)
+I'm fine. I'm fine.
+
+KEVIN
+—to his appointments, which there are more of lately, whatever Dad says, and the house, and— no. I can't just leave.
+
+HUNTER
+Kev, I'm right here now, I can—
+
+KEVIN
+(the valve opening on the wrong thing)
+Seriously, Hunter. You are not prepared for this.
+
+KEVIN
+I have seen things. Things I can never unsee.
+
+HUNTER
+Let me take a shift. Seriously. Tag me in. The appointments, the house, the heavy stuff — I'm here, all Dad has to do is ask.
+
+RAY
+Ah, your mother and I don't want to be a bother to you boys. We manage. We always have.
+
+KEVIN
+(not a word — then, flat)
+...Whenever they ask. Right.
+
+KEVIN
+Based on what you know about this man, do you think he's ever going to ask anyone for help? He's worse than you are.
+
+HUNTER
+(serious)
+Dad. When I was a kid, you never once waited to be asked. Every single time I needed something, help just showed up. No invoice. No bother. No score.
+
+HUNTER
+So this isn't me doing anybody a favor, and it's not charity. This is the part where I get to pay it back. It's my turn. And I'm not asking permission to take it.
+
+KEVIN
+...You mean that?
+
+HUNTER
+I mean it. Go.
+
+KEVIN
+(a breath, then)
+...Okay. Okay. Yeah. I'll go.
+
+GARETH
+(delighted)
+...I'll pack the big cooler.
+
+HUNTER
+(confidently)
+And I already did one better than looking. I closed on a place last week. Ours. Our own front door, right here in Granville.
+
+JOANN
+(lighting up)
+You bought a house? Hunter Rhodes, you bought a — where? Where is it?
+
+HUNTER
+(suddenly very interested in his plate)
+It's — nearby. It's close. It's a fixer-upper, needs some work, but it's got good bones and a real yard and—
+
+KEVIN
+(catching the dodge, delighted)
+He's not saying where.
+
+RAY
+(gruff, factual)
+What do you mean he's not saying where. It's a house. It has an address. Houses have addresses.
+
+HUNTER
+It has an address.
+
+RAY
+So?
+
+KEVIN
+(gleeful)
+Oh, this is good. Look at his face. He's blushing. Where's your house, Hunter?
+
+HUNTER
+(cracking, flat, to the potatoes)
+...It's on the corner of Ball and Sack.
+
+KEVIN
+(losing it completely)
+It's WHERE—
+
+JOANN
+Language—
+
+KEVIN
+I didn't say a — that's the STREETS, Ma, that's the literal — Ball and Sack! He bought a house on the corner of Ball and Sack!
+
+RAY
+(defending the corner on principle)
+...Ezra Ball's people and the old Sack farm. Those roads've been named a hundred years. It is a perfectly good corner.
+
+KEVIN
+It is the best house in the United States of America, and I have never been prouder of my big brother's ball-sack house.
+
+NARRATOR
+Hunter's palm instinctively goes to his face, with a heavy sigh.
+
+JOANN
+We tell the truth. Even about the hard stuff.
+
+KEVIN
+If the ball-sack is the hard part, Mom, I think you might be doing it wrong.
+
+NARRATOR
+This makes Gareth spit iced tea out of his nose.
+
+RAY
+KEVIN!
+
+JOANN^
+KEVIN!
+
+HUNTER
+(smiling at Gareth)
+Great! Kevin's got a built-in audience now. You know, Kev, they don't give out Oscars for being overly-dramatic in real life.
+
+KEVIN
+You audition for the role you want. Not the one you have.
+
+HUNTER
+(resignation)
+I guess, if you live in the Ball-Sack house, you just gotta own it.
+
+NARRATOR
+The truth, said out loud at a supper table. In this family that's about twice as hard to swallow as the pie. They'll fold it up with the leftovers and carry it out to the porch.
+
+.EXT. RHODES HOUSE — PORCH — LATER
+
+RAY
+(lobbying to the last)
+Now you take the bypass out to the interstate, don't let him take the county road—
+
+JOANN
+(pressing foil)
+There's the rest of the chicken, and the pie, and do not argue with me—
+
+KEVIN
+(over his shoulder)
+Love you too, Ma.
+
+NARRATOR
+The guests go, and the house goes quiet.
+
+NARRATOR
+Upstairs, Toby is going to sleep in the room his father grew up in.
+
+.INT. Rhodes House - BEDROOM — NIGHT
+
+HUNTER
+(murmured)
+Okay, bud. New ceiling. I know. But that's your dinosaur guy right there in the corner, see him? He's on watch. Nobody gets past him.
+
+TOBY
+(more than half asleep)
+...'s this home now?
+
+HUNTER
+(a beat too long)
+This is home now. I've got you. Go to sleep.
+
+NARRATOR
+Hunter sighs and sinks into the bed beside Toby, spooning his young son. Father and son fall asleep to the sound of crickets and the smell of night-blooming jasmine.
+
+EXT. Rhodes House - YARD — NIGHT
+
+NARRATOR
+The windows go dark at the Rhodes place, one by one, the way they always have. The porch light stays on. Just in case.
+
+.EXT. LEROY'S PORCH — NIGHT
+
+DUKE
+You ever gonna turn that porch light off? You're feeding every moth in the county.
+
+LEROY
+Porch light's staying on. A man's porch light is his own business.
+
+DUKE
+Electricity ain't free, you know.
+
+LEROY
+(settling deeper into the rocker)
+Some things you leave on, Duke. That's just how it's done.
+
+NARRATOR
+And away down the county road, at the Rhodes place, somebody agrees with him.
+
+{{Slugline Document Settings
+Scene Headings Double Spaced: yes
+Scene Headings Underlined: yes
+Print Font: Courier Prime
+Character Continueds: no
+Print Outline Elements: yes
+Note Color 8: TODO}}

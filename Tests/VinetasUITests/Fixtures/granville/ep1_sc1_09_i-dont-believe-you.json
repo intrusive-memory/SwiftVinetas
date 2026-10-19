@@ -1,0 +1,46 @@
+{
+  "composedPrompt" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light, Wide shot of a well-worn farmhouse front porch in blue twilight, three men only: at left, standing at the porch rail with his back half turned and his jaw tight, gripping the rail, a slim clean-shaven man of thirty-nine with dark hair swept back, in a maroon sweater; at center, seated in a porch chair, a very heavy man of thirty-nine with short untidy sandy light-brown hair and a short sandy beard, in a red plaid shirt, one big hand raised palm-out in a quiet stay gesture; at right, seated and frozen in his chair as if slapped, a man in his late forties with thick jet-black hair and a dense black beard, in a plain grey rolled-sleeve work shirt. A glowing blue mosquito zapper at the far end of the porch, warm kitchen light from the windows behind them. The man at left is the man from the first reference image. The man at right is the man from the second reference image, fully clothed, no plaid. The man at center is the man from the third reference image. Exactly three people in the image, one of each. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "durationSeconds" : 809.702300042,
+  "engine" : "flux2",
+  "generatedAt" : "2026-10-07T18:33:16Z",
+  "guidance" : 3.5,
+  "height" : 1200,
+  "loras" : [
+
+  ],
+  "mode" : "imageToImage",
+  "model" : "flux2-klein-4b",
+  "negative" : "text, lettering, watermark, logo, cartoon, illustration, extra limbs, deformed hands, blurry",
+  "negativeApplied" : false,
+  "prompt" : "Wide shot of a well-worn farmhouse front porch in blue twilight, three men only: at left, standing at the porch rail with his back half turned and his jaw tight, gripping the rail, a slim clean-shaven man of thirty-nine with dark hair swept back, in a maroon sweater; at center, seated in a porch chair, a very heavy man of thirty-nine with short untidy sandy light-brown hair and a short sandy beard, in a red plaid shirt, one big hand raised palm-out in a quiet stay gesture; at right, seated and frozen in his chair as if slapped, a man in his late forties with thick jet-black hair and a dense black beard, in a plain grey rolled-sleeve work shirt. A glowing blue mosquito zapper at the far end of the porch, warm kitchen light from the windows behind them. The man at left is the man from the first reference image. The man at right is the man from the second reference image, fully clothed, no plaid. The man at center is the man from the third reference image. Exactly three people in the image, one of each. Each person has exactly two arms and two hands; each hand has five fingers with natural proportions. No extra fingers, no extra hands, no extra arms. No text or lettering anywhere in the image.",
+  "references" : [
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "b70b45ff640f2cd39d5b6b575108707930d977376b19268d394ac9b88dd0df07",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/KEVIN\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "ccf77d71e44a0b657860db24240074495836b49c346e4521d37550fe8e54e043",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/HUNTER\/ref-portrait.png"
+    },
+    {
+      "effectiveHeight" : 1344,
+      "effectiveWidth" : 768,
+      "originalHeight" : 1536,
+      "originalWidth" : 864,
+      "sha256" : "f8f25ca5733da27acf83ea5f900dbe025489dfbedcf2635bb73a68f829cb7ff8",
+      "source" : "\/Users\/stovak\/Library\/Group Containers\/group.intrusive-memory.models\/vinetas-out\/GARETH\/ref-portrait.png"
+    }
+  ],
+  "seed" : 7,
+  "steps" : 8,
+  "style" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light",
+  "width" : 2144
+}

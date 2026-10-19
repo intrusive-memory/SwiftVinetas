@@ -1,0 +1,23 @@
+{
+  "composedPrompt" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light, The end of a tree-lined gravel driveway at magic hour: an old two-story Midwestern farmhouse with a deep front porch, the porch light already burning warm gold, a shaggy unmowed yard and a wooden fence wanting paint; exactly one vehicle in the whole image: a single dust-caked SUV with one small orange-and-white U-Haul box trailer hitched directly behind it, just stopped on the gravel, engine ticking, a last haze of dust hanging gold in the air; no other cars, trucks or vans anywhere; cicada-loud twilight. No people visible anywhere in the frame; the vehicle is empty and parked.",
+  "durationSeconds" : 248.616998459,
+  "engine" : "flux2",
+  "generatedAt" : "2026-10-07T14:35:19Z",
+  "guidance" : 3.5,
+  "height" : 1200,
+  "loras" : [
+
+  ],
+  "mode" : "textToImage",
+  "model" : "flux2-klein-4b",
+  "negative" : "text, lettering, watermark, logo, cartoon, illustration, extra limbs, deformed hands, blurry",
+  "negativeApplied" : false,
+  "prompt" : "The end of a tree-lined gravel driveway at magic hour: an old two-story Midwestern farmhouse with a deep front porch, the porch light already burning warm gold, a shaggy unmowed yard and a wooden fence wanting paint; exactly one vehicle in the whole image: a single dust-caked SUV with one small orange-and-white U-Haul box trailer hitched directly behind it, just stopped on the gravel, engine ticking, a last haze of dust hanging gold in the air; no other cars, trucks or vans anywhere; cicada-loud twilight. No people visible anywhere in the frame; the vehicle is empty and parked.",
+  "references" : [
+
+  ],
+  "seed" : 22,
+  "steps" : 8,
+  "style" : "photorealistic, cinematic film still, 35mm, natural color grading, soft magic-hour light",
+  "width" : 2144
+}

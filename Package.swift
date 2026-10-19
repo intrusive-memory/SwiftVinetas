@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
   name: "SwiftVinetas",
+  defaultLocalization: "en",
   platforms: [
     .macOS(.v26),
     .iOS(.v26),
@@ -13,6 +14,18 @@ let package = Package(
     .library(
       name: "SwiftVinetas",
       targets: ["SwiftVinetas"]
+    ),
+    // Engine-free vocabulary (aspect ratios, resolution clamps, style
+    // configuration) for hosts that must not link an inference stack.
+    .library(
+      name: "VinetasVocabulary",
+      targets: ["VinetasVocabulary"]
+    ),
+    // SwiftUI prompt panel (inspector element) for hosts that render the
+    // generation controls without linking an inference stack.
+    .library(
+      name: "VinetasUI",
+      targets: ["VinetasUI"]
     ),
     // CLI command structs as a library (testable)
     .library(
@@ -41,8 +54,8 @@ let package = Package(
     // Keep this as upToNextMajor so a future flux that adopts a fixed mlx is
     // picked up automatically — the mlx-version guarantee lives in flux itself.
     .package(
-      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git",
-      .upToNextMajor(from: "3.4.3")),
+      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.4.3")
+    ),
 
     // Shared model management (download, cache, discovery)
     // Floored at 0.23.0: 0.21.0 made the CDN base URL a per-consumer config value
@@ -51,38 +64,34 @@ let package = Package(
     // the integrity-checkpoint work. Consumers must supply ACERVO_CDN_BASE_URL
     // (CLI / tests / CI) or the AcervoCDNBaseURL Info.plist key (UI apps).
     .package(
-      url: "https://github.com/intrusive-memory/SwiftAcervo.git",
-      .upToNextMajor(from: "0.25.0")),
+      url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.25.0")),
 
     // Componentized diffusion pipeline (protocols + infrastructure).
     // Floored at 0.9.0: removes the DiffusionPipeline.loadModels pre-flight memory
     // gate (the downstream half of the SwiftVinetas gate removal). 0.8.0 and
     // earlier still refuse loads that would have succeeded.
     .package(
-      url: "https://github.com/intrusive-memory/SwiftTuberia.git",
-      .upToNextMajor(from: "0.9.0")),
+      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.9.0")),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe).
     // Floored at 0.8.2: 0.8.0 landed the seam-free tiled VAE decode (#45/#83) —
     // PixArtRecipe sets decodeTileLatentSize so the macOS 4K decode transient is
     // bounded — and 0.8.2 is the current published patch.
     .package(
-      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
-      .upToNextMajor(from: "0.8.2")),
+      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.8.2")
+    ),
 
     // GLOSA screenplay directive parser — provides the `<shot>` storyboard
     // directives consumed by `vinetas storyboard`. Foundation-only leaf.
     .package(
-      url: "https://github.com/intrusive-memory/glosa-av.git",
-      .upToNextMajor(from: "0.8.1")),
+      url: "https://github.com/intrusive-memory/glosa-av.git", .upToNextMajor(from: "0.8.1")),
 
     // Screenplay file parsing (.fountain / .highland / .fdx) — turns a
     // screenplay path into the `[[ ]]` note stream GlosaCore parses. Same
     // parser glosa-tools uses, so the screenplay→notes extraction has one
     // source of truth.
     .package(
-      url: "https://github.com/intrusive-memory/SwiftCompartido.git",
-      .upToNextMajor(from: "7.2.5")),
+      url: "https://github.com/intrusive-memory/SwiftCompartido.git", .upToNextMajor(from: "7.3.0")),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
@@ -107,10 +116,27 @@ let package = Package(
     .package(url: "https://github.com/apple/swift-asn1.git", from: "1.0.0"),
   ],
   targets: [
+    // Engine-free vocabulary — Apple system frameworks only, no package
+    // dependency. Re-exported by SwiftVinetas for `import SwiftVinetas` consumers.
+    .target(
+      name: "VinetasVocabulary"
+    ),
+
+    // SwiftUI prompt panel — depends on the vocabulary only, never on an
+    // inference stack. English string catalogue under Resources/.
+    .target(
+      name: "VinetasUI",
+      dependencies: ["VinetasVocabulary"],
+      resources: [
+        .process("Resources")
+      ]
+    ),
+
     // Main library - storyboard/comic panel generation
     .target(
       name: "SwiftVinetas",
       dependencies: [
+        "VinetasVocabulary",
         .product(name: "Flux2Core", package: "flux-2-swift-mlx"),
         .product(name: "SwiftAcervo", package: "SwiftAcervo"),
         .product(name: "Tuberia", package: "SwiftTuberia"),
@@ -163,6 +189,24 @@ let package = Package(
         .product(name: "X509", package: "swift-certificates"),
         .product(name: "SwiftASN1", package: "swift-asn1"),
         .product(name: "Crypto", package: "swift-crypto"),
+      ]
+    ),
+
+    // Vocabulary unit tests (no GPU or MLX required — safe for CI)
+    .testTarget(
+      name: "VinetasVocabularyTests",
+      dependencies: ["VinetasVocabulary"],
+      resources: [
+        .copy("Fixtures")
+      ]
+    ),
+
+    // VinetasUI unit tests (no GPU or MLX required — safe for CI)
+    .testTarget(
+      name: "VinetasUITests",
+      dependencies: ["VinetasUI"],
+      resources: [
+        .copy("Fixtures")
       ]
     ),
 

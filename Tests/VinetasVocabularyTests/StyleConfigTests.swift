@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import SwiftVinetas
+@testable import VinetasVocabulary
 
 @Suite("StyleConfig Tests")
 struct StyleConfigTests {
