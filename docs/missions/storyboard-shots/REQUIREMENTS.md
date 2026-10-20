@@ -18,6 +18,9 @@ editor showing them agree on one shot shape and can tell when an image is out of
 - Raise the glosa-av floor to `0.9.0` (`Package.swift`, sibling pattern).
 - `vinetas storyboard` (`Sources/VinetasCLICore/Storyboard/`) reads notation 2.0 JSON
   shots and notation 1.0 tags through `GlosaParser`; it does not parse notes itself.
+- **Behaviour change to note in the CHANGELOG:** `ShotResolver` today inherits `output`
+  from defaults shots (`ShotResolver.swift:79`); GlosaCore's fold does not (an inherited
+  `output` makes every later panel overwrite one file).
 - **Replace `ShotResolver`'s fold** (`ShotResolver.swift:31` `resolve`, `:64` `merge`)
   with `Shot.effective(given:)` / `GlosaScore.effectiveShots` from GlosaCore, so the
   fold is identical everywhere. Keep `ShotResolver` only if something else still needs
@@ -59,12 +62,14 @@ silently falling back to the CWD.
 
 `PanelMetadata` (`Core/ImageOutput.swift:60`) gains
 `glosa: { notation: String, digest: String, shot: <shot object> }` — the notation
-version, `Shot.renderDigest`, and the **effective shot as authored**, encoded in
-GlosaCore's shot schema (unknown keys included). Written by:
+version, `Shot.renderDigest`, and the **effective shot as authored**, encoded with
+GlosaCore's bare-object codec (`Shot.schemaJSON()` / `Shot(schemaJSON:)`, glosa-av 0.9.0)
+— schema form, unknown keys at the top level, no `documentIndex`. Not the synthesized
+`Codable` form. Written by:
 
 - `vinetas storyboard`, for every panel;
-- `vinetas generate --shot-json <file|->`: a shot object (schema 2.0) supplies the
-  generation parameters and is recorded; explicit flags may not be combined with it;
+- `vinetas generate --shot-json <file|->`: a bare shot object (schema 2.0, decoded with
+  `Shot(schemaJSONData:)`) supplies the generation parameters and is recorded; explicit flags may not be combined with it;
 - `VinetasClient.generate(_:…)` when the `PanelRequest` carries a `shot` (new optional
   field), so host apps record it too.
 
