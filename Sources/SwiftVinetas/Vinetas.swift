@@ -328,7 +328,7 @@ extension VinetasClient {
     // These are the caller's values; references a character contributes are
     // resolved after routing and recorded in the metadata.
     let previewPrompt = composePrompt(panelPrompt: prompt, style: style)
-    let clamped = ResolutionClamp.clampedDimensions(width: style.width, height: style.height)
+    let clamped = effectiveDimensions(style: style, model: model)
     await reporter?.capture(
       .generationStart(
         prompt: previewPrompt,
@@ -513,6 +513,7 @@ extension VinetasClient {
     var engineRequest = buildRequest(
       prompt: composedPrompt,
       style: style,
+      model: model,
       mode: references.isEmpty
         ? .textToImage
         : .imageToImage(references: references.map(\.image))
@@ -632,6 +633,7 @@ extension VinetasClient {
     let firstRequest = buildRequest(
       prompt: firstComposed,
       style: effectiveStyle,
+      model: model,
       mode: useImageToImage
         ? .imageToImage(references: referenceImages ?? [])
         : .textToImage
@@ -680,6 +682,7 @@ extension VinetasClient {
       let request = buildRequest(
         prompt: composedPrompt,
         style: effectiveStyle,
+        model: model,
         mode: mode
       )
       let result = try await engine.generate(request: request, stepProgress: stepProgress)
@@ -753,6 +756,7 @@ extension VinetasClient {
     let request = buildRequest(
       prompt: composedPrompt,
       style: effectiveStyle,
+      model: model,
       mode: .textToImage
     )
     // Emit generationStart BEFORE routing so the ordering invariant holds:
@@ -1129,18 +1133,36 @@ extension VinetasClient {
     return parts.joined(separator: ", ")
   }
 
+  /// The width and height a request for `model` is sent at.
+  ///
+  /// Defense-in-depth: an on-device model is clamped to the local GPU's
+  /// capability so no generation path can request a resolution whose
+  /// attention buffer exceeds the Metal per-buffer ceiling and aborts
+  /// `mlx_eval`. Idempotent for ``AspectRatio``-derived sizes (already
+  /// clamped); this additionally protects callers that pass an explicit
+  /// oversized ``StyleConfig`` (e.g. a CLI `--width/--height`).
+  ///
+  /// A cloud model renders on the vendor's hardware and never touches the
+  /// local GPU, so its requested size is passed through unchanged. The
+  /// decision is made on the model, not the routed engine, so it holds at the
+  /// call sites that build the request before routing.
+  private func effectiveDimensions(
+    style: StyleConfig, model: any ModelDescriptor
+  ) -> (width: Int, height: Int) {
+    if model is CloudModelDescriptor {
+      return (style.width, style.height)
+    }
+    return ResolutionClamp.clampedDimensions(width: style.width, height: style.height)
+  }
+
   /// Build a ``GenerationRequest`` from a composed prompt and style config.
   private func buildRequest(
     prompt: String,
     style: StyleConfig,
+    model: any ModelDescriptor,
     mode: GenerationRequest.GenerationMode
   ) -> GenerationRequest {
-    // Defense-in-depth: clamp to device capability so no generation path can
-    // request a resolution whose attention buffer exceeds the Metal per-buffer
-    // ceiling and aborts `mlx_eval`. Idempotent for ``AspectRatio``-derived
-    // sizes (already clamped); this additionally protects callers that pass an
-    // explicit oversized ``StyleConfig`` (e.g. a CLI `--width/--height`).
-    let clamped = ResolutionClamp.clampedDimensions(width: style.width, height: style.height)
+    let clamped = effectiveDimensions(style: style, model: model)
     return GenerationRequest(
       prompt: prompt,
       negativePrompt: style.negativePrompt,

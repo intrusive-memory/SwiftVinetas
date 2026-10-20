@@ -129,6 +129,23 @@ struct PanelRequestTests {
     #expect(panel.metadata.height == panel.image.height)
   }
 
+  @Test("a cloud request keeps its requested size; the local GPU clamp does not apply")
+  func cloudRequestIsNotClamped() async throws {
+    // A cloud model renders on the vendor's hardware, so the local Metal
+    // buffer limit must not shrink it — on any host, including iOS, where the
+    // clamp would cut this size down.
+    let engine = CloudImageEngine(provider: .google, keyStore: InMemoryAPIKeyStore())
+    let client = VinetasClient(router: EngineRouter(engines: [engine]))
+    let prepared = try await client.prepare(
+      PanelRequest(
+        prompt: "a cat", style: StyleConfig(width: 8192, height: 8192),
+        model: CloudModelDescriptor.nanoBanana21))
+    #expect(prepared.request.width == 8192)
+    #expect(prepared.request.height == 8192)
+    #expect(prepared.bundle.width == 8192)
+    #expect(prepared.bundle.height == 8192)
+  }
+
   @Test("metadata records prompts, mode, engine, model, steps, guidance, loras")
   func metadataFields() async throws {
     let engine = MockEngine()
