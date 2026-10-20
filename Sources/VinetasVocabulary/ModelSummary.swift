@@ -5,8 +5,9 @@ import Foundation
 /// `ModelSummary` carries the subset of a model descriptor that a picker or
 /// settings screen needs — identity, the CLI name, memory and download
 /// expectations, and the generation defaults — without linking any inference
-/// stack. The two shipped models are ``klein4B`` and ``pixartSigmaXL``; ``all``
-/// lists them in display order.
+/// stack. The two on-device models are ``klein4B`` and ``pixartSigmaXL``; ``all``
+/// lists only them, in display order. ``cloud`` lists the cloud models and
+/// ``allIncludingCloud`` both.
 ///
 /// The four `supports…` flags say which generation controls the model
 /// honours; a host disables the matching control when one is `false`. They,
@@ -72,6 +73,16 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
   /// for a cloud model), or `nil` to show the download size and memory.
   public let subtitle: String?
 
+  /// Whether the model runs in a vendor's cloud rather than on device. `false`
+  /// for the on-device models and for a summary encoded before this field
+  /// existed.
+  public let isCloud: Bool
+
+  /// How many reference images the model accepts for one request; `0` means
+  /// it takes none. A host caps a reference list at this value and disables
+  /// the control at `0`. A summary encoded before this field existed reads `0`.
+  public let maxReferenceImages: Int
+
   /// Creates a model summary from its individual fields.
   ///
   /// The capability flags default to `true` and the two names to `nil`,
@@ -91,7 +102,9 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     supportsSeed: Bool = true,
     supportsNegativePrompt: Bool = true,
     engineName: String? = nil,
-    subtitle: String? = nil
+    subtitle: String? = nil,
+    isCloud: Bool = false,
+    maxReferenceImages: Int = 0
   ) {
     self.id = id
     self.displayName = displayName
@@ -108,6 +121,8 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     self.supportsNegativePrompt = supportsNegativePrompt
     self.engineName = engineName
     self.subtitle = subtitle
+    self.isCloud = isCloud
+    self.maxReferenceImages = maxReferenceImages
   }
 
   // MARK: - Codable
@@ -128,6 +143,8 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     case supportsNegativePrompt
     case engineName
     case subtitle
+    case isCloud
+    case maxReferenceImages
   }
 
   /// Decodes a summary, reading ``supportedAspectRatios`` as `rawValue` strings.
@@ -163,6 +180,9 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
       try container.decodeIfPresent(Bool.self, forKey: .supportsNegativePrompt) ?? true
     engineName = try container.decodeIfPresent(String.self, forKey: .engineName)
     subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
+    isCloud = try container.decodeIfPresent(Bool.self, forKey: .isCloud) ?? false
+    maxReferenceImages =
+      try container.decodeIfPresent(Int.self, forKey: .maxReferenceImages) ?? 0
   }
 
   /// Encodes a summary, writing ``supportedAspectRatios`` as `rawValue` strings.
@@ -186,6 +206,8 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     try container.encode(supportsNegativePrompt, forKey: .supportsNegativePrompt)
     try container.encodeIfPresent(engineName, forKey: .engineName)
     try container.encodeIfPresent(subtitle, forKey: .subtitle)
+    try container.encode(isCloud, forKey: .isCloud)
+    try container.encode(maxReferenceImages, forKey: .maxReferenceImages)
   }
 
   // MARK: - Shipped models
@@ -200,7 +222,8 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     approximateDownloadSize: "~11 GB",
     defaultSteps: 8,
     defaultGuidance: 3.5,
-    supportedAspectRatios: AspectRatio.allCases
+    supportedAspectRatios: AspectRatio.allCases,
+    maxReferenceImages: 3
   )
 
   /// PixArt-Sigma XL — 8 GB minimum.
@@ -219,8 +242,230 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
   /// Every shipped model, FLUX.2 first and then PixArt.
   public static let all: [ModelSummary] = [klein4B, pixartSigmaXL]
 
-  /// Returns the shipped model whose ``cliName`` is `cli`, or `nil` if none matches.
+  // MARK: - Cloud models
+
+  /// Ratios OpenAI and Google accept (1:3 … 3:1); the 4:1 strip is out of range.
+  private static let widescreenRatios: [AspectRatio] = [
+    .square, .wide, .ultrawide, .portrait, .panel,
+  ]
+
+  /// Ratios Stability's presets accept; the 4:1 strip is unavailable.
+  private static let noStrip: [AspectRatio] = [
+    .square, .wide, .ultrawide, .portrait, .panel,
+  ]
+
+  /// GPT Image 2.5 Flare (cloud, OpenAI).
+  public static let openaiGPTImage25Flare = ModelSummary(
+    id: "openai-gpt-image-2.5-flare",
+    displayName: "GPT Image 2.5 Flare",
+    engineID: "cloud-openai",
+    cliName: "openai-gpt-image-2.5-flare",
+    minimumMemoryGB: 0,
+    approximateDownloadSize: "Cloud",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: widescreenRatios,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: false,
+    supportsNegativePrompt: false,
+    engineName: "OpenAI",
+    subtitle: "OpenAI · ~$0.03–0.25/image",
+    isCloud: true,
+    maxReferenceImages: 10
+  )
+
+  /// GPT Image 2.5 Sunburst (cloud, OpenAI).
+  public static let openaiGPTImage25Sunburst = ModelSummary(
+    id: "openai-gpt-image-2.5-sunburst",
+    displayName: "GPT Image 2.5 Sunburst",
+    engineID: "cloud-openai",
+    cliName: "openai-gpt-image-2.5-sunburst",
+    minimumMemoryGB: 0,
+    approximateDownloadSize: "Cloud",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: widescreenRatios,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: false,
+    supportsNegativePrompt: false,
+    engineName: "OpenAI",
+    subtitle: "OpenAI · ~$0.03–0.25/image",
+    isCloud: true,
+    maxReferenceImages: 10
+  )
+
+  /// Nano Banana 2.1 (cloud, Google).
+  public static let googleNanoBanana21 = ModelSummary(
+    id: "google-nano-banana-2.1",
+    displayName: "Nano Banana 2.1",
+    engineID: "cloud-google",
+    cliName: "google-nano-banana-2.1",
+    minimumMemoryGB: 0,
+    approximateDownloadSize: "Cloud",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: widescreenRatios,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: false,
+    supportsNegativePrompt: false,
+    engineName: "Gemini",
+    subtitle: "Google · ~$0.03–0.11/image",
+    isCloud: true,
+    maxReferenceImages: 10
+  )
+
+  /// Gemini 3.1 Flash Image (cloud, Google).
+  public static let googleGemini31FlashImage = ModelSummary(
+    id: "google-gemini-3.1-flash-image",
+    displayName: "Gemini 3.1 Flash Image",
+    engineID: "cloud-google",
+    cliName: "google-gemini-3.1-flash-image",
+    minimumMemoryGB: 0,
+    approximateDownloadSize: "Cloud",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: widescreenRatios,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: false,
+    supportsNegativePrompt: false,
+    engineName: "Gemini",
+    subtitle: "Google · ~$0.07–0.15/image",
+    isCloud: true,
+    maxReferenceImages: 10
+  )
+
+  /// Gemini 3 Pro Image (cloud, Google).
+  public static let googleGemini3ProImage = ModelSummary(
+    id: "google-gemini-3-pro-image",
+    displayName: "Gemini 3 Pro Image",
+    engineID: "cloud-google",
+    cliName: "google-gemini-3-pro-image",
+    minimumMemoryGB: 0,
+    approximateDownloadSize: "Cloud",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: widescreenRatios,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: false,
+    supportsNegativePrompt: false,
+    engineName: "Gemini",
+    subtitle: "Google · ~$0.13–0.24/image",
+    isCloud: true,
+    maxReferenceImages: 6
+  )
+
+  /// FLUX.2 [pro] (cloud, Black Forest Labs).
+  public static let bflFluxPro = ModelSummary(
+    id: "bfl-flux-2-pro",
+    displayName: "FLUX.2 [pro]",
+    engineID: "cloud-bfl",
+    cliName: "bfl-flux-2-pro",
+    minimumMemoryGB: 0,
+    approximateDownloadSize: "Cloud",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: AspectRatio.allCases,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: true,
+    supportsNegativePrompt: false,
+    engineName: "BFL",
+    subtitle: "Black Forest Labs · ~$0.03/MP",
+    isCloud: true,
+    maxReferenceImages: 0
+  )
+
+  /// FLUX.2 [flex] (cloud, Black Forest Labs).
+  public static let bflFluxFlex = ModelSummary(
+    id: "bfl-flux-2-flex",
+    displayName: "FLUX.2 [flex]",
+    engineID: "cloud-bfl",
+    cliName: "bfl-flux-2-flex",
+    minimumMemoryGB: 0,
+    approximateDownloadSize: "Cloud",
+    defaultSteps: 28,
+    defaultGuidance: 3.5,
+    supportedAspectRatios: AspectRatio.allCases,
+    supportsSteps: true,
+    supportsGuidance: true,
+    supportsSeed: true,
+    supportsNegativePrompt: false,
+    engineName: "BFL",
+    subtitle: "Black Forest Labs · ~$0.06/MP",
+    isCloud: true,
+    maxReferenceImages: 0
+  )
+
+  /// Stable Image Core (cloud, Stability AI).
+  public static let stabilityCore = ModelSummary(
+    id: "stability-core",
+    displayName: "Stable Image Core",
+    engineID: "cloud-stability",
+    cliName: "stability-core",
+    minimumMemoryGB: 0,
+    approximateDownloadSize: "Cloud",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: noStrip,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: true,
+    supportsNegativePrompt: true,
+    engineName: "Stability",
+    subtitle: "Stability AI · 3 credits/image",
+    isCloud: true,
+    maxReferenceImages: 0
+  )
+
+  /// Stable Image Ultra (cloud, Stability AI).
+  public static let stabilityUltra = ModelSummary(
+    id: "stability-ultra",
+    displayName: "Stable Image Ultra",
+    engineID: "cloud-stability",
+    cliName: "stability-ultra",
+    minimumMemoryGB: 0,
+    approximateDownloadSize: "Cloud",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: noStrip,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: true,
+    supportsNegativePrompt: true,
+    engineName: "Stability",
+    subtitle: "Stability AI · 8 credits/image",
+    isCloud: true,
+    maxReferenceImages: 0
+  )
+
+  /// The nine cloud models, in the order of the core's cloud catalog.
+  ///
+  /// Hand-maintained: this module links no networking, so it cannot read the
+  /// core's cloud catalog. `SwiftVinetasTests` asserts the list equals the
+  /// core's own mapping, so a drift fails the build.
+  public static let cloud: [ModelSummary] = [
+    openaiGPTImage25Flare,
+    openaiGPTImage25Sunburst,
+    googleNanoBanana21,
+    googleGemini31FlashImage,
+    googleGemini3ProImage,
+    bflFluxPro,
+    bflFluxFlex,
+    stabilityCore,
+    stabilityUltra,
+  ]
+
+  /// Every on-device and cloud model: ``all`` followed by ``cloud``.
+  public static let allIncludingCloud: [ModelSummary] = all + cloud
+
+  /// Returns the model whose ``cliName`` is `cli`, searching the on-device
+  /// and the cloud models, or `nil` if none matches.
   public static func named(cli: String) -> ModelSummary? {
-    all.first { $0.cliName == cli }
+    allIncludingCloud.first { $0.cliName == cli }
   }
 }

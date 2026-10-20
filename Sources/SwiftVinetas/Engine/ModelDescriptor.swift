@@ -85,7 +85,10 @@ extension ModelDescriptor {
       supportsSeed: cloud?.supportsSeed ?? true,
       supportsNegativePrompt: cloud?.supportsNegativePrompt ?? true,
       engineName: cloud?.provider.shortName,
-      subtitle: cloud.map { "\($0.provider.displayName) · \($0.pricingHint)" }
+      subtitle: cloud.map { "\($0.provider.displayName) · \($0.pricingHint)" },
+      isCloud: cloud != nil,
+      maxReferenceImages: cloud?.maxReferenceImages
+        ?? (self as? Flux2ModelDescriptor)?.engineMaxReferenceImages ?? 0
     )
   }
 }
