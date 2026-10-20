@@ -51,7 +51,7 @@ A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see th
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.24.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.25.0")
 ]
 ```
 
@@ -254,6 +254,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.25.0** — Reference images for cloud models, and prompt bundles. OpenAI sends up to 10 reference images through `/v1/images/edits` (multipart) and Gemini through Interactions API image blocks (up to 10, or 6 for Gemini 3 Pro); `CloudModelDescriptor.maxReferenceImages` reports each model's limit, and references are re-encoded to JPEG at ≤ 1536 px on the long edge. `PromptBundle` renders the style, frame size, aspect label and orientation, and the character and reference instructions into the vendor prompt, and is recorded in `PanelMetadata`. `PanelRequest.character` carries a character as its LoRA on-device and as its description plus reference sheets and photos in the cloud; `VinetasClient.prepare(_:characters:)` returns the `PreparedPanel` that would be sent without sending it. CLI: `vinetas generate --character` and `--dry-run` (JSON report of the resolved request), per-model reference help, `list --json` reports `maxReferenceImages`, and a note when a vendor has no native negative-prompt field. Fix: cloud requests are no longer clamped to the local GPU's buffer limit, which had shrunk every cloud render on iOS (1344×768 became 720×400). `docs/CLI_REFERENCE.md` covers all of the above.
 
 **v0.24.0** — Model capabilities in `ModelSummary`. `ModelSummary` gains `supportsSteps`, `supportsGuidance`, `supportsSeed`, `supportsNegativePrompt` (default `true`) and `engineName` / `subtitle` (default `nil`); existing initializer calls compile unchanged, and summaries encoded by 0.22.0/0.23.0 still decode. `ModelDescriptor.summary` fills them from `CloudModelDescriptor` (vendor flags, provider short name, "vendor · price hint"). `VinetasGenerationSettingsPanel` disables and dims Steps, Guidance and Seed + Randomize when the selected model does not use them, with a note under each (`generation.stepsUnsupportedNote`, `.guidanceUnsupportedNote`, `.seedUnsupportedNote`), titles engine groups and the badge with `engineName`, and shows `subtitle` in place of size · RAM; `VinetasPromptPanel` notes when the negative prompt is ignored (`prompt.negativeUnsupportedNote`).
 
