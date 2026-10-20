@@ -49,7 +49,7 @@ type: supervisor-state
 | 3 | COMPLETED | sonnet | 1 | 3475630 | 919 tests; own URLProtocol stub in new test file |
 | 4 | COMPLETED | sonnet | 1 | 81980b3 | 915 tests (-8 ShotResolver, +4) |
 | 5 | COMPLETED | sonnet | 1 | 6854335 | 930 tests; verifier PASS (nit: absolute non-existent entry also lists a characters/<abs> folder) |
-| 6 | DISPATCHED | sonnet | 1 | | has [judgment] |
+| 6 | PARTIAL | sonnet | 1 | 91f9d7e | verifier round 1 FAIL: base==nil fallback joins relative output to --output-dir; continued same agent |
 | 7 | PENDING | | 0 | | |
 | 8 | PENDING | | 0 | | |
 | 9 | PENDING | | 0 | | |
@@ -58,7 +58,7 @@ type: supervisor-state
 ## Active Agents
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Agent | Sortie Start Commit | Dispatched At |
 |-----------|--------|------|-------------|---------|----------------|-------|-------|---------------------|---------------|
-| SwiftVinetas | 6 | implementer | DISPATCHED | 1/3 | 0/2 | sonnet | sortie-6 | 6854335 | 2026-10-20 |
+| SwiftVinetas | 6 | implementer | DISPATCHED | 1/3 | 1/2 | sonnet | sortie-6 (continuation) | 6854335 | 2026-10-20 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |

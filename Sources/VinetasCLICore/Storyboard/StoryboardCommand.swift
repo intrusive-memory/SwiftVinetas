@@ -126,7 +126,9 @@ public struct Storyboard: AsyncParsableCommand {
     try await reportingCloudErrors {
       for item in plan {
         let panelURL = outputURL(
-          for: item, in: outputDirURL, relativeTo: referenceResolver.projectRoot)
+          for: item, in: outputDirURL,
+          relativeTo: referenceResolver.projectRoot
+            ?? URL(fileURLWithPath: screenplay).deletingLastPathComponent())
         stderrPrint(
           "[vinetas] Panel \(item.panelNumber)/\(plan.count) (\(item.model.name)) → \(panelURL.lastPathComponent)"
         )
@@ -331,15 +333,12 @@ public struct Storyboard: AsyncParsableCommand {
   /// current directory and never `--output-dir`. An absolute `output` is used
   /// as given. A shot with no `output` is auto-named `panel-NNN.png` under
   /// `outputDir`.
-  func outputURL(for item: PanelPlan, in outputDir: URL, relativeTo base: URL?) -> URL {
+  func outputURL(for item: PanelPlan, in outputDir: URL, relativeTo base: URL) -> URL {
     if let output = item.output, !output.isEmpty {
       // Test the raw string: `URL(fileURLWithPath:)` resolves a relative path
       // against the CWD, which the sandboxed CLI cannot write to.
       if output.hasPrefix("/") { return URL(fileURLWithPath: output) }
-      if let base { return base.appendingPathComponent(output) }
-      // No document folder (cannot happen for a screenplay file): keep the
-      // panel out of the CWD by using the output directory.
-      return outputDir.appendingPathComponent(output)
+      return base.appendingPathComponent(output)
     }
     return outputDir.appendingPathComponent(String(format: "panel-%03d.png", item.panelNumber))
   }
