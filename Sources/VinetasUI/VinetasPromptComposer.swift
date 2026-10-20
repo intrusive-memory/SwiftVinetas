@@ -29,98 +29,48 @@ import VinetasVocabulary
 ///   the screen scrolls as a whole. Put it in a `NavigationStack` so the
 ///   style row can push the style list.
 ///
+/// With `showsReferenceControls` on, a References row (an ordered list the
+/// user can add to, remove from and reorder, capped at the selected model's
+/// `maxReferenceImages` and disabled at 0) and a Character row appear; they
+/// are absent from the view hierarchy otherwise. A host may pass a
+/// `statusSection` — content shown below the controls — and gets nothing
+/// by default (`EmptyView`).
+///
 /// The composer draws no outer background and no action buttons; the host
 /// supplies both.
-public struct VinetasPromptComposer: View {
+public struct VinetasPromptComposer<StatusSection: View>: View {
 
-  /// A draft field that has a Default toggle.
-  public enum DraftField: Sendable, CaseIterable {
-    /// ``VinetasPromptDraft/steps``.
-    case steps
-    /// ``VinetasPromptDraft/guidance``.
-    case guidance
-    /// ``VinetasPromptDraft/aspectRatio``.
-    case aspectRatio
-  }
-
-  /// Applies a Default toggle change to `draft`.
-  ///
-  /// Turning Default on sets `field` to `nil`. Turning it off writes
-  /// `model`'s default into a `nil` field as a starting point — its
-  /// `defaultSteps`, its `defaultGuidance`, or the first of its
-  /// `supportedAspectRatios` — and leaves a field that already holds a
-  /// value unchanged.
-  ///
-  /// - Parameters:
-  ///   - field: The field whose toggle changed.
-  ///   - isDefault: Whether the Default toggle is now on.
-  ///   - draft: The draft to update.
-  ///   - model: The selected model, whose defaults seed the field.
-  public nonisolated static func setDefault(
-    _ field: DraftField,
-    on isDefault: Bool,
-    in draft: inout VinetasPromptDraft,
-    model: ModelSummary
-  ) {
-    switch field {
-    case .steps:
-      if isDefault {
-        draft.steps = nil
-      } else if draft.steps == nil {
-        draft.steps = model.defaultSteps
-      }
-    case .guidance:
-      if isDefault {
-        draft.guidance = nil
-      } else if draft.guidance == nil {
-        draft.guidance = model.defaultGuidance
-      }
-    case .aspectRatio:
-      if isDefault {
-        draft.aspectRatio = nil
-      } else if draft.aspectRatio == nil {
-        draft.aspectRatio = model.supportedAspectRatios.first
-      }
-    }
-  }
-
-  /// Applies a Randomize toggle change to `draft`.
-  ///
-  /// Turning Randomize on sets the seed to `nil`. Turning it off keeps a
-  /// seed the draft already holds, and otherwise writes `0` — the value the
-  /// disabled seed field shows while Randomize is on — as a starting point.
-  ///
-  /// - Parameters:
-  ///   - on: Whether Randomize is now on.
-  ///   - draft: The draft to update.
-  public nonisolated static func setRandomize(_ on: Bool, in draft: inout VinetasPromptDraft) {
-    if on {
-      draft.seed = nil
-    } else if draft.seed == nil {
-      draft.seed = 0
-    }
-  }
+  private typealias Rules = VinetasPromptComposer<EmptyView>
 
   @Binding private var draft: VinetasPromptDraft
   private let models: [ModelSummary]
   private let showsCaption: Bool
+  let showsReferenceControls: Bool
+  private let statusSection: StatusSection
 
   @Environment(\.resolvedPanelLayout) private var layout
 
-  /// Creates a composer.
+  /// Creates a composer with a host-supplied status section.
   ///
   /// - Parameters:
   ///   - draft: The draft every control edits.
   ///   - models: The models to offer, already filtered by the host.
   ///   - showsCaption: Whether to show the caption field under the prompt.
+  ///   - showsReferenceControls: Whether to show the References and
+  ///     Character rows.
+  ///   - statusSection: Host content shown below the controls.
   public init(
     draft: Binding<VinetasPromptDraft>,
     models: [ModelSummary] = ModelSummary.all,
-    showsCaption: Bool = false
+    showsCaption: Bool = false,
+    showsReferenceControls: Bool = false,
+    @ViewBuilder statusSection: () -> StatusSection
   ) {
     _draft = draft
     self.models = models
     self.showsCaption = showsCaption
+    self.showsReferenceControls = showsReferenceControls
+    self.statusSection = statusSection()
   }
 
   /// The composer in the shape the resolved panel layout asks for.
@@ -139,6 +89,11 @@ public struct VinetasPromptComposer: View {
           .environment(\.vinetasEmbedsCompactSections, true)
         settingsPanel
           .environment(\.vinetasEmbedsCompactSections, true)
+        if showsReferenceControls {
+          Section { referencesRow }
+          Section { characterRow }
+        }
+        statusSection
       }
       .formStyle(.grouped)
       .dismissesKeyboardOnScrollInComposer()
@@ -153,7 +108,98 @@ public struct VinetasPromptComposer: View {
       Divider()
         .padding(.horizontal)
       settingsPanel
+      if showsReferenceControls {
+        Divider()
+          .padding(.horizontal)
+        VStack(alignment: .leading, spacing: 12) {
+          referencesRow
+          characterRow
+        }
+        .padding()
+      }
+      statusSection
     }
+  }
+
+  // MARK: - Reference rows
+
+  private var referenceLimit: Int { Rules.referenceLimit(for: selectedModel) }
+
+  private var referencesRow: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text(localized("References"))
+        .font(.headline)
+      if referenceLimit == 0 {
+        Text(localized("This model does not use reference images"))
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+          .accessibilityIdentifier(VinetasUIAccessibility.referencesUnsupportedNote)
+      }
+      ForEach(Array(draft.references.indices), id: \.self) { index in
+        HStack {
+          TextField(
+            localized("Path or name"),
+            text: referenceBinding(index)
+          )
+          .accessibilityLabel(Text(localized("Reference \(index + 1)")))
+          .accessibilityIdentifier(VinetasUIAccessibility.referenceItem(index))
+          Button {
+            Rules.moveReference(from: index, by: -1, in: &draft)
+          } label: {
+            Image(systemName: "chevron.up")
+          }
+          .disabled(index == 0)
+          .accessibilityLabel(Text(localized("Move reference up")))
+          .accessibilityIdentifier(VinetasUIAccessibility.referenceMoveUp(index))
+          Button {
+            Rules.moveReference(from: index, by: 1, in: &draft)
+          } label: {
+            Image(systemName: "chevron.down")
+          }
+          .disabled(index == draft.references.count - 1)
+          .accessibilityLabel(Text(localized("Move reference down")))
+          .accessibilityIdentifier(VinetasUIAccessibility.referenceMoveDown(index))
+          Button {
+            Rules.removeReference(at: index, in: &draft)
+          } label: {
+            Image(systemName: "minus.circle")
+          }
+          .accessibilityLabel(Text(localized("Remove reference")))
+          .accessibilityIdentifier(VinetasUIAccessibility.referenceRemove(index))
+        }
+        .buttonStyle(.borderless)
+      }
+      Button {
+        Rules.addReference(in: &draft, limit: referenceLimit)
+      } label: {
+        Label(localized("Add reference"), systemImage: "plus")
+      }
+      .buttonStyle(.borderless)
+      .disabled(!Rules.canAddReference(count: draft.references.count, limit: referenceLimit))
+      .accessibilityIdentifier(VinetasUIAccessibility.referencesAdd)
+    }
+    .disabled(referenceLimit == 0)
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier(VinetasUIAccessibility.referencesList)
+  }
+
+  private var characterRow: some View {
+    TextField(
+      localized("Character"),
+      text: Binding(
+        get: { draft.character ?? "" },
+        set: { draft.character = $0.isEmpty ? nil : $0 }
+      ),
+      prompt: Text(localized("Character name"))
+    )
+    .accessibilityIdentifier(VinetasUIAccessibility.characterField)
+  }
+
+  private func referenceBinding(_ index: Int) -> Binding<String> {
+    Binding(
+      get: { draft.references.indices.contains(index) ? draft.references[index] : "" },
+      set: { if draft.references.indices.contains(index) { draft.references[index] = $0 } }
+    )
   }
 
   private var promptPanel: some View {
@@ -240,11 +286,11 @@ public struct VinetasPromptComposer: View {
   private var randomizeSeed: Binding<Bool> {
     Binding(
       get: { draft.seed == nil },
-      set: { Self.setRandomize($0, in: &draft) }
+      set: { Rules.setRandomize($0, in: &draft) }
     )
   }
 
-  private func useDefault(_ field: DraftField) -> Binding<Bool> {
+  private func useDefault(_ field: Rules.DraftField) -> Binding<Bool> {
     Binding(
       get: {
         switch field {
@@ -253,8 +299,138 @@ public struct VinetasPromptComposer: View {
         case .aspectRatio: draft.aspectRatio == nil
         }
       },
-      set: { Self.setDefault(field, on: $0, in: &draft, model: selectedModel) }
+      set: { Rules.setDefault(field, on: $0, in: &draft, model: selectedModel) }
     )
+  }
+}
+
+// MARK: - Pure rules (EmptyView-constrained so bare `VinetasPromptComposer.x` keeps resolving)
+
+extension VinetasPromptComposer where StatusSection == EmptyView {
+
+  /// A draft field that has a Default toggle.
+  public enum DraftField: Sendable, CaseIterable {
+    /// ``VinetasPromptDraft/steps``.
+    case steps
+    /// ``VinetasPromptDraft/guidance``.
+    case guidance
+    /// ``VinetasPromptDraft/aspectRatio``.
+    case aspectRatio
+  }
+
+  /// Applies a Default toggle change to `draft`.
+  ///
+  /// Turning Default on sets `field` to `nil`. Turning it off writes
+  /// `model`'s default into a `nil` field as a starting point — its
+  /// `defaultSteps`, its `defaultGuidance`, or the first of its
+  /// `supportedAspectRatios` — and leaves a field that already holds a
+  /// value unchanged.
+  ///
+  /// - Parameters:
+  ///   - field: The field whose toggle changed.
+  ///   - isDefault: Whether the Default toggle is now on.
+  ///   - draft: The draft to update.
+  ///   - model: The selected model, whose defaults seed the field.
+  public nonisolated static func setDefault(
+    _ field: DraftField,
+    on isDefault: Bool,
+    in draft: inout VinetasPromptDraft,
+    model: ModelSummary
+  ) {
+    switch field {
+    case .steps:
+      if isDefault {
+        draft.steps = nil
+      } else if draft.steps == nil {
+        draft.steps = model.defaultSteps
+      }
+    case .guidance:
+      if isDefault {
+        draft.guidance = nil
+      } else if draft.guidance == nil {
+        draft.guidance = model.defaultGuidance
+      }
+    case .aspectRatio:
+      if isDefault {
+        draft.aspectRatio = nil
+      } else if draft.aspectRatio == nil {
+        draft.aspectRatio = model.supportedAspectRatios.first
+      }
+    }
+  }
+
+  /// Applies a Randomize toggle change to `draft`.
+  ///
+  /// Turning Randomize on sets the seed to `nil`. Turning it off keeps a
+  /// seed the draft already holds, and otherwise writes `0` — the value the
+  /// disabled seed field shows while Randomize is on — as a starting point.
+  ///
+  /// - Parameters:
+  ///   - on: Whether Randomize is now on.
+  ///   - draft: The draft to update.
+  public nonisolated static func setRandomize(_ on: Bool, in draft: inout VinetasPromptDraft) {
+    if on {
+      draft.seed = nil
+    } else if draft.seed == nil {
+      draft.seed = 0
+    }
+  }
+
+  /// The number of reference images `model` accepts.
+  nonisolated static func referenceLimit(for model: ModelSummary) -> Int {
+    max(0, model.maxReferenceImages)
+  }
+
+  /// Whether another reference fits under `limit`.
+  nonisolated static func canAddReference(count: Int, limit: Int) -> Bool {
+    limit > 0 && count < limit
+  }
+
+  /// Appends an empty reference unless `limit` is reached.
+  nonisolated static func addReference(in draft: inout VinetasPromptDraft, limit: Int) {
+    guard canAddReference(count: draft.references.count, limit: limit) else { return }
+    draft.references.append("")
+  }
+
+  /// Removes the reference at `index`, if it exists.
+  nonisolated static func removeReference(at index: Int, in draft: inout VinetasPromptDraft) {
+    guard draft.references.indices.contains(index) else { return }
+    draft.references.remove(at: index)
+  }
+
+  /// Moves the reference at `index` by `offset` positions, clamped to the list.
+  nonisolated static func moveReference(
+    from index: Int, by offset: Int, in draft: inout VinetasPromptDraft
+  ) {
+    let target = index + offset
+    guard draft.references.indices.contains(index), draft.references.indices.contains(target)
+    else { return }
+    draft.references.swapAt(index, target)
+  }
+}
+
+// MARK: - Default status section
+
+extension VinetasPromptComposer where StatusSection == EmptyView {
+
+  /// Creates a composer with no status section.
+  ///
+  /// - Parameters:
+  ///   - draft: The draft every control edits.
+  ///   - models: The models to offer, already filtered by the host.
+  ///   - showsCaption: Whether to show the caption field under the prompt.
+  ///   - showsReferenceControls: Whether to show the References and
+  ///     Character rows.
+  public init(
+    draft: Binding<VinetasPromptDraft>,
+    models: [ModelSummary] = ModelSummary.all,
+    showsCaption: Bool = false,
+    showsReferenceControls: Bool = false
+  ) {
+    self.init(
+      draft: draft, models: models, showsCaption: showsCaption,
+      showsReferenceControls: showsReferenceControls
+    ) { EmptyView() }
   }
 }
 

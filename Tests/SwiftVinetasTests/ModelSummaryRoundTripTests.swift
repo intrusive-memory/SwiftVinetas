@@ -20,6 +20,30 @@ struct ModelSummaryRoundTripTests {
   }
 
   @Test
+  func testVocabularyCloudSummariesEqualCoreMapping() {
+    #expect(ModelSummary.cloud == CloudModelDescriptor.all.map(\.summary))
+    #expect(ModelSummary.cloud.count == 9)
+    #expect(ModelSummary.cloud.allSatisfy { $0.isCloud })
+  }
+
+  @Test
+  func testVocabularyOnDeviceSummariesEqualCoreMapping() async {
+    #expect(
+      ModelSummary.all == [
+        Flux2ModelDescriptor.klein4B.summary, PixArtModelDescriptor.sigmaXL.summary,
+      ])
+    #expect(ModelSummary.all.allSatisfy { !$0.isCloud })
+    let flux = Flux2Engine()
+    let pixart = PixArtEngine()
+    #expect(
+      ModelSummary.klein4B.maxReferenceImages
+        == flux.maxReferenceImages(for: Flux2ModelDescriptor.klein4B))
+    #expect(
+      ModelSummary.pixartSigmaXL.maxReferenceImages
+        == pixart.maxReferenceImages(for: PixArtModelDescriptor.sigmaXL))
+  }
+
+  @Test
   func cloudDescriptorSummaryCarriesCapabilitiesAndVendorNames() {
     let summary = CloudModelDescriptor.gptImage25Flare.summary
     #expect(!summary.supportsSteps)

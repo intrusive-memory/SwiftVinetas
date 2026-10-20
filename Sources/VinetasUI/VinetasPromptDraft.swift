@@ -21,7 +21,7 @@ import VinetasVocabulary
 ///
 /// A draft is `Codable` with stable keys: each key is the field's name
 /// (`prompt`, `caption`, `stylePrompt`, `negativePrompt`, `modelID`,
-/// `aspectRatio`, `steps`, `guidance`, `seed`). Hosts may persist encoded
+/// `aspectRatio`, `steps`, `guidance`, `seed`, `references`, `character`). Hosts may persist encoded
 /// drafts and expect them to decode across the next minor release's patch
 /// line. `aspectRatio` is encoded as the ratio's `rawValue` string, because
 /// `AspectRatio` is not itself `Codable`. A `nil` field is omitted, and a
@@ -56,6 +56,12 @@ public struct VinetasPromptDraft: Hashable, Sendable, Codable {
   /// The seed, or `nil` for Randomize: a new seed for each generation.
   public var seed: UInt64? = nil
 
+  /// Paths or names of reference images, in order. Empty by default.
+  public var references: [String] = []
+
+  /// The character name the shot is of, or `nil` for none.
+  public var character: String? = nil
+
   /// Creates a draft; every parameter defaults to the value in ``empty``.
   ///
   /// - Parameters:
@@ -68,6 +74,8 @@ public struct VinetasPromptDraft: Hashable, Sendable, Codable {
   ///   - steps: The inference steps, or `nil` for Default.
   ///   - guidance: The guidance scale, or `nil` for Default.
   ///   - seed: The seed, or `nil` for Randomize.
+  ///   - references: Reference image paths or names, in order.
+  ///   - character: The character name, or `nil` for none.
   public init(
     prompt: String = "",
     caption: String? = nil,
@@ -77,7 +85,9 @@ public struct VinetasPromptDraft: Hashable, Sendable, Codable {
     aspectRatio: AspectRatio? = nil,
     steps: Int? = nil,
     guidance: Float? = nil,
-    seed: UInt64? = nil
+    seed: UInt64? = nil,
+    references: [String] = [],
+    character: String? = nil
   ) {
     self.prompt = prompt
     self.caption = caption
@@ -88,11 +98,13 @@ public struct VinetasPromptDraft: Hashable, Sendable, Codable {
     self.steps = steps
     self.guidance = guidance
     self.seed = seed
+    self.references = references
+    self.character = character
   }
 
-  /// The shipped model whose `id` is ``modelID``, or `nil` if none matches.
+  /// The shipped model (on-device or cloud) whose `id` is ``modelID``, or `nil` if none matches.
   public var model: ModelSummary? {
-    ModelSummary.all.first { $0.id == modelID }
+    ModelSummary.allIncludingCloud.first { $0.id == modelID }
   }
 
   /// The preset whose `promptText` is ``stylePrompt``, or `nil` for free
@@ -120,6 +132,8 @@ extension VinetasPromptDraft {
     case steps
     case guidance
     case seed
+    case references
+    case character
   }
 
   /// Decodes a draft, reading ``aspectRatio`` as a `rawValue` string; a
@@ -150,6 +164,8 @@ extension VinetasPromptDraft {
     steps = try container.decodeIfPresent(Int.self, forKey: .steps)
     guidance = try container.decodeIfPresent(Float.self, forKey: .guidance)
     seed = try container.decodeIfPresent(UInt64.self, forKey: .seed)
+    references = try container.decodeIfPresent([String].self, forKey: .references) ?? []
+    character = try container.decodeIfPresent(String.self, forKey: .character)
   }
 
   /// Encodes a draft, writing ``aspectRatio`` as its `rawValue` string and
@@ -165,5 +181,9 @@ extension VinetasPromptDraft {
     try container.encodeIfPresent(steps, forKey: .steps)
     try container.encodeIfPresent(guidance, forKey: .guidance)
     try container.encodeIfPresent(seed, forKey: .seed)
+    if !references.isEmpty {
+      try container.encode(references, forKey: .references)
+    }
+    try container.encodeIfPresent(character, forKey: .character)
   }
 }

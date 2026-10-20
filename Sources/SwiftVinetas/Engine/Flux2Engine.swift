@@ -30,6 +30,13 @@ public struct Flux2ModelDescriptor: ModelDescriptor {
   /// The quantization configuration for this model variant.
   internal let quantizationConfig: Flux2QuantizationConfig
 
+  /// The reference-image limit this model's engine reports:
+  /// `min(3, Flux2Model.maxReferenceImages)`. Needs no loaded model, so the
+  /// engine-free ``ModelSummary`` can carry it.
+  public var engineMaxReferenceImages: Int {
+    min(Flux2Engine.pipelineMaxReferenceImages, flux2Model.maxReferenceImages)
+  }
+
   // MARK: - Static Instances
 
   /// FLUX.2 Klein 4B — fast generation, 16 GB minimum, int4 quantized.
@@ -173,7 +180,7 @@ public actor Flux2Engine: ImageGenerationEngine {
   /// `0` for a model this engine does not run. No memory/device-tier input.
   public nonisolated func maxReferenceImages(for model: any ModelDescriptor) -> Int {
     guard let descriptor = resolveDescriptor(model) else { return 0 }
-    return min(Self.pipelineMaxReferenceImages, descriptor.flux2Model.maxReferenceImages)
+    return descriptor.engineMaxReferenceImages
   }
 
   // MARK: - Lifecycle

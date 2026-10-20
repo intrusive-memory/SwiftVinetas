@@ -426,7 +426,8 @@ extension VinetasClient {
       negative: negative,
       negativeApplied: negative.map { _ in engine.supports(.negativePrompt) },
       character: request.character?.slug,
-      bundle: prepared.bundle
+      bundle: prepared.bundle,
+      glosa: request.shot.map(ImageOutput.PanelMetadata.GlosaRecord.init(shot:))
     )
     return GeneratedPanel(image: result.image, metadata: metadata)
   }

@@ -7,7 +7,7 @@ import Testing
 
 // MARK: - StoryboardPlanTests
 //
-// `ShotResolver` (defaults folding) and `ScreenplayShots` (parsing) already have
+// `GlosaScore.effectiveShots` (defaults folding) and `ScreenplayShots` (parsing) already have
 // suites. The step between them — turning a resolved `Shot` into the concrete
 // model + StyleConfig + output path that actually drives generation — had none:
 // a test audit measured `StoryboardCommand.swift` at 0% line coverage.
@@ -178,29 +178,33 @@ struct StoryboardPlanTests {
   // MARK: Output naming
 
   @Test("Panels are auto-named panel-NNN.png, zero-padded and ordered")
-  func autoNaming() {
+  func testNoOutputUsesOutputDir() {
     let cmd = makeCommand()
     let dir = URL(fileURLWithPath: "/panels")
+    let base = URL(fileURLWithPath: "/project")
     let plan = cmd.resolvePlan(for: shot(), panelNumber: 7, fleetModel: .pixartSigma)
-    #expect(cmd.outputURL(for: plan, in: dir).lastPathComponent == "panel-007.png")
+    #expect(
+      cmd.outputURL(for: plan, in: dir, relativeTo: base).lastPathComponent == "panel-007.png")
   }
 
-  @Test("A relative output name resolves under the output directory")
-  func relativeOutputResolved() {
+  @Test("A relative output name resolves against the project root, not --output-dir")
+  func testRelativeOutputResolvesAgainstProjectRoot() {
     let cmd = makeCommand()
     let dir = URL(fileURLWithPath: "/panels")
+    let base = URL(fileURLWithPath: "/project")
     let plan = cmd.resolvePlan(
       for: shot(output: "sc01_02.png"), panelNumber: 1, fleetModel: .pixartSigma)
-    #expect(cmd.outputURL(for: plan, in: dir).path == "/panels/sc01_02.png")
+    #expect(cmd.outputURL(for: plan, in: dir, relativeTo: base).path == "/project/sc01_02.png")
   }
 
   @Test("An absolute output path is honoured verbatim")
-  func absoluteOutputHonoured() {
+  func testAbsoluteOutputUnchanged() {
     let cmd = makeCommand()
     let dir = URL(fileURLWithPath: "/panels")
+    let base = URL(fileURLWithPath: "/project")
     let plan = cmd.resolvePlan(
       for: shot(output: "/elsewhere/final.png"), panelNumber: 1, fleetModel: .pixartSigma)
-    #expect(cmd.outputURL(for: plan, in: dir).path == "/elsewhere/final.png")
+    #expect(cmd.outputURL(for: plan, in: dir, relativeTo: base).path == "/elsewhere/final.png")
   }
 
   @Test(
@@ -208,8 +212,10 @@ struct StoryboardPlanTests {
   func emptyOutputFallsBack() {
     let cmd = makeCommand()
     let dir = URL(fileURLWithPath: "/panels")
+    let base = URL(fileURLWithPath: "/project")
     let plan = cmd.resolvePlan(
       for: shot(output: ""), panelNumber: 2, fleetModel: .pixartSigma)
-    #expect(cmd.outputURL(for: plan, in: dir).lastPathComponent == "panel-002.png")
+    #expect(
+      cmd.outputURL(for: plan, in: dir, relativeTo: base).lastPathComponent == "panel-002.png")
   }
 }

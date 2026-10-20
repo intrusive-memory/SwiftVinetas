@@ -16,11 +16,22 @@ editor showing them agree on one shot shape and can tell when an image is out of
 ## 1. Read shots through GlosaCore 0.9.0
 
 - Raise the glosa-av floor to `0.9.0` (`Package.swift`, sibling pattern).
+- **The core `SwiftVinetas` target links `GlosaCore`** (today only `VinetasCLICore` does,
+  `Package.swift:183–195` vs `:209`). glosa-av has no package dependencies and the same
+  platforms, and §4 needs `Shot` and `renderDigest` in core so every host records the
+  same digest without re-implementing it. `VinetasVocabulary` and `VinetasUI` still do
+  **not** link it.
 - `vinetas storyboard` (`Sources/VinetasCLICore/Storyboard/`) reads notation 2.0 JSON
   shots and notation 1.0 tags through `GlosaParser`; it does not parse notes itself.
-- **Behaviour change to note in the CHANGELOG:** `ShotResolver` today inherits `output`
-  from defaults shots (`ShotResolver.swift:79`); GlosaCore's fold does not (an inherited
-  `output` makes every later panel overwrite one file).
+- **Behaviour changes to note in the CHANGELOG** (switching to GlosaCore's fold):
+  - `output` is no longer inherited from defaults shots (`ShotResolver.swift:79` did);
+    an inherited `output` makes every later panel overwrite one file.
+  - `ref` and `character` (and `caption`, display-only) are now honoured; `ShotResolver`
+    silently dropped them.
+  - A **whitespace-only** `prompt` was a defaults shot in `ShotResolver`; GlosaCore
+    treats only an empty prompt as defaults. `vinetas storyboard` reports a
+    whitespace-only prompt as an error for that panel rather than rendering a blank
+    panel. (Follow-up for glosa-av: treat whitespace-only as empty in a patch release.)
 - **Replace `ShotResolver`'s fold** (`ShotResolver.swift:31` `resolve`, `:64` `merge`)
   with `Shot.effective(given:)` / `GlosaScore.effectiveShots` from GlosaCore, so the
   fold is identical everywhere. Keep `ShotResolver` only if something else still needs
@@ -65,7 +76,9 @@ silently falling back to the CWD.
 version, `Shot.renderDigest`, and the **effective shot as authored**, encoded with
 GlosaCore's bare-object codec (`Shot.schemaJSON()` / `Shot(schemaJSON:)`, glosa-av 0.9.0)
 — schema form, unknown keys at the top level, no `documentIndex`. Not the synthesized
-`Codable` form. Written by:
+`Codable` form — and **not** `GlosaJSONValue`'s own `Codable` either, which wraps
+objects as `{"object":[…]}`. Embed the bytes of `shot.schemaJSONData()` as raw JSON in
+the sidecar (decode with `Shot(schemaJSONData:)`). Written by:
 
 - `vinetas storyboard`, for every panel;
 - `vinetas generate --shot-json <file|->`: a bare shot object (schema 2.0, decoded with
