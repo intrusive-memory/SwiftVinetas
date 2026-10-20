@@ -73,8 +73,16 @@ public actor CloudImageEngine: ImageGenerationEngine {
     switch feature {
     case .textToImage: return true
     case .negativePrompt: return provider.models.contains { $0.supportsNegativePrompt }
-    case .imageToImage, .loraInference, .loraTraining, .promptUpsampling: return false
+    case .imageToImage(let count):
+      return provider.models.contains { $0.maxReferenceImages >= max(1, count) }
+    case .loraInference, .loraTraining, .promptUpsampling: return false
     }
+  }
+
+  /// The selected model's vendor limit; `0` for providers whose adapter
+  /// sends text only, and for descriptors this engine does not serve.
+  public nonisolated func maxReferenceImages(for model: any ModelDescriptor) -> Int {
+    (try? resolve(model))?.maxReferenceImages ?? 0
   }
 
   // MARK: - Lifecycle
@@ -105,21 +113,47 @@ public actor CloudImageEngine: ImageGenerationEngine {
     guard let apiKey = keyStore.apiKey(for: provider) else {
       throw CloudEngineError.missingAPIKey(provider)
     }
-    if case .imageToImage = request.mode {
-      throw CloudEngineError.unsupportedFeature("Image-to-image", provider: provider)
+    if case .imageToImage(let references) = request.mode,
+      references.count > model.maxReferenceImages
+    {
+      guard model.maxReferenceImages > 0 else {
+        throw CloudEngineError.unsupportedFeature("Image-to-image", provider: provider)
+      }
+      throw VinetasError.tooManyReferences(
+        model: model.id, max: model.maxReferenceImages, got: references.count)
+    }
+
+    // Cloud models follow instructions rather than sampler parameters, so the
+    // structured bundle (style, frame, aspect, character, reference roles) is
+    // spelled out in the prompt itself. Hand-built requests without a bundle
+    // go through verbatim.
+    var vendorRequest = request
+    if let bundle = request.bundle {
+      vendorRequest.prompt = bundle.rendered(nativeNegativePrompt: model.supportsNegativePrompt)
     }
 
     let start = Date()
-    let output = try await client.generate(request, model: model, apiKey: apiKey, session: session)
+    let output = try await client.generate(
+      vendorRequest, model: model, apiKey: apiKey, session: session)
     let duration = Date().timeIntervalSince(start)
 
     return GenerationResult(
       image: output.image,
-      usedPrompt: request.prompt,
+      usedPrompt: vendorRequest.prompt,
       seed: output.seed ?? request.seed ?? 0,
       durationSeconds: duration,
       modelID: model.id
     )
+  }
+
+  /// The exact prompt text this engine would send for `request` on `model`,
+  /// without contacting the vendor. Backs `vinetas generate --dry-run`.
+  public nonisolated func vendorPrompt(
+    for request: GenerationRequest, model: any ModelDescriptor
+  ) -> String {
+    guard let bundle = request.bundle else { return request.prompt }
+    let nativeNegative = (try? resolve(model))?.supportsNegativePrompt ?? false
+    return bundle.rendered(nativeNegativePrompt: nativeNegative)
   }
 
   // MARK: - LoRA (unsupported)

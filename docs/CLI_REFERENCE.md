@@ -70,12 +70,23 @@ and reaches no network endpoint other than the chosen vendor's documented API.
 
 ### What changes with a cloud model
 
-- `--steps`, `--guidance`, `--seed`, `--negative` that the vendor does not
-  honour are **ignored with one `warning:` line each on stderr**; the run
-  continues. `vinetas info --model <id>` shows which flags a model takes.
+- `--steps`, `--guidance`, `--seed` that the vendor does not honour are
+  **ignored with one `warning:` line each on stderr**; the run continues.
+  `--negative` on a vendor without a negative-prompt field is not dropped: it
+  is sent in the prompt as an `Avoid:` line (one `note:` on stderr says so).
+  `vinetas info --model <id>` shows which flags a model takes.
 - `--lora` is a validation error: cloud engines cannot apply adapters.
-- `-r`/`--reference` is refused before any network call (no cloud model
-  takes reference images in v1).
+- `-r`/`--reference` works on the OpenAI models (up to 10, sent to
+  `/v1/images/edits` as `image[]` parts) and the Google models (up to 10 on
+  Nano Banana 2.1 / Gemini 3.1 Flash Image, 6 on Gemini 3 Pro Image, sent as
+  inline `image` blocks). References are uploaded as JPEG, scaled to at most
+  1536 px on the long edge. BFL and Stability take none; `-r` with those is
+  refused before any network call.
+- The prompt a cloud vendor receives is the **rendered prompt bundle**: the
+  panel prompt, then the style, the frame (`W×H pixels, 16:9 landscape aspect
+  ratio`), the character, what the reference images are for, and (for vendors
+  without a native negative prompt) an `Avoid:` line. Steps, guidance, and
+  seed are never written into the text. `--dry-run` prints it.
 - `--preview` is a validation error — previews are free by design and always
   run on-device (`vinetas preview` takes no model at all).
 - Nothing is downloaded; `vinetas download --model <cloud-id>` prints that
@@ -92,7 +103,7 @@ and reaches no network endpoint other than the chosen vendor's documented API.
 | No API key resolved for the vendor | **78** | `EX_CONFIG` — the stderr line names the variable to set |
 | The vendor declined the prompt or output (moderation) | **65** | `EX_DATAERR` — rewrite the prompt |
 | Vendor HTTP error, timeout, or undecodable reply | **69** | `EX_UNAVAILABLE` — the vendor's own message is on stderr verbatim |
-| Unknown model, or `--lora` / `--preview` / `-r` with a cloud model | 64 | `EX_USAGE` |
+| Unknown model, or `--lora` / `--preview` with a cloud model, or `-r` beyond the model's limit | 64 | `EX_USAGE` |
 
 Every cloud failure is printed as `error: …` on stderr before the process
 exits.
@@ -127,7 +138,11 @@ OPTIONS:
   --preview               Fast preview mode (4 steps, 512x512, Klein 4B).
   -r, --reference <reference>
                           Reference (conditioning) image path, or - to read one
-                          from stdin. Repeatable, 1-3.
+                          from stdin. Repeatable; the limit is per model.
+  --character <character> Character slug (see `vinetas character list`) to
+                          depict in the panel.
+  --dry-run               Print the fully resolved request as JSON to stdout
+                          and exit without generating.
   --telemetry             Write a JSONL trace of every library handoff (see docs/TELEMETRY.md).
 ```
 
@@ -141,8 +156,11 @@ BFL_API_KEY=… vinetas generate "a detective in a rain-soaked alley" --model bf
 ### Reference images (`-r`/`--reference`)
 
 FLUX.2 Klein 4B accepts up to 3 reference (conditioning) images for
-image-to-image generation. PixArt-Sigma does not support references — passing
-any `-r` with `--model pixart-sigma` fails before any download or model load.
+image-to-image generation; the OpenAI and Google cloud models accept up to 10
+(6 on Gemini 3 Pro Image). PixArt-Sigma, BFL, and Stability do not support
+references — passing any `-r` with those fails before any download, model
+load, or network call. `vinetas list --json` reports `maxReferenceImages` for
+every model.
 
 ```bash
 # Order is priority: the first reference is weighted highest.
@@ -152,8 +170,8 @@ vinetas generate "Vale in the rain" -r vale-front.png -r vale-side.jpg -o panel.
 cat vale-front.png | vinetas generate "Vale in the rain" -r - -o panel.png
 ```
 
-- Repeatable 1–3 times; more than 3 (or more than the active model's max)
-  fails validation before any download or model load.
+- More than the active model's max fails validation before any download,
+  model load, or network call.
 - Accepted formats: PNG, JPEG, HEIC (anything `CGImageSourceCreateWithData`
   decodes).
 - A reference larger than the model's native conditioning size is downscaled
@@ -164,6 +182,45 @@ cat vale-front.png | vinetas generate "Vale in the rain" -r - -o panel.png
   is a validation error.
 - A missing file, an empty file, or bytes that don't decode as an image each
   fail with a message naming the path (or `stdin`), before any model load.
+
+### Characters (`--character`)
+
+```bash
+# On-device: the character's trained LoRA is applied with its trigger word.
+vinetas generate "Vale in the rain" --character detective-vale -o panel.png
+
+# Cloud: the description goes into the prompt and the character's reference
+# sheets (front, left, right, back) and source photos are attached.
+vinetas generate "Vale in the rain" --character detective-vale \
+  --model google-nano-banana-2.1 -o panel.png
+```
+
+- With a compatible LoRA on an engine that applies LoRA, the adapter is
+  loaded for the panel and unloaded afterwards; the prompt is
+  `<trigger>, <style>, <prompt>`.
+- Otherwise the trigger word is **not** sent (it means nothing without its
+  adapter). The character's description is used instead, and on a cloud model
+  that takes references, the character's sheets and photos are attached, up
+  to the model's limit. Explicit `-r` references replace the character's own.
+- The metadata records `character` (the slug) and, for a LoRA, its
+  `activationKeyword`.
+
+### Dry run (`--dry-run`)
+
+Resolves everything `generate` would do (model, engine, references including
+a character's, LoRA, prompt bundle, and the exact prompt text the engine
+receives), prints it as JSON on stdout, and exits. Nothing is downloaded, no
+model loads, and no vendor is called, so a dry run costs nothing.
+
+```bash
+vinetas generate "Vale in the rain" --character detective-vale \
+  --model openai-gpt-image-2.5-flare --aspect wide --dry-run | jq -r .promptSent
+```
+
+Keys: `model`, `engine`, `mode`, `promptSent`, `bundle` (panel prompt, style,
+negative, width, height, character, referenceCount, steps, guidanceScale,
+seed), `native` (the parameters as their own fields), `nativeAccepted` (cloud
+only: which of `native` the vendor takes), `references`, `lora`, `character`.
 
 ### Streaming output (`-o -`)
 
@@ -195,7 +252,11 @@ keyword, JSON payload with `.sortedKeys`):
 - `loras`: LoRA(s) actually applied (path + scale), recorded only after a
   successful load
 - `references`: one record per reference image (`source`, `sha256`,
-  `originalWidth`/`Height`, `effectiveWidth`/`Height`)
+  `originalWidth`/`Height`, `effectiveWidth`/`Height` — the size the engine
+  conditions on, or for a cloud model the size uploaded)
+- `character`: the slug of the `--character`, if any
+- `bundle`: the structured prompt bundle; for a cloud model `composedPrompt`
+  is this bundle rendered, i.e. the exact text the vendor received
 - `durationSeconds`, `generatedAt`
 
 Path outputs additionally get a `.json` sidecar with byte-identical contents,
@@ -264,7 +325,8 @@ section with each model's vendor, `configured (<where the key came from>)` or
 emits one object per model; cloud entries carry `"cloud": true`, `provider`,
 `vendorModelID`, `configured`, `keySource` (when configured),
 `environmentVariable`, `supportsSteps` / `supportsGuidance` / `supportsSeed`
-/ `supportsNegativePrompt`, `pricingHint`, and `requiresPro: false`. The
+/ `supportsNegativePrompt`, `pricingHint`, `maxReferenceImages`, and
+`requiresPro: false`. On-device entries also carry `maxReferenceImages`. The
 output never contains a key.
 
 ## `vinetas info`

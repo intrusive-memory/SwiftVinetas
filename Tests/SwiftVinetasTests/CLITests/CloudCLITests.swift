@@ -261,7 +261,10 @@ struct CloudCLITests {
     #expect(stderr.contains("--steps ignored"))
     #expect(stderr.contains("--guidance ignored"))
     #expect(stderr.contains("--seed ignored"))
-    #expect(stderr.components(separatedBy: "--negative ignored").count == 2)  // exactly once
+    // --negative is not ignored on a cloud model: it rides in the prompt.
+    #expect(!stderr.contains("--negative ignored"))
+    #expect(stderr.components(separatedBy: "Avoid:\" line").count == 2)  // exactly once
+    #expect(metadata.composedPrompt?.hasSuffix("Avoid: blurry.") == true)
     #expect(stderr.contains("Model: openai-gpt-image-2.5-flare"))
     #expect(stderr.contains("nothing to download"))
     #expect(!stderr.contains(Self.secret))
@@ -514,7 +517,7 @@ struct CloudCLITests {
     #expect(resolved.style.steps == 12)  // kept in the request; the vendor ignores it
     #expect(stderr.contains("Panel 2: bfl-flux-2-pro is a cloud model and cannot apply a LoRA"))
     #expect(stderr.contains("Panel 2: warning: bfl-flux-2-pro does not take a step count"))
-    #expect(stderr.contains("does not apply negative prompts"))
+    #expect(stderr.contains("--negative is sent in the prompt as an \"Avoid:\" line"))
     #expect(!stderr.contains("--seed ignored"))  // FLUX.2 [pro] honours seeds
     #expect(stderr.contains("ignoring preview for 'bfl-flux-2-pro'"))
   }
@@ -556,5 +559,83 @@ struct CloudCLITests {
     }
     #expect(reference.error is ValidationError)
     #expect("\(reference.error)".contains("cloud model"))
+  }
+}
+
+// MARK: - References and --dry-run
+
+extension CloudCLITests {
+
+  @Test("--dry-run prints the resolved request and touches neither the network nor the disk")
+  func dryRunPrintsResolvedRequest() async throws {
+    defer { CLIStubURLProtocol.reset() }
+    let client = Self.makeClient(keys: [:], providers: [.google])
+    let dir = try Self.tempDir()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let reference = dir.appendingPathComponent("ref.png")
+    try vendorPNG.write(to: reference)
+    let output = dir.appendingPathComponent("panel.png")
+
+    let result = try await StdioCapture.run {
+      _ = try await Self.run(client: client) {
+        try await Generate.parse([
+          "Mara at the dock", "--model", "google-nano-banana-2.1", "--style", "ink wash",
+          "--width", "1344", "--height", "768", "--negative", "text", "-r", reference.path,
+          "-o", output.path, "--dry-run",
+        ]).run()
+      }
+    }
+
+    let json = try #require(
+      try JSONSerialization.jsonObject(with: result.stdout) as? [String: Any])
+    #expect(json["model"] as? String == "google-nano-banana-2.1")
+    #expect(json["engine"] as? String == "cloud-google")
+    #expect(json["mode"] as? String == "imageToImage")
+    let prompt = try #require(json["promptSent"] as? String)
+    #expect(prompt.hasPrefix("Mara at the dock"))
+    #expect(prompt.contains("Art style: ink wash."))
+    #expect(prompt.contains("Frame: 1344×768 pixels, 16:9 landscape aspect ratio."))
+    #expect(prompt.contains("Reference images: 1 attached (image 1)."))
+    #expect(prompt.contains("Avoid: text."))
+    #expect((json["references"] as? [[String: Any]])?.count == 1)
+    #expect(json["nativeAccepted"] as? [String] == ["width", "height"])
+    let bundle = try #require(json["bundle"] as? [String: Any])
+    #expect(bundle["width"] as? Int == 1344)
+    #expect(bundle["referenceCount"] as? Int == 1)
+
+    #expect(CLIStubURLProtocol.requestCount == 0)
+    #expect(!FileManager.default.fileExists(atPath: output.path))
+  }
+
+  @Test("-r on an OpenAI model generates through the edits endpoint and records the references")
+  func openAIReferencesGenerate() async throws {
+    defer { CLIStubURLProtocol.reset() }
+    CLIStubURLProtocol.handler = { request in
+      #expect(request.url?.path == "/v1/images/edits")
+      return try openAIImageReply(request)
+    }
+    let client = Self.makeClient(keys: [.openAI: Self.secret], providers: [.openAI])
+    let dir = try Self.tempDir()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let reference = dir.appendingPathComponent("ref.png")
+    try vendorPNG.write(to: reference)
+    let output = dir.appendingPathComponent("panel.png")
+
+    _ = try await Self.run(client: client) {
+      try await Generate.parse([
+        "p", "--model", "openai-gpt-image-2.5-flare", "-r", reference.path, "-r", reference.path,
+        "-o", output.path,
+      ]).run()
+    }
+
+    #expect(CLIStubURLProtocol.requestCount == 1)
+    let sidecar = output.deletingPathExtension().appendingPathExtension("json")
+    let metadata = try JSONDecoder().decode(
+      ImageOutput.PanelMetadata.self, from: Data(contentsOf: sidecar))
+    #expect(metadata.mode == .imageToImage)
+    #expect(metadata.references?.count == 2)
+    #expect(metadata.bundle?.referenceCount == 2)
+    #expect(
+      metadata.composedPrompt?.contains("2 attached, in order (image 1 to image 2)") == true)
   }
 }

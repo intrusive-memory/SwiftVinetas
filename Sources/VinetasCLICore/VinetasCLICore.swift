@@ -28,12 +28,15 @@ func loadCGImage(from path: String) -> CGImage? {
 /// (``ReferenceImage/effectiveSize``) differs from what was decoded
 /// (``ReferenceImage/originalSize``). Pure and synchronous so it's testable
 /// without touching stdio; `Generate.run()` just prints whatever it returns.
-func downscaleNoteLines(for references: [ReferenceImage]) -> [String] {
+func downscaleNoteLines(
+  for references: [ReferenceImage], engineID: String = "flux2"
+) -> [String] {
   references.enumerated().compactMap { index, reference in
-    guard reference.originalSize != reference.effectiveSize else { return nil }
+    let effective = reference.effectiveSize(forEngineID: engineID)
+    guard reference.originalSize != effective else { return nil }
     return "note: reference \(index + 1) (\(reference.source)) downscaled "
       + "\(reference.originalSize.width)×\(reference.originalSize.height) → "
-      + "\(reference.effectiveSize.width)×\(reference.effectiveSize.height)"
+      + "\(effective.width)×\(effective.height)"
   }
 }
 
@@ -108,9 +111,48 @@ public struct Generate: AsyncParsableCommand {
 
   @Option(
     name: [.customShort("r"), .customLong("reference")],
-    help: "Reference (conditioning) image path, or - to read one from stdin. Repeatable, 1-3."
+    help: ArgumentHelp(
+      "Reference (conditioning) image path, or - to read one from stdin. Repeatable.",
+      discussion: """
+        The limit is per model: 3 for klein4b, 10 for the OpenAI models and
+        Nano Banana 2.1 / Gemini 3.1 Flash Image, 6 for Gemini 3 Pro Image.
+        PixArt, BFL, and Stability models take none. `vinetas list --json`
+        reports maxReferenceImages for every model.
+        """
+    )
   )
   public var references: [String] = []
+
+  @Option(
+    name: .long,
+    help: ArgumentHelp(
+      "Character slug (see `vinetas character list`) to depict in the panel.",
+      discussion: """
+        On-device, the character's trained LoRA is applied with its trigger
+        word. On a cloud model that takes references, the character's
+        description is written into the prompt and its reference sheets and
+        source photos are attached (unless --reference is given). The trigger
+        word is never sent without the adapter it activates.
+        """
+    )
+  )
+  public var character: String?
+
+  @Flag(
+    name: .long,
+    help: ArgumentHelp(
+      "Print the fully resolved request as JSON to stdout and exit without generating.",
+      discussion: """
+        Shows exactly what would be sent: the model and engine, the prompt
+        text the engine receives (for a cloud model, the rendered prompt
+        bundle spelling out style, frame size, aspect ratio, character, and
+        reference roles), the native parameters, every reference image, and
+        any LoRA. Nothing is downloaded, no model is loaded, and no vendor is
+        called, so no cost is incurred.
+        """
+    )
+  )
+  public var dryRun: Bool = false
 
   @Flag(
     name: .long,
@@ -218,6 +260,8 @@ public struct Generate: AsyncParsableCommand {
     // Load and validate reference images BEFORE any download or engine call
     // (RI-1 – RI-5): a bad path, an unsupported engine, or too many
     // references all fail fast, with no download and no model load.
+    let loadedCharacter = try character.map { try CharacterManager().loadCharacter(slug: $0) }
+
     var loadedReferences: [ReferenceImage] = []
     for reference in references {
       if reference == "-" {
@@ -232,7 +276,7 @@ public struct Generate: AsyncParsableCommand {
       try ReferenceValidator.validate(
         referenceCount: loadedReferences.count, engine: engine, model: descriptor)
     }
-    for line in downscaleNoteLines(for: loadedReferences) {
+    for line in downscaleNoteLines(for: loadedReferences, engineID: descriptor.engineID) {
       stderrPrint(line)
     }
 
@@ -268,6 +312,19 @@ public struct Generate: AsyncParsableCommand {
       styleConfig.height = 512
     }
 
+    let panelRequest = PanelRequest(
+      prompt: prompt, style: styleConfig, model: descriptor, references: loadedReferences,
+      character: loadedCharacter)
+
+    if dryRun {
+      let prepared = try await CLIEnvironment.client.prepare(panelRequest)
+      let encoder = JSONEncoder()
+      encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+      let json = try encoder.encode(DryRunReport(prepared, character: loadedCharacter))
+      print(String(decoding: json, as: UTF8.self))
+      return
+    }
+
     stderrPrint("[vinetas] Generating panel...")
     stderrPrint("[vinetas] Model: \(cliModel.name)")
     stderrPrint("[vinetas] Dimensions: \(styleConfig.width)x\(styleConfig.height)")
@@ -280,9 +337,14 @@ public struct Generate: AsyncParsableCommand {
     // --preview goes through the same PanelRequest path (its Klein 4B /
     // 4-step / 512×512 overrides are already applied to styleConfig above), so
     // it records real provenance metadata like any other panel.
-    let panel = try await CLIEnvironment.client.generate(
-      PanelRequest(
-        prompt: prompt, style: styleConfig, model: descriptor, references: loadedReferences))
+    let panel = try await CLIEnvironment.client.generate(panelRequest)
+    if let loadedCharacter {
+      let carried =
+        panel.metadata.loras?.isEmpty == false
+        ? "LoRA v\(loadedCharacter.lora?.version ?? 0)"
+        : "\(panel.metadata.references?.count ?? 0) reference image(s) + description"
+      stderrPrint("[vinetas] Character: \(loadedCharacter.name) (\(carried))")
+    }
 
     if negative != nil, !warnedNegative, panel.metadata.negativeApplied == false {
       let engineName = panel.metadata.engine ?? descriptor.engineID
@@ -442,7 +504,7 @@ public struct Batch: AsyncParsableCommand {
   /// defaults with per-panel overrides, seed resolved up front so the recorded
   /// seed is accurate) but dispatches through the injected client and never
   /// downloads — `run()` owns the download. Uses
-  /// ``VinetasClient/generate(_:)`` (rather than the plain-`CGImage`
+  /// ``VinetasClient/generate(_:characters:stepProgress:)`` (rather than the plain-`CGImage`
   /// overload) so each returned ``GeneratedPanel/metadata`` records exactly
   /// what was used for that item (RI-13): actual seed, steps, guidance, etc.
   static func generatePanels(
@@ -570,7 +632,8 @@ public struct ListModels: AsyncParsableCommand {
     // this", which are very different problems with very different fixes.
     let isUnlocked = await ProGate.status().isUnlocked
 
-    var jsonModels: [[String: Any]] = local.map { info in
+    var jsonModels: [[String: Any]] = []
+    for info in local {
       var entry: [String: Any] = [
         "name": info.name,
         "size": info.size,
@@ -585,11 +648,14 @@ public struct ListModels: AsyncParsableCommand {
         let requiresPro = ProGate.requiresPro(model)
         entry["requiresPro"] = requiresPro
         if requiresPro { entry["isUnlocked"] = isUnlocked }
+        if let engine = try? await CLIEnvironment.client.router.engine(for: model.descriptor) {
+          entry["maxReferenceImages"] = engine.maxReferenceImages(for: model.descriptor)
+        }
       }
       if let date = info.downloadDate {
         entry["downloadDate"] = isoFormatter.string(from: date)
       }
-      return entry
+      jsonModels.append(entry)
     }
 
     // Cloud entries: same `model` / `requiresPro` / `isDownloaded` keys an
@@ -615,6 +681,7 @@ public struct ListModels: AsyncParsableCommand {
         "supportsSeed": cloud.supportsSeed,
         "supportsNegativePrompt": cloud.supportsNegativePrompt,
         "pricingHint": cloud.pricingHint,
+        "maxReferenceImages": cloud.maxReferenceImages,
       ]
       if let source = row.source { entry["keySource"] = source }
       jsonModels.append(entry)

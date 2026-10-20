@@ -45,7 +45,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.24.0"
+  public static let version = "0.25.0"
 
   /// Configures a CDN base URL for model downloads.
   ///
@@ -217,7 +217,7 @@ extension VinetasClient {
 
   /// Generate a single panel image from a text prompt.
   ///
-  /// The no-reference case of ``generate(_:)``: equivalent to
+  /// The no-reference case of ``generate(_:characters:stepProgress:)``: equivalent to
   /// `try await generate(PanelRequest(prompt:style:model:references: [])).image`.
   ///
   /// - Parameters:
@@ -256,13 +256,21 @@ extension VinetasClient {
   /// engine applied it, the reference records, mode, engine, model, steps,
   /// guidance, and the engine-call duration.
   ///
-  /// - Parameter request: The panel request.
+  /// - Parameters:
+  ///   - request: The panel request.
+  ///   - characters: Where a request's character assets live.
+  ///   - stepProgress: Called after each inference step with
+  ///     `(currentStep, totalSteps, elapsed)`. Cloud engines never call it.
   /// - Returns: The image and its ``ImageOutput/PanelMetadata``.
   /// - Throws: ``VinetasError/engineNotFound(engineID:)``,
   ///   ``VinetasError/referencesUnsupported(engineID:)``,
   ///   ``VinetasError/tooManyReferences(model:max:got:)``, or
   ///   ``VinetasError/generationFailed(_:)``.
-  public func generate(_ request: PanelRequest) async throws -> GeneratedPanel {
+  public func generate(
+    _ request: PanelRequest,
+    characters: CharacterManager = CharacterManager(),
+    stepProgress: (@Sendable (Int, Int, TimeInterval) -> Void)? = nil
+  ) async throws -> GeneratedPanel {
     // MARK: - generationEnd capture
     //
     // OQ-6 resolution: we use the captured-mutable-var + `defer` idiom from
@@ -315,33 +323,26 @@ extension VinetasClient {
       throw VinetasError.generationFailed("Prompt must not be empty")
     }
     let style = request.style
-    let references = request.references
-    let isImageToImage = !references.isEmpty
-    let composedPrompt = composePrompt(panelPrompt: prompt, style: style)
-    let engineRequest = buildRequest(
-      prompt: composedPrompt,
-      style: style,
-      mode: isImageToImage
-        ? .imageToImage(references: references.map(\.image))
-        : .textToImage
-    )
     // Emit generationStart BEFORE routing so the ordering invariant holds:
     //   generationStart → engineSelected → … → generationEnd
-    // model.engineID is known from the descriptor; the router confirms it next.
+    // These are the caller's values; references a character contributes are
+    // resolved after routing and recorded in the metadata.
+    let previewPrompt = composePrompt(panelPrompt: prompt, style: style)
+    let clamped = effectiveDimensions(style: style, model: model)
     await reporter?.capture(
       .generationStart(
-        prompt: composedPrompt,
-        promptLength: composedPrompt.count,
+        prompt: previewPrompt,
+        promptLength: previewPrompt.count,
         engineID: model.engineID,
         modelID: model.id,
-        steps: engineRequest.steps,
-        guidanceScale: Double(engineRequest.guidanceScale),
-        seed: engineRequest.seed ?? 0,
-        width: engineRequest.width,
-        height: engineRequest.height,
-        mode: isImageToImage ? .imageToImage : .textToImage,
-        referenceImageCount: references.count,
-        loraAttached: false,
+        steps: style.steps,
+        guidanceScale: Double(style.guidanceScale),
+        seed: style.seed ?? 0,
+        width: clamped.width,
+        height: clamped.height,
+        mode: request.references.isEmpty ? .textToImage : .imageToImage,
+        referenceImageCount: request.references.count,
+        loraAttached: style.loraPath != nil || request.character?.lora != nil,
         loraScale: nil,
         upsamplePromptRequested: false,
         interpretImageCount: 0))
@@ -356,31 +357,39 @@ extension VinetasClient {
         requestedFeature: nil,
         fallbackUsed: false))
 
-    // Pre-load validation: never load a model for a request it cannot run.
-    try ReferenceValidator.validate(
-      referenceCount: references.count, engine: engine, model: model)
+    // Pre-load validation happens inside prepare: never load a model for a
+    // request it cannot run.
+    let prepared = try prepare(request, on: engine, characters: characters)
+    let engineRequest = prepared.request
+    let references = prepared.references
 
     try await engine.loadModel(model, progress: { _ in })
 
-    // RI-15: apply style.loraPath, if configured, before generating. An
-    // engine that doesn't support LoRA inference fails fast (before the
-    // generate call); a load failure propagates as a thrown error and no
-    // metadata is produced. The LoRA is recorded in metadata.loras only
-    // after a successful load.
+    // RI-15: apply the LoRA (style.loraPath, or the character's own adapter),
+    // if any, before generating. A load failure propagates as a thrown error
+    // and no metadata is produced. The LoRA is recorded in metadata.loras
+    // only after a successful load.
     var appliedLoRAs: [ImageOutput.LoRAEntry] = []
-    if style.loraPath != nil {
-      guard engine.supports(.loraInference) else {
-        throw VinetasError.engineFeatureUnsupported(
-          feature: .loraInference, engineID: engine.engineID)
-      }
-      if let entry = try await VinetasLoRAManager.loadIfConfigured(style: style, on: engine) {
-        appliedLoRAs = [entry]
-      }
+    if let lora = prepared.lora {
+      let scale = min(max(lora.scale, 0.0), 1.0)
+      try await VinetasLoRAManager.load(path: lora.path, scale: scale, on: engine)
+      appliedLoRAs = [
+        ImageOutput.LoRAEntry(
+          path: lora.path, scale: scale, activationKeyword: lora.activationKeyword)
+      ]
     }
 
     let genClock = ContinuousClock()
     let genStart = genClock.now
-    let result = try await engine.generate(request: engineRequest, stepProgress: nil)
+    let result: GenerationResult
+    do {
+      result = try await engine.generate(request: engineRequest, stepProgress: stepProgress)
+    } catch {
+      if prepared.isCharacterLoRA { await engine.unloadLoRA() }
+      throw error
+    }
+    // A character's adapter must not bleed into the next panel.
+    if prepared.isCharacterLoRA { await engine.unloadLoRA() }
     let elapsed = genClock.now - genStart
     let durationSeconds =
       Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
@@ -395,7 +404,9 @@ extension VinetasClient {
     // Record the dimensions of the image the engine actually produced, not
     // the request: on-device engines render the (clamped) request exactly,
     // but cloud vendors snap to their own size grid or aspect presets, and
-    // the metadata must describe the PNG it travels with.
+    // the metadata must describe the PNG it travels with. `composedPrompt` is
+    // the engine's own report of the text it used — for a cloud engine, the
+    // rendered PromptBundle.
     let metadata = ImageOutput.PanelMetadata(
       prompt: prompt,
       model: model.id,
@@ -407,15 +418,136 @@ extension VinetasClient {
       durationSeconds: durationSeconds,
       loras: appliedLoRAs,
       generatedAt: isoFormatter.string(from: Date()),
-      mode: isImageToImage ? .imageToImage : .textToImage,
+      mode: references.isEmpty ? .textToImage : .imageToImage,
       engine: engine.engineID,
-      references: references.map { ImageOutput.ReferenceRecord($0) },
+      references: references.map { ImageOutput.ReferenceRecord($0, engineID: engine.engineID) },
       style: style.stylePrompt.isEmpty ? nil : style.stylePrompt,
-      composedPrompt: composedPrompt,
+      composedPrompt: result.usedPrompt,
       negative: negative,
-      negativeApplied: negative.map { _ in engine.supports(.negativePrompt) }
+      negativeApplied: negative.map { _ in engine.supports(.negativePrompt) },
+      character: request.character?.slug,
+      bundle: prepared.bundle
     )
     return GeneratedPanel(image: result.image, metadata: metadata)
+  }
+
+  /// Resolve everything about a panel without loading a model or contacting
+  /// a vendor: the engine, the references (including any a character
+  /// contributes), the LoRA to apply, the structured ``PromptBundle``, and
+  /// the exact prompt text the engine will receive.
+  ///
+  /// ``generate(_:characters:stepProgress:)`` runs exactly this before generating, so a host (or
+  /// `vinetas generate --dry-run`) can show the user precisely what will be
+  /// sent.
+  ///
+  /// - Parameters:
+  ///   - request: The panel request.
+  ///   - characters: Where a request's character assets live.
+  /// - Throws: ``VinetasError/engineNotFound(engineID:)``, the reference
+  ///   errors from ``ReferenceValidator``,
+  ///   ``VinetasError/engineFeatureUnsupported(feature:engineID:)`` for a LoRA
+  ///   on an engine that cannot apply one, or a reference load error.
+  public func prepare(
+    _ request: PanelRequest,
+    characters: CharacterManager = CharacterManager()
+  ) async throws -> PreparedPanel {
+    let engine = try await router.engine(for: request.model)
+    return try prepare(request, on: engine, characters: characters)
+  }
+
+  private func prepare(
+    _ request: PanelRequest,
+    on engine: any ImageGenerationEngine,
+    characters: CharacterManager
+  ) throws -> PreparedPanel {
+    let model = request.model
+    let style = request.style
+    var references = request.references
+    var lora: ImageOutput.LoRAEntry?
+    var isCharacterLoRA = false
+
+    if style.loraPath != nil {
+      guard engine.supports(.loraInference) else {
+        throw VinetasError.engineFeatureUnsupported(
+          feature: .loraInference, engineID: engine.engineID)
+      }
+      lora = style.loraPath.map {
+        ImageOutput.LoRAEntry(path: $0, scale: style.loraScale ?? 1.0)
+      }
+    }
+
+    // A character is carried by its trained adapter where the engine can
+    // apply it (on-device), and otherwise by its description plus its
+    // reference sheets and photos where the engine takes references (cloud).
+    // The trigger word is only ever sent alongside the adapter it activates.
+    if let character = request.character {
+      if lora == nil, let adapter = character.lora, adapter.isCompatible(with: engine.engineID),
+        engine.supports(.loraInference)
+      {
+        let path = characters.characterDirectory(slug: character.slug)
+          .appendingPathComponent(adapter.path).path
+        lora = ImageOutput.LoRAEntry(
+          path: path, scale: adapter.scale, activationKeyword: character.triggerWord)
+        isCharacterLoRA = true
+      } else if references.isEmpty, engine is CloudImageEngine {
+        let limit = engine.maxReferenceImages(for: model)
+        references = try characters.referenceImageURLs(for: character)
+          .prefix(limit)
+          .map { try ReferenceImage.load(path: $0.path) }
+      }
+    }
+
+    try ReferenceValidator.validate(
+      referenceCount: references.count, engine: engine, model: model)
+
+    var parts: [String] = []
+    if isCharacterLoRA, let character = request.character, !character.triggerWord.isEmpty {
+      parts.append(character.triggerWord)
+    } else if let description = request.character?.description, !description.isEmpty {
+      parts.append(description)
+    }
+    if !style.stylePrompt.isEmpty { parts.append(style.stylePrompt) }
+    parts.append(request.prompt)
+    let composedPrompt = parts.joined(separator: ", ")
+
+    var engineRequest = buildRequest(
+      prompt: composedPrompt,
+      style: style,
+      model: model,
+      mode: references.isEmpty
+        ? .textToImage
+        : .imageToImage(references: references.map(\.image))
+    )
+    let bundle = PromptBundle(
+      panelPrompt: request.prompt,
+      stylePrompt: style.stylePrompt,
+      negativePrompt: style.negativePrompt,
+      width: engineRequest.width,
+      height: engineRequest.height,
+      character: request.character.map {
+        PromptBundle.CharacterBrief(name: $0.name, description: $0.description)
+      },
+      referenceCount: references.count,
+      steps: engineRequest.steps,
+      guidanceScale: engineRequest.guidanceScale,
+      seed: engineRequest.seed
+    )
+    engineRequest.bundle = bundle
+
+    let promptSent =
+      (engine as? CloudImageEngine)?.vendorPrompt(for: engineRequest, model: model)
+      ?? composedPrompt
+
+    return PreparedPanel(
+      modelID: model.id,
+      engineID: engine.engineID,
+      request: engineRequest,
+      references: references,
+      lora: lora,
+      isCharacterLoRA: isCharacterLoRA,
+      bundle: bundle,
+      promptSent: promptSent
+    )
   }
 
   /// Generate a sequence of panels from an array of prompts.
@@ -501,6 +633,7 @@ extension VinetasClient {
     let firstRequest = buildRequest(
       prompt: firstComposed,
       style: effectiveStyle,
+      model: model,
       mode: useImageToImage
         ? .imageToImage(references: referenceImages ?? [])
         : .textToImage
@@ -549,6 +682,7 @@ extension VinetasClient {
       let request = buildRequest(
         prompt: composedPrompt,
         style: effectiveStyle,
+        model: model,
         mode: mode
       )
       let result = try await engine.generate(request: request, stepProgress: stepProgress)
@@ -622,6 +756,7 @@ extension VinetasClient {
     let request = buildRequest(
       prompt: composedPrompt,
       style: effectiveStyle,
+      model: model,
       mode: .textToImage
     )
     // Emit generationStart BEFORE routing so the ordering invariant holds:
@@ -998,18 +1133,36 @@ extension VinetasClient {
     return parts.joined(separator: ", ")
   }
 
+  /// The width and height a request for `model` is sent at.
+  ///
+  /// Defense-in-depth: an on-device model is clamped to the local GPU's
+  /// capability so no generation path can request a resolution whose
+  /// attention buffer exceeds the Metal per-buffer ceiling and aborts
+  /// `mlx_eval`. Idempotent for ``AspectRatio``-derived sizes (already
+  /// clamped); this additionally protects callers that pass an explicit
+  /// oversized ``StyleConfig`` (e.g. a CLI `--width/--height`).
+  ///
+  /// A cloud model renders on the vendor's hardware and never touches the
+  /// local GPU, so its requested size is passed through unchanged. The
+  /// decision is made on the model, not the routed engine, so it holds at the
+  /// call sites that build the request before routing.
+  private func effectiveDimensions(
+    style: StyleConfig, model: any ModelDescriptor
+  ) -> (width: Int, height: Int) {
+    if model is CloudModelDescriptor {
+      return (style.width, style.height)
+    }
+    return ResolutionClamp.clampedDimensions(width: style.width, height: style.height)
+  }
+
   /// Build a ``GenerationRequest`` from a composed prompt and style config.
   private func buildRequest(
     prompt: String,
     style: StyleConfig,
+    model: any ModelDescriptor,
     mode: GenerationRequest.GenerationMode
   ) -> GenerationRequest {
-    // Defense-in-depth: clamp to device capability so no generation path can
-    // request a resolution whose attention buffer exceeds the Metal per-buffer
-    // ceiling and aborts `mlx_eval`. Idempotent for ``AspectRatio``-derived
-    // sizes (already clamped); this additionally protects callers that pass an
-    // explicit oversized ``StyleConfig`` (e.g. a CLI `--width/--height`).
-    let clamped = ResolutionClamp.clampedDimensions(width: style.width, height: style.height)
+    let clamped = effectiveDimensions(style: style, model: model)
     return GenerationRequest(
       prompt: prompt,
       negativePrompt: style.negativePrompt,
@@ -1143,7 +1296,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.24.0"
+  public static let version = "0.25.0"
 
   // MARK: - Generation
 
