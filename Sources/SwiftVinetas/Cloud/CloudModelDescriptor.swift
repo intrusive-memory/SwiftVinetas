@@ -37,6 +37,10 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
   /// A short, non-authoritative price hint ("~$0.03/image").
   public let pricingHint: String
 
+  /// How many reference images the vendor accepts for one request. `0`
+  /// means the adapter sends text only.
+  public let maxReferenceImages: Int
+
   public var engineID: String { provider.engineID }
 
   /// Cloud models are addressed on the CLI by their full id
@@ -61,7 +65,8 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     supportsGuidance: Bool,
     supportsSeed: Bool,
     supportsNegativePrompt: Bool,
-    pricingHint: String
+    pricingHint: String,
+    maxReferenceImages: Int = 0
   ) {
     self.id = id
     self.displayName = displayName
@@ -75,6 +80,7 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     self.supportsSeed = supportsSeed
     self.supportsNegativePrompt = supportsNegativePrompt
     self.pricingHint = pricingHint
+    self.maxReferenceImages = maxReferenceImages
   }
 
   // MARK: - Catalog
@@ -87,6 +93,11 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
   private static let widescreenRatios: [AspectRatio] = [
     .square, .wide, .ultrawide, .portrait, .panel,
   ]
+
+  /// OpenAI's edits endpoint takes repeated `image[]` parts. The vendor
+  /// documents no hard limit for the 2.5 family; ten keeps the multipart
+  /// body well under its upload cap after downscaling.
+  private static let openAIReferenceLimit = 10
 
   /// OpenAI `gpt-image-2.5-flare`, the vendor's default: explicit sizes in
   /// multiples of 16; no steps, guidance, seed, or negative prompt.
@@ -102,7 +113,8 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     supportsGuidance: false,
     supportsSeed: false,
     supportsNegativePrompt: false,
-    pricingHint: "~$0.03–0.25/image"
+    pricingHint: "~$0.03–0.25/image",
+    maxReferenceImages: openAIReferenceLimit
   )
 
   /// OpenAI `gpt-image-2.5-sunburst`, the slower premium sibling.
@@ -118,9 +130,13 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     supportsGuidance: false,
     supportsSeed: false,
     supportsNegativePrompt: false,
-    pricingHint: "~$0.03–0.25/image"
+    pricingHint: "~$0.03–0.25/image",
+    maxReferenceImages: openAIReferenceLimit
   )
 
+  /// Google's image models take up to 10 object references (Nano Banana 2.1,
+  /// 3.1 Flash Image) or 6 (3 Pro Image), inline as base64 `image` blocks.
+  ///
   /// Google `gemini-nano-banana-2.1`, the recommended default. Aspect-ratio
   /// presets and a 1K/2K/4K size tier; no steps, guidance, seed, or
   /// negative prompt.
@@ -136,7 +152,8 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     supportsGuidance: false,
     supportsSeed: false,
     supportsNegativePrompt: false,
-    pricingHint: "~$0.03–0.11/image"
+    pricingHint: "~$0.03–0.11/image",
+    maxReferenceImages: 10
   )
 
   /// Google `gemini-3.1-flash-image`, tuned for sequential art.
@@ -152,7 +169,8 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     supportsGuidance: false,
     supportsSeed: false,
     supportsNegativePrompt: false,
-    pricingHint: "~$0.07–0.15/image"
+    pricingHint: "~$0.07–0.15/image",
+    maxReferenceImages: 10
   )
 
   /// Google `gemini-3-pro-image`, for text rendering and production assets.
@@ -168,7 +186,8 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     supportsGuidance: false,
     supportsSeed: false,
     supportsNegativePrompt: false,
-    pricingHint: "~$0.13–0.24/image"
+    pricingHint: "~$0.13–0.24/image",
+    maxReferenceImages: 6
   )
 
   /// Black Forest Labs `flux-2-pro`. Explicit dimensions and seed; the

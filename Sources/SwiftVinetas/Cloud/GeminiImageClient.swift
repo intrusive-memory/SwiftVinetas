@@ -9,6 +9,10 @@ import Foundation
 /// tier. The reply is a list of `steps`; the `model_output` step carries
 /// base64 `image` content blocks. The vendor takes no steps, guidance, seed,
 /// or negative prompt.
+///
+/// With reference images, `input` becomes a list of content blocks: one
+/// `text` block carrying the prompt, then one inline base64 `image` block per
+/// reference, in the order supplied.
 struct GeminiImageClient: CloudProviderClient {
 
   let provider: CloudProvider = .google
@@ -34,9 +38,24 @@ struct GeminiImageClient: CloudProviderClient {
     urlRequest.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
     urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+    let input: Any
+    if case .imageToImage(let references) = request.mode, !references.isEmpty {
+      var blocks: [[String: Any]] = [["type": "text", "text": request.prompt]]
+      for image in references {
+        blocks.append([
+          "type": "image",
+          "mime_type": "image/jpeg",
+          "data": try CloudHTTP.encodeReference(image, provider: provider).base64EncodedString(),
+        ])
+      }
+      input = blocks
+    } else {
+      input = request.prompt
+    }
+
     let body: [String: Any] = [
       "model": model.vendorModelID,
-      "input": request.prompt,
+      "input": input,
       "response_format": [
         "type": "image",
         "mime_type": "image/jpeg",

@@ -97,6 +97,20 @@ public struct ReferenceImage: Sendable {
     )
   }
 
+  // MARK: - Per-engine size
+
+  /// The size `engineID` actually conditions on. Cloud engines upload
+  /// references scaled to fit ``CloudHTTP/referenceMaxEdge`` (aspect kept);
+  /// every other engine uses FLUX.2's rule, ``effectiveSize``.
+  public func effectiveSize(forEngineID engineID: String) -> Size {
+    guard CloudProvider.provider(forEngineID: engineID) != nil else { return effectiveSize }
+    let longest = max(originalSize.width, originalSize.height)
+    let scale = min(1.0, Double(CloudHTTP.referenceMaxEdge) / Double(max(1, longest)))
+    return Size(
+      width: max(1, Int((Double(originalSize.width) * scale).rounded())),
+      height: max(1, Int((Double(originalSize.height) * scale).rounded())))
+  }
+
   // MARK: - Hashing
 
   /// Lowercase hex SHA-256 of `data`.

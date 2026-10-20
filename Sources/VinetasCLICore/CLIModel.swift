@@ -111,7 +111,11 @@ func cloudCapabilityWarnings(
     )
   }
   if let negative, !negative.isEmpty, !model.supportsNegativePrompt {
-    lines.append("warning: \(model.id) does not apply negative prompts; --negative ignored")
+    // Not dropped: the prompt bundle writes it into the prompt as an
+    // "Avoid:" line, which instruction-following models honour loosely.
+    lines.append(
+      "note: \(model.id) has no negative-prompt field; --negative is sent in the prompt as "
+        + "an \"Avoid:\" line")
   }
   return lines
 }
