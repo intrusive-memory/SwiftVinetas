@@ -51,7 +51,7 @@ A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see th
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.25.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.25.0-dev")
 ]
 ```
 
