@@ -108,6 +108,9 @@ vinetas storyboard script.fountain --output-dir ./storyboard/
 vinetas storyboard script.highland --dry-run          # print resolved prompts, generate nothing
 vinetas storyboard script.fdx --model pixart-sigma --continue-on-error
 
+# Generate one panel from a bare GLOSA 2.0 shot object (recorded in the sidecar)
+vinetas generate --shot-json shot.json -o panel.png
+
 # With LoRA style
 vinetas generate "A detective" --lora comic-style.safetensors --lora-scale 0.8
 
@@ -119,6 +122,10 @@ vinetas list
 OPENAI_API_KEY=… vinetas generate "A detective" --model openai-gpt-image-2.5-flare
 BFL_API_KEY=…    vinetas storyboard script.fountain --model bfl-flux-2-pro
 ```
+
+#### GLOSA 2.0 storyboards and render records
+
+`vinetas storyboard` reads GLOSA notation 2.0 JSON shots and notation 1.0 tags, honours a shot's `ref` and `character` (references resolve against the project root, then the screenplay's folder) and resolves a relative `output` against the project root rather than the current directory. Every panel's metadata carries a `glosa` render record (`notation`, `digest`, `shot`), so a tool can tell when an image no longer matches its shot; `vinetas generate --shot-json` and `VinetasClient.generate` (via `PanelRequest.shot`) write the same record. See the [CLI Reference](docs/CLI_REFERENCE.md#vinetas-storyboard) and the [CHANGELOG](CHANGELOG.md).
 
 ### YAML Prompt File Format
 
