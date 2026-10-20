@@ -127,10 +127,12 @@ let package = Package(
 
     // GLOSA screenplay directive parser — provides the `<shot>` storyboard
     // directives consumed by `vinetas storyboard`. Foundation-only leaf.
+    // Floored at 0.9.0 for GLOSA notation 2.0 (JSON shots, `Shot.effective`,
+    // `Shot.renderDigest`, `Shot.schemaJSONData`).
     sibling(
       "glosa-av",
       remote: "https://github.com/intrusive-memory/glosa-av.git",
-      from: "0.8.1"),
+      from: "0.9.0"),
 
     // Screenplay file parsing (.fountain / .highland / .fdx) — turns a
     // screenplay path into the `[[ ]]` note stream GlosaCore parses. Same
@@ -186,6 +188,7 @@ let package = Package(
       dependencies: [
         "VinetasVocabulary",
         .product(name: "Flux2Core", package: "flux-2-swift-mlx"),
+        .product(name: "GlosaCore", package: "glosa-av"),
         .product(name: "SwiftAcervo", package: "SwiftAcervo"),
         .product(name: "Tuberia", package: "SwiftTuberia"),
         .product(name: "TuberiaCatalog", package: "SwiftTuberia"),
