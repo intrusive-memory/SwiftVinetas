@@ -1,5 +1,6 @@
 ---
 type: supervisor-state
+state: complete
 ---
 
 # SUPERVISOR_STATE.md — OPERATION CONTINUITY CLERK
@@ -35,9 +36,9 @@ type: supervisor-state
 | SwiftVinetas | ~/Projects/package-collection/pkg/SwiftVinetas | 10 | none |
 
 ### SwiftVinetas
-- Work unit state: RUNNING
-- Current sortie: 7 of 10
-- Sortie state: DISPATCHED
+- Work unit state: COMPLETED
+- Current sortie: 10 of 10
+- Sortie state: COMPLETED
 - Sortie type: code
 - Attempt: 0 of 3
 
@@ -50,15 +51,14 @@ type: supervisor-state
 | 4 | COMPLETED | sonnet | 1 | 81980b3 | 915 tests (-8 ShotResolver, +4) |
 | 5 | COMPLETED | sonnet | 1 | 6854335 | 930 tests; verifier PASS (nit: absolute non-existent entry also lists a characters/<abs> folder) |
 | 6 | COMPLETED | sonnet | 1 | 91f9d7e, 4ff1173 | 936 tests; verifier r1 FAIL (--output-dir fallback) → fixed → r2 PASS |
-| 7 | DISPATCHED | sonnet | 1 | | |
-| 8 | PENDING | | 0 | | |
-| 9 | PENDING | | 0 | | |
-| 10 | PENDING | | 0 | | |
+| 7 | COMPLETED | sonnet | 1 | b58af08 | 940 tests; Generate.model/loraScale now optional (public CLI struct change → CHANGELOG) |
+| 8 | COMPLETED | sonnet | 1 | 38822d8 | 942 tests; Klein 4B limit 3 via Flux2ModelDescriptor.engineMaxReferenceImages; BFL statics named bflFluxPro/Flex (ui-isolation symbol grep) |
+| 9 | COMPLETED | sonnet | 1 | f9a4465 | totals: core 942 + UI 75 + vocab 54 (Swift Testing); composer now generic (source-compat note) |
+| 10 | COMPLETED | sonnet | 1 | dd3f90e | verifier PASS |
 
 ## Active Agents
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Agent | Sortie Start Commit | Dispatched At |
 |-----------|--------|------|-------------|---------|----------------|-------|-------|---------------------|---------------|
-| SwiftVinetas | 7 | implementer | DISPATCHED | 1/3 | — | sonnet | sortie-7 | 4ff1173 | 2026-10-20 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -66,3 +66,4 @@ type: supervisor-state
 | 2026-10-20 | — | — | Recon pass 4 → CLEAR | Requirements amended to decide A-32 (core links GlosaCore); A-34/A-35 added |
 | 2026-10-20 | — | — | Refine: 0 blockers; 10 sorties; serial execution | Shared .build directory; every sortie builds |
 | 2026-10-20 | SwiftVinetas | 4 | Upstream finding logged (not a REPLAN) | SwiftCompartido FountainParser.swift:55 note regex rejects `]` → 2.0 JSON `ref` arrays can't be authored in .fountain; 1.0 `ref="A,B"` works. Out of scope (other repo); report to user |
+| 2026-10-20 | — | — | Post-mission: final verification PASSED; test-cleanup pruned 0; brief verdict KEEP | `clean`'s /organize-agent-docs archival NOT run: it would reorganize unrelated docs in a public repo inside this PR; artifacts stay in docs/missions/storyboard-shots with state: complete |
