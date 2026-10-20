@@ -125,7 +125,8 @@ public struct Storyboard: AsyncParsableCommand {
 
     try await reportingCloudErrors {
       for item in plan {
-        let panelURL = outputURL(for: item, in: outputDirURL)
+        let panelURL = outputURL(
+          for: item, in: outputDirURL, relativeTo: referenceResolver.projectRoot)
         stderrPrint(
           "[vinetas] Panel \(item.panelNumber)/\(plan.count) (\(item.model.name)) → \(panelURL.lastPathComponent)"
         )
@@ -138,11 +139,13 @@ public struct Storyboard: AsyncParsableCommand {
           // `item.style` by `resolvePlan` — so `writePanel` records what this
           // panel actually used (RI-13). `VinetasClient.preview(prompt:)` would
           // skip that: it returns a bare `CGImage` with no metadata.
+          try checkWritable(panelURL, for: item)
           let inputs = try panelInputs(for: item, resolver: referenceResolver)
           let generated = try await CLIEnvironment.client.generate(
             PanelRequest(
               prompt: item.prompt, style: item.style, model: item.model.descriptor,
-              references: inputs.references, character: inputs.character))
+              references: inputs.references, character: inputs.character,
+              shot: item.shot))
           try ImageOutput.writePanel(
             image: generated.image, metadata: generated.metadata, to: panelURL)
           stderrPrint("[vinetas] Wrote \(panelURL.lastPathComponent)")
@@ -322,21 +325,40 @@ public struct Storyboard: AsyncParsableCommand {
     return (references, character)
   }
 
-  /// Resolve a panel's output URL: honor an explicit `output` (relative paths
-  /// resolved under the output dir), otherwise auto-name `panel-NNN.png`.
-  func outputURL(for item: PanelPlan, in outputDir: URL) -> URL {
+  /// Resolve a panel's output URL. An explicit relative `output` resolves
+  /// against `base` — the project root, else the screenplay's folder
+  /// (``StoryboardReferenceResolver/projectRoot``) — never the process's
+  /// current directory and never `--output-dir`. An absolute `output` is used
+  /// as given. A shot with no `output` is auto-named `panel-NNN.png` under
+  /// `outputDir`.
+  func outputURL(for item: PanelPlan, in outputDir: URL, relativeTo base: URL?) -> URL {
     if let output = item.output, !output.isEmpty {
-      // Test the raw string, not `URL(fileURLWithPath:).path`. That initializer
-      // resolves a relative path against the process's current directory, so the
-      // resulting URL is *always* absolute — which made the old check always
-      // true and silently sent `<shot output="panel.png"/>` to the CWD instead
-      // of `--output-dir`. Under the sandboxed CLI shipped in Vinetas.app that
-      // is not merely wrong, it is unwritable.
-      return output.hasPrefix("/")
-        ? URL(fileURLWithPath: output)
-        : outputDir.appendingPathComponent(output)
+      // Test the raw string: `URL(fileURLWithPath:)` resolves a relative path
+      // against the CWD, which the sandboxed CLI cannot write to.
+      if output.hasPrefix("/") { return URL(fileURLWithPath: output) }
+      if let base { return base.appendingPathComponent(output) }
+      // No document folder (cannot happen for a screenplay file): keep the
+      // panel out of the CWD by using the output directory.
+      return outputDir.appendingPathComponent(output)
     }
     return outputDir.appendingPathComponent(String(format: "panel-%03d.png", item.panelNumber))
+  }
+
+  /// For a panel whose explicit relative `output` lands in the project root /
+  /// screenplay folder, verify (via the injectable
+  /// ``CLIEnvironment/directoryWritabilityProbe``) that the folder is writable.
+  /// On denial the panel fails naming the full path and the remedy; there is
+  /// no fallback to the CWD.
+  func checkWritable(_ panelURL: URL, for item: PanelPlan) throws {
+    guard let output = item.output, !output.isEmpty, !output.hasPrefix("/") else { return }
+    let directory = panelURL.deletingLastPathComponent()
+    guard CLIEnvironment.directoryWritabilityProbe(directory) else {
+      throw StoryboardPanelError(
+        message:
+          "panel \(item.panelNumber): cannot write '\(panelURL.path)' — Vinetas has no write "
+          + "access to '\(directory.path)'. Grant that folder to the Vinetas app, use an "
+          + "absolute `output` in a writable location, or omit `output` to use --output-dir.")
+    }
   }
 }
 
