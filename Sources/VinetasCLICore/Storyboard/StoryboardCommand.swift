@@ -119,6 +119,7 @@ public struct Storyboard: AsyncParsableCommand {
     }
 
     // 6. Generate each panel in order — one prompt per shot.
+    let referenceResolver = StoryboardReferenceResolver(screenplay: screenplay)
     var succeeded = 0
     var failures: [(panel: Int, error: Error)] = []
 
@@ -137,8 +138,11 @@ public struct Storyboard: AsyncParsableCommand {
           // `item.style` by `resolvePlan` — so `writePanel` records what this
           // panel actually used (RI-13). `VinetasClient.preview(prompt:)` would
           // skip that: it returns a bare `CGImage` with no metadata.
+          let inputs = try panelInputs(for: item, resolver: referenceResolver)
           let generated = try await CLIEnvironment.client.generate(
-            PanelRequest(prompt: item.prompt, style: item.style, model: item.model.descriptor))
+            PanelRequest(
+              prompt: item.prompt, style: item.style, model: item.model.descriptor,
+              references: inputs.references, character: inputs.character))
           try ImageOutput.writePanel(
             image: generated.image, metadata: generated.metadata, to: panelURL)
           stderrPrint("[vinetas] Wrote \(panelURL.lastPathComponent)")
@@ -284,6 +288,38 @@ public struct Storyboard: AsyncParsableCommand {
       usePreview: usePreview,
       output: shot.output
     )
+  }
+
+  /// The references (in `ref` order, a character slug expanding to its
+  /// reference images) and the character a panel needs, resolved per panel so a
+  /// failure is that panel's failure (and honours `--continue-on-error`). The
+  /// per-model reference limit is enforced by `VinetasClient`'s
+  /// `ReferenceValidator` before any vendor call.
+  func panelInputs(
+    for item: PanelPlan, resolver: StoryboardReferenceResolver
+  ) throws -> (references: [ReferenceImage], character: Character?) {
+    var references: [ReferenceImage] = []
+    for entry in item.shot.ref ?? [] {
+      do {
+        for url in try resolver.resolve(entry) {
+          references.append(try ReferenceImage.load(path: url.path))
+        }
+      } catch let error as StoryboardPanelError {
+        throw StoryboardPanelError(message: "panel \(item.panelNumber): \(error.message)")
+      }
+    }
+    var character: Character?
+    if let slug = item.shot.character {
+      do {
+        character = try resolver.characters.loadCharacter(slug: slug)
+      } catch {
+        throw StoryboardPanelError(
+          message:
+            "panel \(item.panelNumber): unknown character '\(slug)' — no character.yaml in "
+            + resolver.characters.characterDirectory(slug: slug).path)
+      }
+    }
+    return (references, character)
   }
 
   /// Resolve a panel's output URL: honor an explicit `output` (relative paths
