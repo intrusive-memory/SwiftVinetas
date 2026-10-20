@@ -2,14 +2,26 @@
 type: recon-report
 state: current
 requirements_file: REQUIREMENTS.md
-requirements_sha256: cc24c090c3c5185b592439c34fbef22bb45cf6385917c3eb1e27580f1faf3bc6
-project_head: d3afaf874e93b625a111fafbcf96ac1c5f6dbd47
+requirements_sha256: 0963d5d559c1ab24282baeba842180974ce565d4c53b1a08396b0c6db60ce68c
+project_head: 92e3d99
 search_root: ~/Projects/package-collection/pkg
 generated: 2026-10-20
 verdict: CLEAR
 ---
 
-# RECON_REPORT.md — SwiftVinetas 0.25.0 release (third recon)
+# RECON_REPORT.md — SwiftVinetas 0.25.0 release (fourth recon)
+
+## Fourth recon delta (2026-10-20, HEAD `92e3d99`)
+
+Re-run because the requirements changed after the third recon (committed in `63d8664`, merged as PR #82). The hub re-verified only what moved:
+
+- **A-01 (CONFIRMED)**: `git log origin/main..origin/development` now also lists `63d8664` and `92e3d99`; `git diff --stat e06c2a0 HEAD` = 4 files, all under `docs/missions/`. Precondition 1 now allows these.
+- **A-13 (CONFIRMED, W-1 resolved)**: the requirements now key on `model is CloudModelDescriptor`. `model` is in scope at all four `buildRequest` callers (`Vinetas.swift:513` via `prepare(_:on:characters:)` `let model = request.model` at `:463`; `:632`, `:680`, `:753` inside functions taking `model`) and at the `:331` clamp (`let model = request.model`, `:287`). `buildRequest` itself (`:1133–1154`) takes no model, so the fix adds a parameter. Line numbers `:331`, `:513`, `:632`, `:680`, `:753`, `:1143` unchanged (`grep -n`).
+- **A-14 (CONFIRMED, W-2 resolved)**: the requirements now ask for a new cloud test and leave `PanelRequestTests.swift:117–125` as is.
+- **A-02/A-03/A-04 re-checked**: `Vinetas.swift:48`, `:1277`, `AGENTS.md:8`, `:143`, `:145`, `:147`, `README.md:54` unchanged; `gh release view` latest still equals each floor. `Package.swift` unchanged since the third recon.
+- Verdict unchanged: **CLEAR**. A-07 remains UNVERIFIABLE (make targets).
+- Note: `README.md` `## Status` (line 256) and `AGENTS.md` `## Recent Changes` (line 289, last entry v0.20.1) carry per-version notes; neither has a 0.25.0 entry yet.
+
 
 ## Terminology
 
