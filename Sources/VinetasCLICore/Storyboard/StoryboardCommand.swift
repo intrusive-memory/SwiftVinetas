@@ -7,8 +7,8 @@ import SwiftVinetas
 /// screenplay.
 ///
 /// Parses a screenplay with GlosaCore (`.fountain` / `.highland` / `.fdx`),
-/// folds the empty-prompt "defaults" convention (`ShotResolver`) into a list of
-/// renderable shots, and maps each shot 1:1 onto a single-panel generation —
+/// folds the empty-prompt "defaults" convention (`GlosaScore.effectiveShots`)
+/// into a list of renderable shots, and maps each shot 1:1 onto a single-panel generation —
 /// the same in-process path `vinetas generate` uses.
 public struct Storyboard: AsyncParsableCommand {
   public static let configuration = CommandConfiguration(
@@ -56,13 +56,13 @@ public struct Storyboard: AsyncParsableCommand {
     }
 
     // 1. Parse screenplay → shots + diagnostics.
-    let (rawShots, diagnostics) = try ScreenplayShots.load(from: screenplay)
+    let (score, diagnostics) = try ScreenplayShots.loadScore(from: screenplay)
     for diagnostic in diagnostics {
       stderrPrint("[vinetas] glosa \(diagnostic.severity.rawValue): \(diagnostic.message)")
     }
 
     // 2. Fold the defaults convention → renderable shots.
-    let shots = ShotResolver.resolve(rawShots)
+    let shots = score.effectiveShots
     guard !shots.isEmpty else {
       stderrPrint(
         "[vinetas] No renderable <shot> directives found in \(screenplay). Nothing to generate.")
@@ -76,11 +76,16 @@ public struct Storyboard: AsyncParsableCommand {
     }
 
     // 4. Dry run: print only the resolved storyboard prompts (one per line, to
-    //    stdout so they can be piped) and exit without generating.
+    //    stdout so they can be piped) and exit without generating. A panel with
+    //    a whitespace-only prompt is reported to stderr instead of printed.
     if dryRun {
       stderrPrint("[vinetas] Storyboard — \(plan.count) prompt(s):")
       for item in plan {
-        print(item.prompt)
+        if let problem = item.problem {
+          stderrPrint("[vinetas] Panel \(item.panelNumber) ERROR: \(problem)")
+        } else {
+          print(item.prompt)
+        }
       }
       return
     }
@@ -103,7 +108,9 @@ public struct Storyboard: AsyncParsableCommand {
     //    FLUX.2 should fail before panel 1, not twenty panels in.
     //    Cloud models have nothing to download and are never Pro-gated; a
     //    missing API key surfaces from the first panel as exit code 78.
-    let neededModels = Set(plan.map(\.model)).sorted { $0.name < $1.name }
+    let neededModels = Set(plan.filter { $0.problem == nil }.map(\.model)).sorted {
+      $0.name < $1.name
+    }
     for needed in neededModels {
       try await ProGate.requireAccess(to: needed)
     }
@@ -122,6 +129,9 @@ public struct Storyboard: AsyncParsableCommand {
           "[vinetas] Panel \(item.panelNumber)/\(plan.count) (\(item.model.name)) → \(panelURL.lastPathComponent)"
         )
         do {
+          if let problem = item.problem {
+            throw StoryboardPanelError(message: problem)
+          }
           // Always through the PanelRequest path — including preview panels,
           // whose steps/width/height overrides are already folded into
           // `item.style` by `resolvePlan` — so `writePanel` records what this
@@ -158,6 +168,14 @@ public struct Storyboard: AsyncParsableCommand {
   /// A single resolved panel: concrete model + style, ready to generate.
   struct PanelPlan {
     var panelNumber: Int
+    /// The effective shot (defaults already folded by `GlosaScore.effectiveShots`)
+    /// this panel was planned from. Later stages (ref/character, output, the
+    /// GLOSA render record) read it from here.
+    var shot: Shot
+    /// Set when the panel cannot be generated (currently: whitespace-only
+    /// prompt). Reported per panel, honouring `--continue-on-error`, and in
+    /// `--dry-run`; never printed as a prompt.
+    var problem: String? = nil
     var prompt: String
     var model: CLIModel
     var style: StyleConfig
@@ -250,8 +268,16 @@ public struct Storyboard: AsyncParsableCommand {
       style.height = 512
     }
 
+    // GlosaCore folds only *empty* prompts into defaults, so a non-empty,
+    // all-whitespace prompt reaches here as a panel. It is a per-panel error.
+    let problem: String? =
+      shot.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      ? "panel \(panelNumber): whitespace-only prompt" : nil
+
     return PanelPlan(
       panelNumber: panelNumber,
+      shot: shot,
+      problem: problem,
       prompt: shot.prompt,
       model: resolvedModel,
       style: style,
@@ -276,4 +302,11 @@ public struct Storyboard: AsyncParsableCommand {
     }
     return outputDir.appendingPathComponent(String(format: "panel-%03d.png", item.panelNumber))
   }
+}
+
+/// A panel that cannot be generated before any engine is involved (e.g. a
+/// whitespace-only prompt).
+struct StoryboardPanelError: Error, CustomStringConvertible {
+  var message: String
+  var description: String { message }
 }

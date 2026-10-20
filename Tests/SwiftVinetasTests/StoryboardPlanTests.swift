@@ -7,7 +7,7 @@ import Testing
 
 // MARK: - StoryboardPlanTests
 //
-// `ShotResolver` (defaults folding) and `ScreenplayShots` (parsing) already have
+// `GlosaScore.effectiveShots` (defaults folding) and `ScreenplayShots` (parsing) already have
 // suites. The step between them — turning a resolved `Shot` into the concrete
 // model + StyleConfig + output path that actually drives generation — had none:
 // a test audit measured `StoryboardCommand.swift` at 0% line coverage.
