@@ -54,6 +54,33 @@ public struct CharacterManager: Sendable {
     characterDirectory(slug: slug).appendingPathComponent(name, isDirectory: true)
   }
 
+  // MARK: - Reference images
+
+  /// The views a reference sheet is generated in, in the order they are sent.
+  private static let referenceViewOrder = ["front", "left", "right", "back"]
+
+  /// Images that show what `character` looks like, best first: the
+  /// generated reference sheets (front, left, right, back, then any others
+  /// alphabetically), followed by the source photos. Missing files are
+  /// skipped.
+  public func referenceImageURLs(for character: Character) -> [URL] {
+    let fm = FileManager.default
+    let referencesDir = subdirectory("references", slug: character.slug)
+    let sheets =
+      ((try? fm.contentsOfDirectory(at: referencesDir, includingPropertiesForKeys: nil)) ?? [])
+      .filter { ["png", "jpg", "jpeg", "heic"].contains($0.pathExtension.lowercased()) }
+      .sorted { lhs, rhs in
+        let order = Self.referenceViewOrder
+        let l = order.firstIndex(of: lhs.deletingPathExtension().lastPathComponent) ?? order.count
+        let r = order.firstIndex(of: rhs.deletingPathExtension().lastPathComponent) ?? order.count
+        return l != r ? l < r : lhs.lastPathComponent < rhs.lastPathComponent
+      }
+    let photos = character.sourcePhotos
+      .map { characterDirectory(slug: character.slug).appendingPathComponent($0) }
+      .filter { fm.fileExists(atPath: $0.path) }
+    return sheets + photos
+  }
+
   // MARK: - Create
 
   /// Create a new character, set up the directory tree, and save the initial manifest.

@@ -463,35 +463,63 @@ struct CloudImageEngineTests {
     #expect(await engine.diskSize(of: CloudModelDescriptor.nanoBanana21) == nil)
   }
 
-  @Test("capabilities: text-to-image only, no LoRA, no references; negative prompt per provider")
+  @Test("capabilities: no LoRA; references per model; negative prompt per provider")
   func capabilities() async {
     let openAI = CloudImageEngine(provider: .openAI, keyStore: InMemoryAPIKeyStore())
+    let google = CloudImageEngine(provider: .google, keyStore: InMemoryAPIKeyStore())
+    let bfl = CloudImageEngine(provider: .blackForestLabs, keyStore: InMemoryAPIKeyStore())
     let stability = CloudImageEngine(provider: .stabilityAI, keyStore: InMemoryAPIKeyStore())
     #expect(openAI.supports(.textToImage))
     #expect(!openAI.supports(.loraInference))
     #expect(!openAI.supports(.loraTraining))
-    #expect(!openAI.supports(.imageToImage(maxReferenceImages: 1)))
+    #expect(openAI.supports(.imageToImage(maxReferenceImages: 10)))
+    #expect(!openAI.supports(.imageToImage(maxReferenceImages: 11)))
+    #expect(!bfl.supports(.imageToImage(maxReferenceImages: 1)))
+    #expect(!stability.supports(.imageToImage(maxReferenceImages: 1)))
     #expect(!openAI.supports(.negativePrompt))
     #expect(stability.supports(.negativePrompt))
-    #expect(openAI.maxReferenceImages(for: CloudModelDescriptor.gptImage25Flare) == 0)
+
+    #expect(openAI.maxReferenceImages(for: CloudModelDescriptor.gptImage25Flare) == 10)
+    #expect(google.maxReferenceImages(for: CloudModelDescriptor.nanoBanana21) == 10)
+    #expect(google.maxReferenceImages(for: CloudModelDescriptor.gemini3ProImage) == 6)
+    #expect(bfl.maxReferenceImages(for: CloudModelDescriptor.flux2Pro) == 0)
+    #expect(stability.maxReferenceImages(for: CloudModelDescriptor.stableImageCore) == 0)
+    // A descriptor the engine does not serve has no references.
+    #expect(openAI.maxReferenceImages(for: CloudModelDescriptor.nanoBanana21) == 0)
 
     await #expect(throws: CloudEngineError.unsupportedFeature("LoRA", provider: .openAI)) {
       try await openAI.loadLoRA(at: URL(fileURLWithPath: "/tmp/x.safetensors"), scale: 0.8)
     }
   }
 
-  @Test("image-to-image requests are refused before any network call")
+  @Test("image-to-image is refused before any network call where the model takes no references")
   func imageToImageRefused() async throws {
     let engine = CloudImageEngine(
-      provider: .openAI, keyStore: InMemoryAPIKeyStore(keys: [.openAI: "k"]),
-      client: OpenAIImageClient(), session: StubURLProtocol.makeSession())
-    try await engine.loadModel(CloudModelDescriptor.gptImage25Flare, progress: { _ in })
-    let reference = try CloudHTTP.decodeImage(stubPNG, provider: .openAI)
+      provider: .stabilityAI, keyStore: InMemoryAPIKeyStore(keys: [.stabilityAI: "k"]),
+      client: StabilityImageClient(), session: StubURLProtocol.makeSession())
+    try await engine.loadModel(CloudModelDescriptor.stableImageCore, progress: { _ in })
+    let reference = try CloudHTTP.decodeImage(stubPNG, provider: .stabilityAI)
     let request = GenerationRequest(
       prompt: "p", steps: 1, guidanceScale: 1, width: 1024, height: 1024,
       mode: .imageToImage(references: [reference]))
-    await #expect(throws: CloudEngineError.unsupportedFeature("Image-to-image", provider: .openAI))
-    {
+    await #expect(
+      throws: CloudEngineError.unsupportedFeature("Image-to-image", provider: .stabilityAI)
+    ) {
+      _ = try await engine.generate(request: request, stepProgress: nil)
+    }
+  }
+
+  @Test("more references than the model takes is refused before any network call")
+  func tooManyReferencesRefused() async throws {
+    let engine = CloudImageEngine(
+      provider: .google, keyStore: InMemoryAPIKeyStore(keys: [.google: "k"]),
+      client: GeminiImageClient(), session: StubURLProtocol.makeSession())
+    try await engine.loadModel(CloudModelDescriptor.gemini3ProImage, progress: { _ in })
+    let reference = try CloudHTTP.decodeImage(stubPNG, provider: .google)
+    let request = GenerationRequest(
+      prompt: "p", steps: 1, guidanceScale: 1, width: 1024, height: 1024,
+      mode: .imageToImage(references: Array(repeating: reference, count: 7)))
+    await #expect(throws: VinetasError.self) {
       _ = try await engine.generate(request: request, stepProgress: nil)
     }
   }
@@ -871,5 +899,142 @@ struct CloudVendorAdapterTests {
     ) {
       _ = try await engine.generate(request: makeRequest(), stepProgress: nil)
     }
+  }
+}
+
+// MARK: - Reference images and the prompt bundle (stubbed network)
+
+extension CloudVendorAdapterTests {
+
+  /// The image-to-image request a host builds: a bundle plus references.
+  private func referenceRequest(count: Int) throws -> GenerationRequest {
+    let reference = try CloudHTTP.decodeImage(stubPNG, provider: .openAI)
+    var request = makeRequest(width: 1344, height: 768)
+    request.mode = .imageToImage(references: Array(repeating: reference, count: count))
+    request.bundle = PromptBundle(
+      panelPrompt: "a lighthouse at dusk", stylePrompt: "ink wash", negativePrompt: "text",
+      width: 1344, height: 768,
+      character: .init(name: "Mara", description: "grey braid"), referenceCount: count,
+      steps: 28, guidanceScale: 3.5, seed: 7)
+    return request
+  }
+
+  @Test("OpenAI sends references to /edits as repeated image[] multipart parts")
+  func openAISendsReferencesAsMultipart() async throws {
+    defer { StubURLProtocol.reset() }
+    StubURLProtocol.handler = { request in
+      let json: [String: Any] = ["data": [["b64_json": stubPNG.base64EncodedString()]]]
+      return (httpResponse(request.url), try JSONSerialization.data(withJSONObject: json))
+    }
+
+    let engine = engine(.openAI, client: OpenAIImageClient())
+    try await engine.loadModel(CloudModelDescriptor.gptImage25Sunburst, progress: { _ in })
+    let result = try await engine.generate(request: referenceRequest(count: 2), stepProgress: nil)
+
+    let request = try #require(StubURLProtocol.requests.first)
+    #expect(request.url?.absoluteString == "https://api.openai.com/v1/images/edits")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-key")
+    let contentType = try #require(request.value(forHTTPHeaderField: "Content-Type"))
+    #expect(contentType.hasPrefix("multipart/form-data; boundary="))
+
+    let body = String(decoding: request.bodyData, as: UTF8.self)
+    #expect(body.components(separatedBy: "name=\"image[]\"").count - 1 == 2)
+    #expect(body.contains("filename=\"reference-1.jpg\""))
+    #expect(body.contains("filename=\"reference-2.jpg\""))
+    #expect(body.contains("Content-Type: image/jpeg"))
+    #expect(body.contains("name=\"model\"\r\n\r\ngpt-image-2.5-sunburst\r\n"))
+    #expect(body.contains("name=\"size\"\r\n\r\n1344x768\r\n"))
+    // The prompt is the rendered bundle, and that is what the result reports.
+    #expect(body.contains("Frame: 1344×768 pixels, 16:9 landscape aspect ratio."))
+    #expect(body.contains("The 2 attached images show Mara."))
+    #expect(body.contains("Avoid: text."))
+    #expect(result.usedPrompt.contains("Character: Mara — grey braid"))
+  }
+
+  @Test("OpenAI without references stays on /generations")
+  func openAIWithoutReferencesUsesGenerations() async throws {
+    defer { StubURLProtocol.reset() }
+    StubURLProtocol.handler = { request in
+      let json: [String: Any] = ["data": [["b64_json": stubPNG.base64EncodedString()]]]
+      return (httpResponse(request.url), try JSONSerialization.data(withJSONObject: json))
+    }
+    let engine = engine(.openAI, client: OpenAIImageClient())
+    try await engine.loadModel(CloudModelDescriptor.gptImage25Flare, progress: { _ in })
+    _ = try await engine.generate(request: referenceRequest(count: 0), stepProgress: nil)
+    let request = try #require(StubURLProtocol.requests.first)
+    #expect(request.url?.absoluteString == "https://api.openai.com/v1/images/generations")
+  }
+
+  @Test("Gemini sends references as inline image blocks after the text block")
+  func geminiSendsReferenceBlocks() async throws {
+    defer { StubURLProtocol.reset() }
+    StubURLProtocol.handler = { request in
+      let json: [String: Any] = [
+        "status": "completed",
+        "steps": [
+          [
+            "type": "model_output",
+            "content": [
+              ["type": "image", "mime_type": "image/jpeg", "data": stubPNG.base64EncodedString()]
+            ],
+          ]
+        ],
+      ]
+      return (httpResponse(request.url), try JSONSerialization.data(withJSONObject: json))
+    }
+
+    let engine = engine(.google, client: GeminiImageClient())
+    try await engine.loadModel(CloudModelDescriptor.nanoBanana21, progress: { _ in })
+    _ = try await engine.generate(request: referenceRequest(count: 3), stepProgress: nil)
+
+    let body = try #require(StubURLProtocol.requests.first).jsonBody
+    let input = try #require(body["input"] as? [[String: Any]])
+    #expect(input.count == 4)
+    #expect(input[0]["type"] as? String == "text")
+    let text = try #require(input[0]["text"] as? String)
+    #expect(text.contains("The 3 attached images show Mara."))
+    for block in input.dropFirst() {
+      #expect(block["type"] as? String == "image")
+      #expect(block["mime_type"] as? String == "image/jpeg")
+      let data = try #require((block["data"] as? String).flatMap { Data(base64Encoded: $0) })
+      #expect(data.starts(with: [0xFF, 0xD8]))  // JPEG SOI
+    }
+    let format = try #require(body["response_format"] as? [String: Any])
+    #expect(format["aspect_ratio"] as? String == "16:9")
+  }
+
+  @Test("a request without a bundle reaches the vendor verbatim")
+  func requestWithoutBundleIsVerbatim() async throws {
+    defer { StubURLProtocol.reset() }
+    StubURLProtocol.handler = { request in
+      let json: [String: Any] = ["data": [["b64_json": stubPNG.base64EncodedString()]]]
+      return (httpResponse(request.url), try JSONSerialization.data(withJSONObject: json))
+    }
+    let engine = engine(.openAI, client: OpenAIImageClient())
+    try await engine.loadModel(CloudModelDescriptor.gptImage25Flare, progress: { _ in })
+    let result = try await engine.generate(request: makeRequest(), stepProgress: nil)
+    #expect(result.usedPrompt == "a lighthouse at dusk")
+    #expect(
+      try #require(StubURLProtocol.requests.first).jsonBody["prompt"] as? String
+        == "a lighthouse at dusk")
+  }
+}
+
+@Suite("Cloud reference encoding")
+struct CloudReferenceEncodingTests {
+
+  @Test("references are flattened to JPEG and capped at the upload edge")
+  func encodeReferenceDownscales() throws {
+    let context = try #require(
+      CGContext(
+        data: nil, width: 3000, height: 1500, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpace(name: CGColorSpace.sRGB)!,
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    let image = try #require(context.makeImage())
+    let data = try CloudHTTP.encodeReference(image, provider: .google)
+    #expect(data.starts(with: [0xFF, 0xD8]))
+    let decoded = try CloudHTTP.decodeImage(data, provider: .google)
+    #expect(decoded.width == CloudHTTP.referenceMaxEdge)
+    #expect(decoded.height == CloudHTTP.referenceMaxEdge / 2)
   }
 }

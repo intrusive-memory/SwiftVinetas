@@ -153,6 +153,13 @@ public enum ImageOutput {
     /// that ignore negative prompts (e.g. FLUX.2).
     public let negativeApplied: Bool?
 
+    /// Slug of the character the panel depicts, if any.
+    public let character: String?
+
+    /// The structured description the prompt was built from. For a cloud
+    /// engine, ``composedPrompt`` is this bundle rendered.
+    public let bundle: PromptBundle?
+
     public init(
       prompt: String,
       model: String,
@@ -170,7 +177,9 @@ public enum ImageOutput {
       style: String? = nil,
       composedPrompt: String? = nil,
       negative: String? = nil,
-      negativeApplied: Bool? = nil
+      negativeApplied: Bool? = nil,
+      character: String? = nil,
+      bundle: PromptBundle? = nil
     ) {
       self.prompt = prompt
       self.model = model
@@ -189,6 +198,8 @@ public enum ImageOutput {
       self.composedPrompt = composedPrompt
       self.negative = negative
       self.negativeApplied = negativeApplied
+      self.character = character
+      self.bundle = bundle
     }
   }
 
@@ -228,15 +239,24 @@ public enum ImageOutput {
       self.effectiveHeight = effectiveHeight
     }
 
-    /// Builds a record from a loaded ``ReferenceImage``.
+    /// Builds a record from a loaded ``ReferenceImage``, with the effective
+    /// size FLUX.2 conditions on.
     public init(_ reference: ReferenceImage) {
+      self.init(reference, engineID: "flux2")
+    }
+
+    /// Builds a record from a loaded ``ReferenceImage``, with the effective
+    /// size `engineID` conditions on (see
+    /// ``ReferenceImage/effectiveSize(forEngineID:)``).
+    public init(_ reference: ReferenceImage, engineID: String) {
+      let effective = reference.effectiveSize(forEngineID: engineID)
       self.init(
         source: reference.source.description,
         sha256: reference.sha256,
         originalWidth: reference.originalSize.width,
         originalHeight: reference.originalSize.height,
-        effectiveWidth: reference.effectiveSize.width,
-        effectiveHeight: reference.effectiveSize.height
+        effectiveWidth: effective.width,
+        effectiveHeight: effective.height
       )
     }
   }

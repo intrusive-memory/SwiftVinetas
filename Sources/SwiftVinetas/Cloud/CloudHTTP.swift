@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+import UniformTypeIdentifiers
 
 // Shared HTTP, image-decoding, and dimension helpers for the vendor adapters.
 
@@ -142,8 +143,21 @@ enum CloudHTTP {
     return try decodeImage(data, provider: provider)
   }
 
-  /// Builds a `multipart/form-data` body from string fields.
-  static func multipartBody(fields: [(name: String, value: String)], boundary: String) -> Data {
+  /// One file part of a `multipart/form-data` body.
+  struct MultipartFile {
+    let name: String
+    let filename: String
+    let contentType: String
+    let data: Data
+  }
+
+  /// Builds a `multipart/form-data` body from string fields, followed by any
+  /// file parts.
+  static func multipartBody(
+    fields: [(name: String, value: String)],
+    files: [MultipartFile] = [],
+    boundary: String
+  ) -> Data {
     var body = Data()
     for field in fields {
       body.append(Data("--\(boundary)\r\n".utf8))
@@ -151,8 +165,64 @@ enum CloudHTTP {
       body.append(Data(field.value.utf8))
       body.append(Data("\r\n".utf8))
     }
+    for file in files {
+      body.append(Data("--\(boundary)\r\n".utf8))
+      body.append(
+        Data(
+          "Content-Disposition: form-data; name=\"\(file.name)\"; filename=\"\(file.filename)\"\r\n"
+            .utf8))
+      body.append(Data("Content-Type: \(file.contentType)\r\n\r\n".utf8))
+      body.append(file.data)
+      body.append(Data("\r\n".utf8))
+    }
     body.append(Data("--\(boundary)--\r\n".utf8))
     return body
+  }
+
+  // MARK: - Reference upload
+
+  /// Longest edge a reference image is uploaded at. Vendors downscale large
+  /// inputs themselves; sending them full size only inflates the request
+  /// (Gemini caps an inline request at 20 MB, base64 included).
+  static let referenceMaxEdge = 1536
+
+  /// Encodes a reference image for upload: flattened onto white (JPEG has no
+  /// alpha), scaled so the longest edge is at most ``referenceMaxEdge``, as
+  /// JPEG at quality 0.9.
+  static func encodeReference(_ image: CGImage, provider: CloudProvider) throws -> Data {
+    let longest = max(image.width, image.height)
+    let scale = min(1.0, Double(referenceMaxEdge) / Double(max(1, longest)))
+    let width = max(1, Int((Double(image.width) * scale).rounded()))
+    let height = max(1, Int((Double(image.height) * scale).rounded()))
+
+    guard
+      let context = CGContext(
+        data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
+    else {
+      throw CloudEngineError.invalidResponse(provider: provider, detail: "reference encode failed")
+    }
+    let rect = CGRect(x: 0, y: 0, width: width, height: height)
+    context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+    context.fill(rect)
+    context.interpolationQuality = .high
+    context.draw(image, in: rect)
+
+    let output = NSMutableData()
+    guard let flattened = context.makeImage(),
+      let destination = CGImageDestinationCreateWithData(
+        output, UTType.jpeg.identifier as CFString, 1, nil)
+    else {
+      throw CloudEngineError.invalidResponse(provider: provider, detail: "reference encode failed")
+    }
+    CGImageDestinationAddImage(
+      destination, flattened,
+      [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary)
+    guard CGImageDestinationFinalize(destination) else {
+      throw CloudEngineError.invalidResponse(provider: provider, detail: "reference encode failed")
+    }
+    return output as Data
   }
 }
 

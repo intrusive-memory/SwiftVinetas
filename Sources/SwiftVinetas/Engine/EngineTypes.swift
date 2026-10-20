@@ -35,6 +35,11 @@ public struct GenerationRequest: Sendable {
   /// The generation mode (text-to-image or image-to-image).
   public var mode: GenerationMode
 
+  /// The structured description ``prompt`` was composed from. Cloud engines
+  /// render it into their vendor prompt (see ``PromptBundle``); on-device
+  /// engines ignore it. `nil` for callers that build requests by hand.
+  public var bundle: PromptBundle?
+
   /// Creates a new generation request.
   ///
   /// - Parameters:
@@ -46,6 +51,7 @@ public struct GenerationRequest: Sendable {
   ///   - width: Output width in pixels.
   ///   - height: Output height in pixels.
   ///   - mode: The generation mode.
+  ///   - bundle: The structured description `prompt` was composed from.
   public init(
     prompt: String,
     negativePrompt: String? = nil,
@@ -54,7 +60,8 @@ public struct GenerationRequest: Sendable {
     seed: UInt64? = nil,
     width: Int,
     height: Int,
-    mode: GenerationMode = .textToImage
+    mode: GenerationMode = .textToImage,
+    bundle: PromptBundle? = nil
   ) {
     self.prompt = prompt
     self.negativePrompt = negativePrompt
@@ -64,6 +71,7 @@ public struct GenerationRequest: Sendable {
     self.width = width
     self.height = height
     self.mode = mode
+    self.bundle = bundle
   }
 
   // MARK: - GenerationMode

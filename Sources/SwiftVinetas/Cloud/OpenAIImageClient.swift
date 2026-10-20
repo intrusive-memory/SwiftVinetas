@@ -1,6 +1,11 @@
 import Foundation
 
-/// OpenAI Images API adapter (`POST /v1/images/generations`).
+/// OpenAI Images API adapter: `POST /v1/images/generations` for
+/// text-to-image, `POST /v1/images/edits` when reference images are attached.
+///
+/// The edits endpoint only accepts `multipart/form-data`; each reference is a
+/// repeated `image[]` part, in the order supplied (the vendor maps them to
+/// "image 1", "image 2", … in the prompt).
 ///
 /// The `gpt-image-2.5` models return base64 PNG data and accept an explicit
 /// `WIDTHxHEIGHT` size: multiples of 16, aspect between 1:3 and 3:1, no edge
@@ -12,6 +17,9 @@ struct OpenAIImageClient: CloudProviderClient {
 
   /// Overridable for tests; production uses the public endpoint.
   var endpoint = URL(string: "https://api.openai.com/v1/images/generations")!
+
+  /// The reference-image endpoint. Overridable for tests.
+  var editsEndpoint = URL(string: "https://api.openai.com/v1/images/edits")!
 
   /// Output quality hint. `auto` lets the vendor pick; exposed so a future
   /// setting can trade cost for fidelity.
@@ -33,20 +41,44 @@ struct OpenAIImageClient: CloudProviderClient {
     apiKey: String,
     session: URLSession
   ) async throws -> CloudImageOutput {
-    var urlRequest = URLRequest(url: endpoint)
+    let size = Self.size(width: request.width, height: request.height)
+    var urlRequest: URLRequest
+
+    if case .imageToImage(let references) = request.mode, !references.isEmpty {
+      let fields: [(name: String, value: String)] = [
+        ("model", model.vendorModelID),
+        ("prompt", request.prompt),
+        ("n", "1"),
+        ("size", size),
+        ("quality", quality),
+        ("output_format", "png"),
+      ]
+      let files = try references.enumerated().map { index, image in
+        CloudHTTP.MultipartFile(
+          name: "image[]", filename: "reference-\(index + 1).jpg", contentType: "image/jpeg",
+          data: try CloudHTTP.encodeReference(image, provider: provider))
+      }
+      let boundary = "VinetasBoundary-\(UUID().uuidString)"
+      urlRequest = URLRequest(url: editsEndpoint)
+      urlRequest.setValue(
+        "multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+      urlRequest.httpBody = CloudHTTP.multipartBody(
+        fields: fields, files: files, boundary: boundary)
+    } else {
+      let body: [String: Any] = [
+        "model": model.vendorModelID,
+        "prompt": request.prompt,
+        "n": 1,
+        "size": size,
+        "quality": quality,
+        "output_format": "png",
+      ]
+      urlRequest = URLRequest(url: endpoint)
+      urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+      urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+    }
     urlRequest.httpMethod = "POST"
     urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-    urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-    let body: [String: Any] = [
-      "model": model.vendorModelID,
-      "prompt": request.prompt,
-      "n": 1,
-      "size": Self.size(width: request.width, height: request.height),
-      "quality": quality,
-      "output_format": "png",
-    ]
-    urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
 
     let (data, _) = try await CloudHTTP.perform(urlRequest, session: session, provider: provider)
 
