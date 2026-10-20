@@ -27,7 +27,7 @@ struct GenerateArgumentTests {
   @Test("defaults: model is klein4b, output is panel.png, preview is false")
   func generateDefaults() throws {
     let cmd = try Generate.parse(["test prompt"])
-    #expect(cmd.model == "klein4b")
+    #expect(cmd.model == nil)  // unset: resolves to klein4b; nil lets --shot-json detect an explicit --model
     #expect(cmd.output == "panel.png")
     #expect(cmd.preview == false)
   }

@@ -1,6 +1,7 @@
 import ArgumentParser
 import CoreGraphics
 import Foundation
+import GlosaCore
 import ImageIO
 import SwiftAcervo
 import SwiftVinetas
@@ -42,6 +43,18 @@ func downscaleNoteLines(
 
 // MARK: - Generate a single panel
 
+/// Reads the `--shot-json` argument: a file path, or `-` for stdin (read through
+/// the injected closure so tests never touch the real standard input).
+func readShotJSON(_ argument: String, stdin: () throws -> Data) throws -> Data {
+  if argument == "-" { return try stdin() }
+  do {
+    return try Data(contentsOf: URL(fileURLWithPath: argument))
+  } catch {
+    throw ValidationError(
+      "cannot read --shot-json file '\(argument)': \(error.localizedDescription)")
+  }
+}
+
 public struct Generate: AsyncParsableCommand {
   public static let configuration = CommandConfiguration(
     abstract: "Generate a single panel from a text prompt."
@@ -49,8 +62,9 @@ public struct Generate: AsyncParsableCommand {
 
   public init() {}
 
-  @Argument(help: "Text description of the panel to generate.")
-  public var prompt: String
+  @Argument(
+    help: "Text description of the panel to generate. Required unless --shot-json is given.")
+  public var prompt: String?
 
   @Option(name: .shortAndLong, help: "Style prompt for consistent look (e.g., 'noir comic').")
   public var style: String?
@@ -76,13 +90,13 @@ public struct Generate: AsyncParsableCommand {
         """
     )
   )
-  public var model: String = "klein4b"
+  public var model: String?
 
   @Option(name: .long, help: "Path to a LoRA safetensors file.")
   public var lora: String?
 
   @Option(name: .long, help: "LoRA scale (0.0-1.0).")
-  public var loraScale: Float = 0.8
+  public var loraScale: Float?
 
   @Option(name: .long, help: "Random seed for reproducibility.")
   public var seed: UInt64?
@@ -137,6 +151,25 @@ public struct Generate: AsyncParsableCommand {
     )
   )
   public var character: String?
+
+  @Option(
+    name: .long,
+    help: ArgumentHelp(
+      "A bare GLOSA 2.0 shot object (JSON): a file path, or - to read it from stdin.",
+      discussion: """
+        The shot supplies the generation parameters (prompt, model, style,
+        negative, steps, guidance, seed, aspect/size, lora, preview, ref,
+        character) exactly as `vinetas storyboard` maps them, and is recorded
+        in the sidecar's `glosa` object. Relative `ref` paths resolve against
+        the shot file's folder; with - only absolute paths and character slugs
+        resolve. It cannot be combined with the prompt argument or with
+        --style, --model, --seed, --steps, --guidance, --width, --height,
+        --aspect, --negative, --lora, --lora-scale, --preview, --reference or
+        --character; --output, --dry-run and --telemetry remain allowed.
+        """
+    )
+  )
+  public var shotJson: String?
 
   @Flag(
     name: .long,
@@ -197,7 +230,39 @@ public struct Generate: AsyncParsableCommand {
   )
   public var telemetry: Bool = false
 
+  /// Names of the explicit generation flags that cannot accompany `--shot-json`.
+  var shotJsonConflicts: [String] {
+    var names: [String] = []
+    if prompt != nil { names.append("<prompt>") }
+    if style != nil { names.append("--style") }
+    if model != nil { names.append("--model") }
+    if seed != nil { names.append("--seed") }
+    if steps != nil { names.append("--steps") }
+    if guidance != nil { names.append("--guidance") }
+    if width != nil { names.append("--width") }
+    if height != nil { names.append("--height") }
+    if aspect != nil { names.append("--aspect") }
+    if negative != nil { names.append("--negative") }
+    if lora != nil { names.append("--lora") }
+    if loraScale != nil { names.append("--lora-scale") }
+    if preview { names.append("--preview") }
+    if !references.isEmpty { names.append("--reference") }
+    if character != nil { names.append("--character") }
+    return names
+  }
+
   public mutating func validate() throws {
+    if shotJson != nil {
+      let conflicts = shotJsonConflicts
+      guard conflicts.isEmpty else {
+        throw ValidationError(
+          "--shot-json supplies the generation parameters and cannot be combined with "
+            + conflicts.joined(separator: ", ")
+            + ". Put those settings in the shot, or drop --shot-json.")
+      }
+    } else if prompt == nil {
+      throw ValidationError("Missing expected argument '<prompt>' (or pass --shot-json).")
+    }
     let stdinReferenceCount = references.filter { $0 == "-" }.count
     guard stdinReferenceCount <= 1 else {
       throw ValidationError("only one --reference may read from stdin")
@@ -220,57 +285,129 @@ public struct Generate: AsyncParsableCommand {
   /// The body of `run()`, split out so a `CloudEngineError` maps to its exit
   /// code in one place (`reportingCloudErrors`).
   private func generatePanel() async throws {
-    guard let cliModel = CLIModel.resolve(model) else {
-      throw CLIModel.unknownModelError(model)
-    }
-    try await ProGate.requireAccess(to: cliModel)
-
-    // --preview is a FLUX-only fast path (forces Klein 4B at 4 steps, 512×512).
-    // Combining it with another model — on-device or cloud — would silently
-    // ignore --model. Previews are free by design and always stay on-device.
-    if preview && cliModel != .klein4b {
-      throw ValidationError(
-        "--preview is FLUX.2-only (Klein 4B, 4 steps, 512×512) and always runs on-device. "
-          + "Drop --model or omit --preview."
-      )
-    }
-
-    // Cloud vendors ignore flags they don't take: say so once, up front,
-    // instead of after a paid call. LoRA is the one hard refusal — a cloud
-    // engine cannot apply an adapter at all.
+    var loadedReferences: [ReferenceImage] = []
+    var loadedCharacter: Character?
+    var recordedShot: Shot?
     var warnedNegative = false
-    if let cloud = cliModel.cloud {
-      if lora != nil {
+    let cliModel: CLIModel
+    var styleConfig: StyleConfig
+    let promptText: String
+    let negativeText: String?
+
+    if let shotJson {
+      // The shot supplies every generation parameter; the mapping is the one
+      // `vinetas storyboard` uses (`resolveShotPlan`).
+      let data = try readShotJSON(shotJson, stdin: { CLIEnvironment.stdinReferenceData() })
+      let shot: Shot
+      do {
+        shot = try Shot(schemaJSONData: data)
+      } catch {
+        throw ValidationError("invalid --shot-json: \(error.message)")
+      }
+      let plan = resolveShotPlan(for: shot, panelNumber: 1, label: "Shot", fleetModel: .klein4b)
+      if let problem = plan.problem { throw ValidationError("invalid --shot-json: \(problem)") }
+      cliModel = plan.model
+      try await ProGate.requireAccess(to: cliModel)
+      // D-7: relative `ref` paths resolve against the shot file's folder;
+      // stdin has no folder (absolute paths and character slugs only).
+      let resolver = StoryboardReferenceResolver(
+        documentFolder: shotJson == "-"
+          ? nil : URL(fileURLWithPath: shotJson).deletingLastPathComponent())
+      let inputs = try Storyboard().panelInputs(for: plan, resolver: resolver)
+      loadedReferences = inputs.references
+      loadedCharacter = inputs.character
+      styleConfig = plan.style
+      promptText = plan.prompt
+      negativeText = shot.negative
+      recordedShot = shot
+      warnedNegative = cliModel.cloud != nil
+    } else {
+      guard let resolved = CLIModel.resolve(model ?? "klein4b") else {
+        throw CLIModel.unknownModelError(model ?? "klein4b")
+      }
+      cliModel = resolved
+      try await ProGate.requireAccess(to: cliModel)
+
+      // --preview is a FLUX-only fast path (forces Klein 4B at 4 steps, 512×512).
+      // Combining it with another model — on-device or cloud — would silently
+      // ignore --model. Previews are free by design and always stay on-device.
+      if preview && cliModel != .klein4b {
         throw ValidationError(
-          "'\(cloud.id)' is a cloud model; cloud engines cannot apply LoRA adapters. "
-            + "Drop --lora or use an on-device model (klein4b)."
+          "--preview is FLUX.2-only (Klein 4B, 4 steps, 512×512) and always runs on-device. "
+            + "Drop --model or omit --preview."
         )
       }
-      let warnings = cloudCapabilityWarnings(
-        for: cloud, steps: steps, guidance: guidance, seed: seed, negative: negative)
-      for line in warnings { stderrPrint(line) }
-      warnedNegative = warnings.contains { $0.contains("--negative") }
-    }
 
-    // Seed StyleConfig with this model's per-engine defaults so PixArt's
-    // recommended guidance (4.5) and steps don't get overridden by FLUX-tuned
-    // defaults. User-supplied --steps / --guidance still take precedence.
-    let descriptor = cliModel.descriptor
-
-    // Load and validate reference images BEFORE any download or engine call
-    // (RI-1 – RI-5): a bad path, an unsupported engine, or too many
-    // references all fail fast, with no download and no model load.
-    let loadedCharacter = try character.map { try CharacterManager().loadCharacter(slug: $0) }
-
-    var loadedReferences: [ReferenceImage] = []
-    for reference in references {
-      if reference == "-" {
-        let data = CLIEnvironment.stdinReferenceData()
-        loadedReferences.append(try ReferenceImage.load(data: data, source: .stdin))
-      } else {
-        loadedReferences.append(try ReferenceImage.load(path: reference))
+      // Cloud vendors ignore flags they don't take: say so once, up front,
+      // instead of after a paid call. LoRA is the one hard refusal — a cloud
+      // engine cannot apply an adapter at all.
+      if let cloud = cliModel.cloud {
+        if lora != nil {
+          throw ValidationError(
+            "'\(cloud.id)' is a cloud model; cloud engines cannot apply LoRA adapters. "
+              + "Drop --lora or use an on-device model (klein4b)."
+          )
+        }
+        let warnings = cloudCapabilityWarnings(
+          for: cloud, steps: steps, guidance: guidance, seed: seed, negative: negative)
+        for line in warnings { stderrPrint(line) }
+        warnedNegative = warnings.contains { $0.contains("--negative") }
       }
+
+      // Load and validate reference images BEFORE any download or engine call
+      // (RI-1 – RI-5): a bad path, an unsupported engine, or too many
+      // references all fail fast, with no download and no model load.
+      loadedCharacter = try character.map { try CharacterManager().loadCharacter(slug: $0) }
+      for reference in references {
+        if reference == "-" {
+          let data = CLIEnvironment.stdinReferenceData()
+          loadedReferences.append(try ReferenceImage.load(data: data, source: .stdin))
+        } else {
+          loadedReferences.append(try ReferenceImage.load(path: reference))
+        }
+      }
+
+      // Seed StyleConfig with this model's per-engine defaults so PixArt's
+      // recommended guidance (4.5) and steps don't get overridden by FLUX-tuned
+      // defaults. User-supplied --steps / --guidance still take precedence.
+      let seedDescriptor = cliModel.descriptor
+      styleConfig = StyleConfig(
+        steps: seedDescriptor.defaultSteps,
+        guidanceScale: seedDescriptor.defaultGuidance
+      )
+      if let stylePrompt = style { styleConfig.stylePrompt = stylePrompt }
+      if let negative { styleConfig.negativePrompt = negative }
+      if let steps { styleConfig.steps = steps }
+      if let guidance { styleConfig.guidanceScale = guidance }
+      if let seed { styleConfig.seed = seed }
+
+      // Apply aspect ratio preset (explicit --width/--height take precedence)
+      if let aspectName = aspect {
+        guard let ratio = AspectRatio(rawValue: aspectName) else {
+          let validValues = AspectRatio.allCases.map(\.rawValue).joined(separator: ", ")
+          throw ValidationError(
+            "Unknown aspect ratio '\(aspectName)'. Valid values: \(validValues)")
+        }
+        styleConfig.width = ratio.width
+        styleConfig.height = ratio.height
+      }
+      if let width { styleConfig.width = width }
+      if let height { styleConfig.height = height }
+
+      if let lora { styleConfig.loraPath = lora }
+      styleConfig.loraScale = loraScale ?? 0.8
+
+      // Override everything for preview mode
+      if preview {
+        styleConfig.steps = 4
+        styleConfig.width = 512
+        styleConfig.height = 512
+      }
+      promptText = prompt ?? ""
+      negativeText = negative
     }
+
+    let descriptor = cliModel.descriptor
     if !loadedReferences.isEmpty {
       let engine = try await CLIEnvironment.client.router.engine(for: descriptor)
       try ReferenceValidator.validate(
@@ -280,41 +417,9 @@ public struct Generate: AsyncParsableCommand {
       stderrPrint(line)
     }
 
-    var styleConfig = StyleConfig(
-      steps: descriptor.defaultSteps,
-      guidanceScale: descriptor.defaultGuidance
-    )
-    if let stylePrompt = style { styleConfig.stylePrompt = stylePrompt }
-    if let negative { styleConfig.negativePrompt = negative }
-    if let steps { styleConfig.steps = steps }
-    if let guidance { styleConfig.guidanceScale = guidance }
-    if let seed { styleConfig.seed = seed }
-
-    // Apply aspect ratio preset (explicit --width/--height take precedence)
-    if let aspectName = aspect {
-      guard let ratio = AspectRatio(rawValue: aspectName) else {
-        let validValues = AspectRatio.allCases.map(\.rawValue).joined(separator: ", ")
-        throw ValidationError("Unknown aspect ratio '\(aspectName)'. Valid values: \(validValues)")
-      }
-      styleConfig.width = ratio.width
-      styleConfig.height = ratio.height
-    }
-    if let width { styleConfig.width = width }
-    if let height { styleConfig.height = height }
-
-    if let lora { styleConfig.loraPath = lora }
-    styleConfig.loraScale = loraScale
-
-    // Override everything for preview mode
-    if preview {
-      styleConfig.steps = 4
-      styleConfig.width = 512
-      styleConfig.height = 512
-    }
-
     let panelRequest = PanelRequest(
-      prompt: prompt, style: styleConfig, model: descriptor, references: loadedReferences,
-      character: loadedCharacter)
+      prompt: promptText, style: styleConfig, model: descriptor, references: loadedReferences,
+      character: loadedCharacter, shot: recordedShot)
 
     if dryRun {
       let prepared = try await CLIEnvironment.client.prepare(panelRequest)
@@ -346,7 +451,7 @@ public struct Generate: AsyncParsableCommand {
       stderrPrint("[vinetas] Character: \(loadedCharacter.name) (\(carried))")
     }
 
-    if negative != nil, !warnedNegative, panel.metadata.negativeApplied == false {
+    if negativeText != nil, !warnedNegative, panel.metadata.negativeApplied == false {
       let engineName = panel.metadata.engine ?? descriptor.engineID
       stderrPrint("warning: \(engineName) does not apply negative prompts; --negative ignored")
     }
