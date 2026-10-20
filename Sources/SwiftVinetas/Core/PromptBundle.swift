@@ -143,15 +143,28 @@ public struct PromptBundle: Codable, Sendable, Equatable {
           : "Character: \(character.name) — \(description)")
     }
 
-    if referenceCount > 0 {
+    let noCopy =
+      "Do not copy the references' pose, framing, lighting, or background; take those from "
+      + "this prompt."
+    if referenceCount > 0, let character {
+      // The references are all one person: say whose they are.
       let images =
         referenceCount == 1
         ? "The attached image shows" : "The \(referenceCount) attached images show"
-      let subject = character.map { $0.name } ?? "the subject"
       sections.append(
-        "Reference images: \(images) \(subject). Keep \(subject)'s identity consistent with "
-          + "the references — face, hair, build, and costume. Do not copy the references' pose, "
-          + "framing, lighting, or background; take those from this prompt.")
+        "Reference images: \(images) \(character.name). Keep \(character.name)'s identity "
+          + "consistent with the references — face, hair, build, and costume. \(noCopy)")
+    } else if referenceCount > 0 {
+      // Caller-supplied references may each be a different person or place;
+      // the panel prompt says which is which, so only number them.
+      let images =
+        referenceCount == 1
+        ? "1 attached (image 1)"
+        : "\(referenceCount) attached, in order (image 1 to image \(referenceCount))"
+      sections.append(
+        "Reference images: \(images). Use each one as this prompt describes, keeping the identity "
+          + "of every person or place it shows consistent with it — face, hair, build, costume, "
+          + "architecture. \(noCopy)")
     }
 
     if !nativeNegativePrompt, let negativePrompt {

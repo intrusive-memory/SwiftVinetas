@@ -66,10 +66,14 @@ struct PromptBundleTests {
     #expect(text.contains("Do not copy the references' pose"))
   }
 
-  @Test("references without a character refer to the subject")
+  @Test("references without a character are numbered, not merged into one subject")
   func renderedReferencesOnly() {
-    let text = bundle(references: 1).rendered(nativeNegativePrompt: false)
-    #expect(text.contains("Reference images: The attached image shows the subject."))
+    let one = bundle(references: 1).rendered(nativeNegativePrompt: false)
+    #expect(one.contains("Reference images: 1 attached (image 1). Use each one as this prompt"))
+    let three = bundle(references: 3).rendered(nativeNegativePrompt: false)
+    #expect(three.contains("Reference images: 3 attached, in order (image 1 to image 3)."))
+    #expect(!three.contains("the subject"))
+    #expect(three.contains("Do not copy the references' pose"))
   }
 
   @Test("the bundle round-trips through JSON")

@@ -595,7 +595,7 @@ extension CloudCLITests {
     #expect(prompt.hasPrefix("Mara at the dock"))
     #expect(prompt.contains("Art style: ink wash."))
     #expect(prompt.contains("Frame: 1344×768 pixels, 16:9 landscape aspect ratio."))
-    #expect(prompt.contains("The attached image shows the subject."))
+    #expect(prompt.contains("Reference images: 1 attached (image 1)."))
     #expect(prompt.contains("Avoid: text."))
     #expect((json["references"] as? [[String: Any]])?.count == 1)
     #expect(json["nativeAccepted"] as? [String] == ["width", "height"])
@@ -635,6 +635,7 @@ extension CloudCLITests {
     #expect(metadata.mode == .imageToImage)
     #expect(metadata.references?.count == 2)
     #expect(metadata.bundle?.referenceCount == 2)
-    #expect(metadata.composedPrompt?.contains("The 2 attached images show the subject.") == true)
+    #expect(
+      metadata.composedPrompt?.contains("2 attached, in order (image 1 to image 2)") == true)
   }
 }
