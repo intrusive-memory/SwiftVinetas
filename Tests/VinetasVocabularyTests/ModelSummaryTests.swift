@@ -14,6 +14,26 @@ struct ModelSummaryTests {
   }
 
   @Test
+  func testAllIsStillOnDeviceOnly() {
+    #expect(ModelSummary.all.map(\.id) == ["flux2-klein-4b", "pixart-sigma-xl"])
+    #expect(ModelSummary.all.allSatisfy { !$0.isCloud })
+    #expect(ModelSummary.allIncludingCloud == ModelSummary.all + ModelSummary.cloud)
+    #expect(ModelSummary.named(cli: "bfl-flux-2-pro")?.isCloud == true)
+  }
+
+  @Test
+  func testOldSummaryJSONDecodesWithCloudDefaults() throws {
+    let json = """
+      {"id":"x","displayName":"X","engineID":"e","cliName":"x","minimumMemoryGB":8,
+       "approximateDownloadSize":"1 GB","defaultSteps":4,"defaultGuidance":1.5,
+       "supportedAspectRatios":["square"]}
+      """
+    let decoded = try JSONDecoder().decode(ModelSummary.self, from: Data(json.utf8))
+    #expect(!decoded.isCloud)
+    #expect(decoded.maxReferenceImages == 0)
+  }
+
+  @Test
   func namedFindsPixArtByCLIName() {
     #expect(ModelSummary.named(cli: "pixart-sigma") == .pixartSigmaXL)
   }

@@ -143,6 +143,8 @@ OPTIONS:
                           depict in the panel.
   --dry-run               Print the fully resolved request as JSON to stdout
                           and exit without generating.
+  --shot-json <file|->    A bare GLOSA 2.0 shot object (JSON) that supplies the
+                          generation parameters; see "Generating from a shot".
   --telemetry             Write a JSONL trace of every library handoff (see docs/TELEMETRY.md).
 ```
 
@@ -205,6 +207,32 @@ vinetas generate "Vale in the rain" --character detective-vale \
 - The metadata records `character` (the slug) and, for a LoRA, its
   `activationKeyword`.
 
+### Generating from a shot (`--shot-json`)
+
+`--shot-json <file|->` takes a bare GLOSA 2.0 shot object (the schema form, not a
+whole screenplay) and generates one panel from it, mapping the shot's fields
+exactly as `vinetas storyboard` does (prompt, model, style, negative, steps,
+guidance, seed, aspect/size, lora, preview, `ref`, `character`). The shot is
+recorded in the sidecar's `glosa` object (see [The `glosa` record](#the-glosa-record)).
+
+```bash
+vinetas generate --shot-json shot.json -o panel.png
+cat shot.json | vinetas generate --shot-json - -o panel.png
+```
+
+**Conflict rule.** The shot supplies the generation parameters, so
+`--shot-json` cannot be combined with the `<prompt>` argument or with `--style`,
+`--model`, `--seed`, `--steps`, `--guidance`, `--width`, `--height`, `--aspect`,
+`--negative`, `--lora`, `--lora-scale`, `--preview`, `-r/--reference` or
+`--character`. Doing so is an error that names the conflicting options. Put
+those settings in the shot instead. `-o/--output`, `--dry-run` and
+`--telemetry` remain allowed.
+
+Relative `ref` paths in the shot resolve against the shot file's folder (and the
+project root found from there), with the same four rules as the storyboard. With
+`-` (stdin) there is no folder, so only absolute paths and Vinetas character
+slugs resolve.
+
 ### Dry run (`--dry-run`)
 
 Resolves everything `generate` would do (model, engine, references including
@@ -257,10 +285,44 @@ keyword, JSON payload with `.sortedKeys`):
 - `character`: the slug of the `--character`, if any
 - `bundle`: the structured prompt bundle; for a cloud model `composedPrompt`
   is this bundle rendered, i.e. the exact text the vendor received
+- `glosa`: the render record of a panel made from a GLOSA shot (see below)
 - `durationSeconds`, `generatedAt`
 
 Path outputs additionally get a `.json` sidecar with byte-identical contents,
 for tooling that would rather not parse PNG chunks.
+
+### The `glosa` record
+
+A panel made from a GLOSA shot (by `vinetas storyboard`, by
+`vinetas generate --shot-json`, or by `VinetasClient.generate` with
+`PanelRequest.shot` set) also records a `glosa` object in its metadata:
+
+- `notation`: the GLOSA notation version the shot was read under (`"2.0"`).
+- `digest`: `Shot.renderDigest` of the effective shot. Two panels with the same
+  digest were asked to render the same thing, so a stale image can be detected
+  by comparing digests.
+- `shot`: the effective shot (after the defaults fold) as a bare schema JSON
+  object. Decode it with `Shot(schemaJSONData:)`, or use
+  `GlosaRecord.decodedShot()` in the library. Seeds above 2^53-1 are written as
+  decimal strings.
+
+```json
+{
+  "glosa": {
+    "digest": "3f2a9c41d7e0b685",
+    "notation": "2.0",
+    "shot": {
+      "aspect": "wide",
+      "character": "sam",
+      "prompt": "A lighthouse keeper climbs the spiral stairs",
+      "seed": 7,
+      "style": "ink wash"
+    }
+  }
+}
+```
+
+Sidecars written before this record existed have no `glosa` key and still decode.
 
 ### `--negative` on engines that don't apply it
 
@@ -292,7 +354,7 @@ the README.
 
 ## `vinetas storyboard`
 
-Generate storyboard panels from a screenplay's GLOSA `<shot>` directives.
+Generate storyboard panels from a screenplay's GLOSA shots.
 
 ```
 USAGE: vinetas storyboard <screenplay> [--output-dir <output-dir>] [--model <model>] [--dry-run] [--continue-on-error] [--telemetry]
@@ -302,11 +364,77 @@ Accepts `.fountain`, `.highland`, `.fdx`. `--dry-run` resolves and prints the
 storyboard's prompts without generating. See
 [docs/REQUIREMENTS-STORYBOARD-COMMAND.md](REQUIREMENTS-STORYBOARD-COMMAND.md).
 
-`--model` and a shot's `model="…"` attribute both accept cloud model ids. On a
+`--model` and a shot's `model` both accept cloud model ids. On a
 cloud panel a `lora` attribute is dropped with a warning, unsupported
 steps/guidance/seed/negative attributes warn, and `preview` is dropped
 (previews stay on-device). Cloud models are never Pro-gated and nothing is
 downloaded for them.
+
+### Shot notation and fold
+
+Shots are read through glosa-av's `GlosaParser`: GLOSA notation 2.0 JSON shots
+and notation 1.0 tags (`<shot ... />`-style attributes) both work, and
+`vinetas storyboard` does not parse notes itself. Shots are folded with
+`GlosaScore.effectiveShots`, so a shot with an empty prompt is a defaults shot
+whose fields apply to the shots after it, and each panel renders its effective
+shot. Specifics:
+
+- `output` is **not** inherited from a defaults shot (an inherited `output`
+  would make every later panel overwrite one file).
+- `ref`, `character` and `caption` are honoured (`caption` is display-only).
+- A prompt that is non-empty but only whitespace is an error for that panel
+  (`--continue-on-error` continues), not a defaults shot.
+
+A notation 2.0 JSON `ref` array cannot yet be authored in a `.fountain` file
+(the Fountain note recognizer rejects `]` inside `[[ ]]`); use the 1.0 tag form
+`ref="A,B"` in `.fountain` for now.
+
+### Reference resolution (`ref`)
+
+Each effective shot's `ref` entries become the panel's reference images, in
+order. Each entry is resolved by the first of these rules that matches:
+
+1. An absolute path.
+2. A path relative to the **project root** (the nearest ancestor of the
+   screenplay that holds a `PROJECT.md`), else relative to the screenplay's
+   folder.
+3. `characters/<NAME>/` in the project root: the first image among
+   `portrait.*`, `ref-portrait.*`, then any image in that folder,
+   alphabetically.
+4. A Vinetas character with that slug (its reference images).
+
+If no rule matches, that panel fails with a message naming the entry and every
+place searched, in order, for example:
+
+```
+unresolved reference 'sam': searched, in order: relative path /work/show/refs/sam;
+project character folder /work/show/characters/sam/; Vinetas character slug 'sam' in <characters dir>
+```
+
+The shot's `character` is loaded through the Vinetas character manager, as with
+`generate --character`. If a panel has more references than the model accepts
+it fails before any vendor call: `referencesUnsupported` when the model accepts
+none (PixArt-Sigma, BFL, Stability), `tooManyReferences` when it accepts some
+but fewer than given.
+
+### Output resolution
+
+A shot's relative `output` resolves against the project root (the nearest
+ancestor of the screenplay holding a `PROJECT.md`), else the screenplay's
+folder. It **never** resolves against the current directory, and it is not
+placed under `--output-dir`. An absolute `output` is used as given.
+`--output-dir` (default `./storyboard`) only places shots that have no
+`output`, auto-named `panel-NNN.png`.
+
+**Sandbox note.** The signed CLI inside the app bundle is sandboxed and can
+write only where it has been granted access. If the folder an `output`
+resolves to is not writable, that panel fails with the full path and the
+remedy (grant the folder to the Vinetas app, use an absolute `output` in a
+writable location, or omit `output` and use `--output-dir`). There is no silent
+fallback to the current directory.
+
+Every panel also records the [`glosa` record](#the-glosa-record) in its
+metadata.
 
 ## `vinetas download` / `vinetas list`
 

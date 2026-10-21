@@ -7,8 +7,8 @@ import SwiftVinetas
 /// screenplay.
 ///
 /// Parses a screenplay with GlosaCore (`.fountain` / `.highland` / `.fdx`),
-/// folds the empty-prompt "defaults" convention (`ShotResolver`) into a list of
-/// renderable shots, and maps each shot 1:1 onto a single-panel generation —
+/// folds the empty-prompt "defaults" convention (`GlosaScore.effectiveShots`)
+/// into a list of renderable shots, and maps each shot 1:1 onto a single-panel generation —
 /// the same in-process path `vinetas generate` uses.
 public struct Storyboard: AsyncParsableCommand {
   public static let configuration = CommandConfiguration(
@@ -56,13 +56,13 @@ public struct Storyboard: AsyncParsableCommand {
     }
 
     // 1. Parse screenplay → shots + diagnostics.
-    let (rawShots, diagnostics) = try ScreenplayShots.load(from: screenplay)
+    let (score, diagnostics) = try ScreenplayShots.loadScore(from: screenplay)
     for diagnostic in diagnostics {
       stderrPrint("[vinetas] glosa \(diagnostic.severity.rawValue): \(diagnostic.message)")
     }
 
     // 2. Fold the defaults convention → renderable shots.
-    let shots = ShotResolver.resolve(rawShots)
+    let shots = score.effectiveShots
     guard !shots.isEmpty else {
       stderrPrint(
         "[vinetas] No renderable <shot> directives found in \(screenplay). Nothing to generate.")
@@ -76,11 +76,16 @@ public struct Storyboard: AsyncParsableCommand {
     }
 
     // 4. Dry run: print only the resolved storyboard prompts (one per line, to
-    //    stdout so they can be piped) and exit without generating.
+    //    stdout so they can be piped) and exit without generating. A panel with
+    //    a whitespace-only prompt is reported to stderr instead of printed.
     if dryRun {
       stderrPrint("[vinetas] Storyboard — \(plan.count) prompt(s):")
       for item in plan {
-        print(item.prompt)
+        if let problem = item.problem {
+          stderrPrint("[vinetas] Panel \(item.panelNumber) ERROR: \(problem)")
+        } else {
+          print(item.prompt)
+        }
       }
       return
     }
@@ -103,7 +108,9 @@ public struct Storyboard: AsyncParsableCommand {
     //    FLUX.2 should fail before panel 1, not twenty panels in.
     //    Cloud models have nothing to download and are never Pro-gated; a
     //    missing API key surfaces from the first panel as exit code 78.
-    let neededModels = Set(plan.map(\.model)).sorted { $0.name < $1.name }
+    let neededModels = Set(plan.filter { $0.problem == nil }.map(\.model)).sorted {
+      $0.name < $1.name
+    }
     for needed in neededModels {
       try await ProGate.requireAccess(to: needed)
     }
@@ -112,23 +119,35 @@ public struct Storyboard: AsyncParsableCommand {
     }
 
     // 6. Generate each panel in order — one prompt per shot.
+    let referenceResolver = StoryboardReferenceResolver(screenplay: screenplay)
     var succeeded = 0
     var failures: [(panel: Int, error: Error)] = []
 
     try await reportingCloudErrors {
       for item in plan {
-        let panelURL = outputURL(for: item, in: outputDirURL)
+        let panelURL = outputURL(
+          for: item, in: outputDirURL,
+          relativeTo: referenceResolver.projectRoot
+            ?? URL(fileURLWithPath: screenplay).deletingLastPathComponent())
         stderrPrint(
           "[vinetas] Panel \(item.panelNumber)/\(plan.count) (\(item.model.name)) → \(panelURL.lastPathComponent)"
         )
         do {
+          if let problem = item.problem {
+            throw StoryboardPanelError(message: problem)
+          }
           // Always through the PanelRequest path — including preview panels,
           // whose steps/width/height overrides are already folded into
           // `item.style` by `resolvePlan` — so `writePanel` records what this
           // panel actually used (RI-13). `VinetasClient.preview(prompt:)` would
           // skip that: it returns a bare `CGImage` with no metadata.
+          try checkWritable(panelURL, for: item)
+          let inputs = try panelInputs(for: item, resolver: referenceResolver)
           let generated = try await CLIEnvironment.client.generate(
-            PanelRequest(prompt: item.prompt, style: item.style, model: item.model.descriptor))
+            PanelRequest(
+              prompt: item.prompt, style: item.style, model: item.model.descriptor,
+              references: inputs.references, character: inputs.character,
+              shot: item.shot))
           try ImageOutput.writePanel(
             image: generated.image, metadata: generated.metadata, to: panelURL)
           stderrPrint("[vinetas] Wrote \(panelURL.lastPathComponent)")
@@ -158,6 +177,14 @@ public struct Storyboard: AsyncParsableCommand {
   /// A single resolved panel: concrete model + style, ready to generate.
   struct PanelPlan {
     var panelNumber: Int
+    /// The effective shot (defaults already folded by `GlosaScore.effectiveShots`)
+    /// this panel was planned from. Later stages (ref/character, output, the
+    /// GLOSA render record) read it from here.
+    var shot: Shot
+    /// Set when the panel cannot be generated (currently: whitespace-only
+    /// prompt). Reported per panel, honouring `--continue-on-error`, and in
+    /// `--dry-run`; never printed as a prompt.
+    var problem: String? = nil
     var prompt: String
     var model: CLIModel
     var style: StyleConfig
@@ -165,115 +192,83 @@ public struct Storyboard: AsyncParsableCommand {
     var output: String?
   }
 
-  /// Map a defaults-folded `Shot` onto a concrete generation plan, mirroring the
-  /// `generate` command's StyleConfig construction. Unrecognized `model`/`aspect`
-  /// values warn and fall back (fleet model / no aspect) rather than aborting the
-  /// whole run.
+  /// Map a defaults-folded `Shot` onto a concrete generation plan. The mapping
+  /// itself lives in `resolveShotPlan` (Storyboard/ShotPlan.swift), shared with
+  /// `vinetas generate --shot-json`.
   func resolvePlan(for shot: Shot, panelNumber: Int, fleetModel: CLIModel) -> PanelPlan {
-    // Resolve model: shot value wins (on-device short name or cloud model id);
-    // unknown → warn + fleet default.
-    let resolvedModel: CLIModel
-    if let raw = shot.model {
-      if let m = CLIModel.resolve(raw) {
-        resolvedModel = m
-      } else {
-        stderrPrint(
-          "[vinetas] Panel \(panelNumber): unknown model '\(raw)', using '\(fleetModel.name)'.")
-        resolvedModel = fleetModel
-      }
-    } else {
-      resolvedModel = fleetModel
-    }
-
-    // Seed StyleConfig with the model's per-engine defaults (PixArt guidance/steps
-    // differ from FLUX), then apply shot overrides — same order as `generate`.
-    let descriptor = resolvedModel.descriptor
-    var style = StyleConfig(
-      steps: descriptor.defaultSteps,
-      guidanceScale: descriptor.defaultGuidance
-    )
-    if let s = shot.style { style.stylePrompt = s }
-    if let n = shot.negative { style.negativePrompt = n }
-    if let steps = shot.steps { style.steps = steps }
-    if let guidance = shot.guidance { style.guidanceScale = Float(guidance) }
-    if let seed = shot.seed { style.seed = seed }
-
-    // Aspect preset (explicit width/height take precedence). Unknown → warn + skip.
-    if let aspectName = shot.aspect {
-      if let ratio = AspectRatio(rawValue: aspectName) {
-        style.width = ratio.width
-        style.height = ratio.height
-      } else {
-        let valid = AspectRatio.allCases.map(\.rawValue).joined(separator: ", ")
-        stderrPrint(
-          "[vinetas] Panel \(panelNumber): unknown aspect '\(aspectName)', ignoring. Valid: \(valid)"
-        )
-      }
-    }
-    if let width = shot.width { style.width = width }
-    if let height = shot.height { style.height = height }
-
-    if let lora = shot.lora { style.loraPath = lora }
-    if let loraScale = shot.loraScale { style.loraScale = Float(loraScale) }
-
-    // Cloud engines cannot apply a LoRA and ignore the flags their vendor
-    // doesn't take. Warn per panel and keep going — a storyboard should not
-    // abort twenty panels in over one shot's attribute.
-    if let cloud = resolvedModel.cloud {
-      if style.loraPath != nil {
-        stderrPrint(
-          "[vinetas] Panel \(panelNumber): \(cloud.id) is a cloud model and cannot apply a LoRA; ignoring lora."
-        )
-        style.loraPath = nil
-      }
-      let warnings = cloudCapabilityWarnings(
-        for: cloud, steps: shot.steps, guidance: shot.guidance.map { Float($0) },
-        seed: shot.seed, negative: shot.negative)
-      for line in warnings {
-        stderrPrint("[vinetas] Panel \(panelNumber): \(line)")
-      }
-    }
-
-    // Preview is FLUX Klein-4B only (forces 4 steps / 512×512). If a shot asks
-    // for preview on another model — on-device or cloud — warn and drop
-    // preview rather than silently ignoring the model. Previews stay local.
-    var usePreview = shot.preview ?? false
-    if usePreview && resolvedModel != .klein4b {
-      stderrPrint(
-        "[vinetas] Panel \(panelNumber): --preview is Klein-4B only; ignoring preview for '\(resolvedModel.name)'."
-      )
-      usePreview = false
-    }
-    if usePreview {
-      style.steps = 4
-      style.width = 512
-      style.height = 512
-    }
-
-    return PanelPlan(
-      panelNumber: panelNumber,
-      prompt: shot.prompt,
-      model: resolvedModel,
-      style: style,
-      usePreview: usePreview,
-      output: shot.output
-    )
+    resolveShotPlan(
+      for: shot, panelNumber: panelNumber, label: "Panel \(panelNumber)", fleetModel: fleetModel)
   }
 
-  /// Resolve a panel's output URL: honor an explicit `output` (relative paths
-  /// resolved under the output dir), otherwise auto-name `panel-NNN.png`.
-  func outputURL(for item: PanelPlan, in outputDir: URL) -> URL {
+  /// The references (in `ref` order, a character slug expanding to its
+  /// reference images) and the character a panel needs, resolved per panel so a
+  /// failure is that panel's failure (and honours `--continue-on-error`). The
+  /// per-model reference limit is enforced by `VinetasClient`'s
+  /// `ReferenceValidator` before any vendor call.
+  func panelInputs(
+    for item: PanelPlan, resolver: StoryboardReferenceResolver
+  ) throws -> (references: [ReferenceImage], character: Character?) {
+    var references: [ReferenceImage] = []
+    for entry in item.shot.ref ?? [] {
+      do {
+        for url in try resolver.resolve(entry) {
+          references.append(try ReferenceImage.load(path: url.path))
+        }
+      } catch let error as StoryboardPanelError {
+        throw StoryboardPanelError(message: "panel \(item.panelNumber): \(error.message)")
+      }
+    }
+    var character: Character?
+    if let slug = item.shot.character {
+      do {
+        character = try resolver.characters.loadCharacter(slug: slug)
+      } catch {
+        throw StoryboardPanelError(
+          message:
+            "panel \(item.panelNumber): unknown character '\(slug)' — no character.yaml in "
+            + resolver.characters.characterDirectory(slug: slug).path)
+      }
+    }
+    return (references, character)
+  }
+
+  /// Resolve a panel's output URL. An explicit relative `output` resolves
+  /// against `base` — the project root, else the screenplay's folder
+  /// (``StoryboardReferenceResolver/projectRoot``) — never the process's
+  /// current directory and never `--output-dir`. An absolute `output` is used
+  /// as given. A shot with no `output` is auto-named `panel-NNN.png` under
+  /// `outputDir`.
+  func outputURL(for item: PanelPlan, in outputDir: URL, relativeTo base: URL) -> URL {
     if let output = item.output, !output.isEmpty {
-      // Test the raw string, not `URL(fileURLWithPath:).path`. That initializer
-      // resolves a relative path against the process's current directory, so the
-      // resulting URL is *always* absolute — which made the old check always
-      // true and silently sent `<shot output="panel.png"/>` to the CWD instead
-      // of `--output-dir`. Under the sandboxed CLI shipped in Vinetas.app that
-      // is not merely wrong, it is unwritable.
-      return output.hasPrefix("/")
-        ? URL(fileURLWithPath: output)
-        : outputDir.appendingPathComponent(output)
+      // Test the raw string: `URL(fileURLWithPath:)` resolves a relative path
+      // against the CWD, which the sandboxed CLI cannot write to.
+      if output.hasPrefix("/") { return URL(fileURLWithPath: output) }
+      return base.appendingPathComponent(output)
     }
     return outputDir.appendingPathComponent(String(format: "panel-%03d.png", item.panelNumber))
   }
+
+  /// For a panel whose explicit relative `output` lands in the project root /
+  /// screenplay folder, verify (via the injectable
+  /// ``CLIEnvironment/directoryWritabilityProbe``) that the folder is writable.
+  /// On denial the panel fails naming the full path and the remedy; there is
+  /// no fallback to the CWD.
+  func checkWritable(_ panelURL: URL, for item: PanelPlan) throws {
+    guard let output = item.output, !output.isEmpty, !output.hasPrefix("/") else { return }
+    let directory = panelURL.deletingLastPathComponent()
+    guard CLIEnvironment.directoryWritabilityProbe(directory) else {
+      throw StoryboardPanelError(
+        message:
+          "panel \(item.panelNumber): cannot write '\(panelURL.path)' — Vinetas has no write "
+          + "access to '\(directory.path)'. Grant that folder to the Vinetas app, use an "
+          + "absolute `output` in a writable location, or omit `output` to use --output-dir.")
+    }
+  }
+}
+
+/// A panel that cannot be generated before any engine is involved (e.g. a
+/// whitespace-only prompt).
+struct StoryboardPanelError: Error, CustomStringConvertible {
+  var message: String
+  var description: String { message }
 }

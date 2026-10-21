@@ -106,4 +106,63 @@ import VinetasVocabulary
       }
     }
   }
+
+  // MARK: - References, character, status section
+
+  @Test @MainActor func testComposerHidesReferenceRowsByDefault() {
+    let composer = VinetasPromptComposer(draft: .constant(.empty))
+    #expect(composer.showsReferenceControls == false)
+    let shown = VinetasPromptComposer(draft: .constant(.empty), showsReferenceControls: true)
+    #expect(shown.showsReferenceControls == true)
+    for layout in VinetasPanelLayout.allCases {
+      render(NavigationStack { composer }.vinetasPanelLayout(layout))
+      render(NavigationStack { shown }.vinetasPanelLayout(layout))
+    }
+  }
+
+  @Test func testReferenceAddDisabledAtModelLimit() {
+    let limit = VinetasPromptComposer.referenceLimit(for: .klein4B)
+    #expect(limit == 3)
+    #expect(VinetasPromptComposer.canAddReference(count: 2, limit: limit))
+    #expect(!VinetasPromptComposer.canAddReference(count: 3, limit: limit))
+    var draft = VinetasPromptDraft(modelID: ModelSummary.klein4B.id)
+    for _ in 0..<5 { VinetasPromptComposer.addReference(in: &draft, limit: limit) }
+    #expect(draft.references.count == 3)
+  }
+
+  @Test func testReferenceRowDisabledWhenLimitZero() {
+    let limit = VinetasPromptComposer.referenceLimit(for: .pixartSigmaXL)
+    #expect(limit == 0)
+    #expect(!VinetasPromptComposer.canAddReference(count: 0, limit: limit))
+    var draft = VinetasPromptDraft()
+    VinetasPromptComposer.addReference(in: &draft, limit: limit)
+    #expect(draft.references.isEmpty)
+  }
+
+  @Test func referenceRemoveAndReorder() {
+    var draft = VinetasPromptDraft(references: ["a", "b", "c"])
+    VinetasPromptComposer.moveReference(from: 0, by: 1, in: &draft)
+    #expect(draft.references == ["b", "a", "c"])
+    VinetasPromptComposer.moveReference(from: 2, by: 1, in: &draft)
+    #expect(draft.references == ["b", "a", "c"])
+    VinetasPromptComposer.removeReference(at: 1, in: &draft)
+    #expect(draft.references == ["b", "c"])
+    VinetasPromptComposer.removeReference(at: 9, in: &draft)
+    #expect(draft.references == ["b", "c"])
+  }
+
+  @Test @MainActor func testStatusSectionRendersHostContent() {
+    var built = 0
+    let composer = VinetasPromptComposer(draft: .constant(.empty)) {
+      Text("host status")
+        .onAppear { built += 1 }
+    }
+    for layout in VinetasPanelLayout.allCases {
+      render(NavigationStack { composer }.vinetasPanelLayout(layout))
+    }
+    // The slot type is the host's content, not EmptyView.
+    #expect(type(of: composer) != VinetasPromptComposer<EmptyView>.self)
+    #expect(String(describing: type(of: composer)).contains("Text"))
+    _ = built
+  }
 }

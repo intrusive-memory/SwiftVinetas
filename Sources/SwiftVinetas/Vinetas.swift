@@ -45,7 +45,7 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.25.0"
+  public static let version = "0.26.0"
 
   /// Configures a CDN base URL for model downloads.
   ///
@@ -426,7 +426,8 @@ extension VinetasClient {
       negative: negative,
       negativeApplied: negative.map { _ in engine.supports(.negativePrompt) },
       character: request.character?.slug,
-      bundle: prepared.bundle
+      bundle: prepared.bundle,
+      glosa: request.shot.map(ImageOutput.PanelMetadata.GlosaRecord.init(shot:))
     )
     return GeneratedPanel(image: result.image, metadata: metadata)
   }
@@ -1296,7 +1297,7 @@ extension VinetasClient {
 public enum Vinetas: Sendable {
 
   /// The current SwiftVinetas library version.
-  public static let version = "0.25.0"
+  public static let version = "0.26.0"
 
   // MARK: - Generation
 

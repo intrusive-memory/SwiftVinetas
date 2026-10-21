@@ -57,4 +57,24 @@ public enum CLIEnvironment {
       -> Void = { model, progress in
         try await Vinetas.download(model: model, progress: progress)
       }
+
+  /// Decides whether a directory is writable by this process. The default
+  /// creates the directory (and any parents) and a temporary file inside it,
+  /// then removes the file. Storyboard consults it before writing a panel into
+  /// the project root / screenplay folder: the sandboxed CLI in the app bundle
+  /// can write only where it was granted access, and that denial cannot be
+  /// reproduced outside the sandbox, so tests bind a denying stub here.
+  @TaskLocal public static var directoryWritabilityProbe: @Sendable (URL) -> Bool = {
+    directory in
+    let fm = FileManager.default
+    do {
+      try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+      let probe = directory.appendingPathComponent(".vinetas-write-probe-\(UUID().uuidString)")
+      try Data().write(to: probe)
+      try? fm.removeItem(at: probe)
+      return true
+    } catch {
+      return false
+    }
+  }
 }

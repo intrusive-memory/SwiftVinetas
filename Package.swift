@@ -83,15 +83,17 @@ let package = Package(
 
     // GLOSA screenplay directive parser — provides the `<shot>` storyboard
     // directives consumed by `vinetas storyboard`. Foundation-only leaf.
+    // Floored at 0.9.0 for GLOSA notation 2.0 (JSON shots, `Shot.effective`,
+    // `Shot.renderDigest`, `Shot.schemaJSONData`).
     .package(
-      url: "https://github.com/intrusive-memory/glosa-av.git", .upToNextMajor(from: "0.8.1")),
+      url: "https://github.com/intrusive-memory/glosa-av.git", .upToNextMajor(from: "0.9.0")),
 
     // Screenplay file parsing (.fountain / .highland / .fdx) — turns a
     // screenplay path into the `[[ ]]` note stream GlosaCore parses. Same
     // parser glosa-tools uses, so the screenplay→notes extraction has one
     // source of truth.
     .package(
-      url: "https://github.com/intrusive-memory/SwiftCompartido.git", .upToNextMajor(from: "7.3.1")),
+      url: "https://github.com/intrusive-memory/SwiftCompartido.git", .upToNextMajor(from: "7.4.0")),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
@@ -138,6 +140,7 @@ let package = Package(
       dependencies: [
         "VinetasVocabulary",
         .product(name: "Flux2Core", package: "flux-2-swift-mlx"),
+        .product(name: "GlosaCore", package: "glosa-av"),
         .product(name: "SwiftAcervo", package: "SwiftAcervo"),
         .product(name: "Tuberia", package: "SwiftTuberia"),
         .product(name: "TuberiaCatalog", package: "SwiftTuberia"),

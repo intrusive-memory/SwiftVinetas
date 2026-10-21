@@ -47,11 +47,19 @@ import VinetasUI
     ),
     (VinetasUIAccessibility.generationSeedUnsupportedNote, "generation.seedUnsupportedNote"),
     (VinetasUIAccessibility.generationMemoryWarning, "generation.memoryWarning"),
+    (VinetasUIAccessibility.referencesList, "references.list"),
+    (VinetasUIAccessibility.referencesAdd, "references.add"),
+    (VinetasUIAccessibility.referencesUnsupportedNote, "references.unsupportedNote"),
+    (VinetasUIAccessibility.referencesItemPrefix, "references.item"),
+    (VinetasUIAccessibility.referencesRemovePrefix, "references.remove"),
+    (VinetasUIAccessibility.referencesMoveUpPrefix, "references.moveUp"),
+    (VinetasUIAccessibility.referencesMoveDownPrefix, "references.moveDown"),
+    (VinetasUIAccessibility.characterField, "character.field"),
   ]
 
-  @Test func contractHasTwentyFourIdentifiers() {
-    #expect(Self.contract.count == 24)
-    #expect(Set(Self.contract.map(\.expected)).count == 24)
+  @Test func contractHasThirtyTwoIdentifiers() {
+    #expect(Self.contract.count == 32)
+    #expect(Set(Self.contract.map(\.expected)).count == 32)
   }
 
   @Test func everyConstantEqualsItsDocumentedString() {
@@ -62,6 +70,13 @@ import VinetasUI
 
   @Test func stylePickerRowJoinsPrefixAndRawValue() {
     #expect(VinetasUIAccessibility.stylePickerRow("custom") == "stylePicker.row.custom")
+  }
+
+  @Test func referenceBuildersJoinPrefixAndIndex() {
+    #expect(VinetasUIAccessibility.referenceItem(2) == "references.item.2")
+    #expect(VinetasUIAccessibility.referenceRemove(0) == "references.remove.0")
+    #expect(VinetasUIAccessibility.referenceMoveUp(1) == "references.moveUp.1")
+    #expect(VinetasUIAccessibility.referenceMoveDown(1) == "references.moveDown.1")
   }
 
   @Test func aspectRatioTileJoinsPrefixAndRawValue() {

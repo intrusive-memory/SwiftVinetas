@@ -9,7 +9,7 @@ import Testing
 // Integration coverage for the screenplay → `<shot>` bridge: a Fountain file
 // with `[[<shot .../>]]` notes must parse (via SwiftCompartido) into the note
 // stream GlosaCore reads, yielding Shot values in document order. End-to-end
-// with ShotResolver, the defaults convention must survive the round trip.
+// with GlosaScore.effectiveShots, the defaults convention must survive the round trip.
 
 @Suite("ScreenplayShots — Fountain ingestion")
 struct ScreenplayShotsTests {
@@ -63,8 +63,8 @@ struct ScreenplayShotsTests {
     let path = try writeTempFountain(fountain)
     defer { try? FileManager.default.removeItem(atPath: path) }
 
-    let (shots, _) = try ScreenplayShots.load(from: path)
-    let resolved = ShotResolver.resolve(shots)
+    let (score, _) = try ScreenplayShots.loadScore(from: path)
+    let resolved = score.effectiveShots
 
     #expect(resolved.count == 2)
     #expect(resolved[0].prompt == "wide office, rain")
@@ -86,7 +86,7 @@ struct ScreenplayShotsTests {
     let path = try writeTempFountain(fountain)
     defer { try? FileManager.default.removeItem(atPath: path) }
 
-    let (shots, _) = try ScreenplayShots.load(from: path)
-    #expect(ShotResolver.resolve(shots).isEmpty)
+    let (score, _) = try ScreenplayShots.loadScore(from: path)
+    #expect(score.effectiveShots.isEmpty)
   }
 }

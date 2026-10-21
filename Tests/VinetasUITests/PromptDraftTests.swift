@@ -104,4 +104,30 @@ import VinetasVocabulary
     draft.stylePrompt = try GranvilleFixtures.establishingPanel.style
     #expect(draft.style == nil)
   }
+
+  // MARK: - References and character
+
+  @Test func testDraftRoundTripWithReferencesAndCharacter() throws {
+    var draft = try establishingDraft()
+    draft.references = ["a.png", "folder/b.png"]
+    draft.character = "Ada"
+    #expect(try roundTrip(draft) == draft)
+    let json = try #require(
+      try JSONSerialization.jsonObject(with: JSONEncoder().encode(draft)) as? [String: Any])
+    #expect(json["references"] as? [String] == ["a.png", "folder/b.png"])
+    #expect(json["character"] as? String == "Ada")
+  }
+
+  @Test func testDraftDecodesWithoutNewFields() throws {
+    let data = Data(#"{"prompt":"p","modelID":"flux2-klein-4b"}"#.utf8)
+    let draft = try JSONDecoder().decode(VinetasPromptDraft.self, from: data)
+    #expect(draft.references.isEmpty)
+    #expect(draft.character == nil)
+    #expect(draft.prompt == "p")
+  }
+
+  @Test func cloudModelIDResolvesThroughTheDraft() throws {
+    let cloud = try #require(ModelSummary.cloud.first)
+    #expect(VinetasPromptDraft(modelID: cloud.id).model == cloud)
+  }
 }

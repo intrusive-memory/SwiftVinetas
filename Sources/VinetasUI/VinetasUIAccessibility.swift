@@ -102,7 +102,51 @@ public enum VinetasUIAccessibility {
   /// Retained for existing host UI tests only; no VinetasUI view renders it.
   public static let generationMemoryWarning = "generation.memoryWarning"
 
+  // MARK: - References and character
+
+  /// The References row's container.
+  public static let referencesList = "references.list"
+
+  /// The button that adds a reference.
+  public static let referencesAdd = "references.add"
+
+  /// The note shown when the selected model accepts no reference images.
+  public static let referencesUnsupportedNote = "references.unsupportedNote"
+
+  /// Reference field identifier prefix. Full id: `"references.item.<index>"`.
+  public static let referencesItemPrefix = "references.item"
+
+  /// Reference remove-button prefix. Full id: `"references.remove.<index>"`.
+  public static let referencesRemovePrefix = "references.remove"
+
+  /// Reference move-up-button prefix. Full id: `"references.moveUp.<index>"`.
+  public static let referencesMoveUpPrefix = "references.moveUp"
+
+  /// Reference move-down-button prefix. Full id: `"references.moveDown.<index>"`.
+  public static let referencesMoveDownPrefix = "references.moveDown"
+
+  /// The Character row's text field.
+  public static let characterField = "character.field"
+
   // MARK: - Builders
+
+  /// The identifier of the reference field at `index`.
+  public static func referenceItem(_ index: Int) -> String { "\(referencesItemPrefix).\(index)" }
+
+  /// The identifier of the remove button for the reference at `index`.
+  public static func referenceRemove(_ index: Int) -> String {
+    "\(referencesRemovePrefix).\(index)"
+  }
+
+  /// The identifier of the move-up button for the reference at `index`.
+  public static func referenceMoveUp(_ index: Int) -> String {
+    "\(referencesMoveUpPrefix).\(index)"
+  }
+
+  /// The identifier of the move-down button for the reference at `index`.
+  public static func referenceMoveDown(_ index: Int) -> String {
+    "\(referencesMoveDownPrefix).\(index)"
+  }
 
   /// The identifier of the style picker row for the style with `rawValue`.
   ///

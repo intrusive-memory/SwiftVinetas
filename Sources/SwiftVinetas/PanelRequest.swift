@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import GlosaCore
 
 /// A single-panel generation request for ``VinetasClient/generate(_:characters:stepProgress:)``.
 ///
@@ -29,18 +30,24 @@ public struct PanelRequest: Sendable {
   /// explicit `references`, its reference sheets and photos are attached.
   public var character: Character?
 
+  /// The effective GLOSA shot this panel renders; when set, the panel's
+  /// metadata records it in `glosa`.
+  public var shot: Shot?
+
   public init(
     prompt: String,
     style: StyleConfig = StyleConfig(),
     model: any ModelDescriptor = VinetasClient.defaultModel,
     references: [ReferenceImage] = [],
-    character: Character? = nil
+    character: Character? = nil,
+    shot: Shot? = nil
   ) {
     self.prompt = prompt
     self.style = style
     self.model = model
     self.references = references
     self.character = character
+    self.shot = shot
   }
 }
 

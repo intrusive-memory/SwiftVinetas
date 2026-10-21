@@ -61,6 +61,18 @@
         }
       }
     },
+    "Add reference" : {
+      "comment" : "Button that adds a reference image entry.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add reference"
+          }
+        }
+      }
+    },
     "Aspect Ratio" : {
       "comment" : "Heading of the aspect-ratio tiles.",
       "extractionState" : "manual",
@@ -93,6 +105,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Caption"
+          }
+        }
+      }
+    },
+    "Character" : {
+      "comment" : "Label of the character name field.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Character"
+          }
+        }
+      }
+    },
+    "Character name" : {
+      "comment" : "Placeholder of the character name field.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Character name"
           }
         }
       }
@@ -301,6 +337,30 @@
         }
       }
     },
+    "Move reference down" : {
+      "comment" : "Accessibility label of the button that moves a reference later.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move reference down"
+          }
+        }
+      }
+    },
+    "Move reference up" : {
+      "comment" : "Accessibility label of the button that moves a reference earlier.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move reference up"
+          }
+        }
+      }
+    },
     "Negative Prompt" : {
       "comment" : "Heading of the negative prompt section and accessibility label of its editor.",
       "extractionState" : "manual",
@@ -321,6 +381,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Negative prompt section"
+          }
+        }
+      }
+    },
+    "Path or name" : {
+      "comment" : "Placeholder of a reference field.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Path or name"
           }
         }
       }
@@ -409,6 +481,42 @@
         }
       }
     },
+    "Reference %lld" : {
+      "comment" : "Accessibility label of the reference field at a one-based position.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reference %lld"
+          }
+        }
+      }
+    },
+    "References" : {
+      "comment" : "Heading of the reference images row.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "References"
+          }
+        }
+      }
+    },
+    "Remove reference" : {
+      "comment" : "Accessibility label of the button that removes a reference.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove reference"
+          }
+        }
+      }
+    },
     "Seed" : {
       "comment" : "Heading and placeholder of the seed field.",
       "extractionState" : "manual",
@@ -489,6 +597,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Style prompt text"
+          }
+        }
+      }
+    },
+    "This model does not use reference images" : {
+      "comment" : "Note shown when the selected model accepts no reference images.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This model does not use reference images"
           }
         }
       }

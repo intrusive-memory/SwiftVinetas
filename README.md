@@ -51,7 +51,7 @@ A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see th
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.25.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.26.0")
 ]
 ```
 
@@ -108,6 +108,9 @@ vinetas storyboard script.fountain --output-dir ./storyboard/
 vinetas storyboard script.highland --dry-run          # print resolved prompts, generate nothing
 vinetas storyboard script.fdx --model pixart-sigma --continue-on-error
 
+# Generate one panel from a bare GLOSA 2.0 shot object (recorded in the sidecar)
+vinetas generate --shot-json shot.json -o panel.png
+
 # With LoRA style
 vinetas generate "A detective" --lora comic-style.safetensors --lora-scale 0.8
 
@@ -119,6 +122,10 @@ vinetas list
 OPENAI_API_KEY=… vinetas generate "A detective" --model openai-gpt-image-2.5-flare
 BFL_API_KEY=…    vinetas storyboard script.fountain --model bfl-flux-2-pro
 ```
+
+#### GLOSA 2.0 storyboards and render records
+
+`vinetas storyboard` reads GLOSA notation 2.0 JSON shots and notation 1.0 tags, honours a shot's `ref` and `character` (references resolve against the project root, then the screenplay's folder) and resolves a relative `output` against the project root rather than the current directory. Every panel's metadata carries a `glosa` render record (`notation`, `digest`, `shot`), so a tool can tell when an image no longer matches its shot; `vinetas generate --shot-json` and `VinetasClient.generate` (via `PanelRequest.shot`) write the same record. See the [CLI Reference](docs/CLI_REFERENCE.md#vinetas-storyboard) and the [CHANGELOG](CHANGELOG.md).
 
 ### YAML Prompt File Format
 
@@ -254,6 +261,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.26.0** — GLOSA notation 2.0 storyboards. The core `SwiftVinetas` target links `GlosaCore` (glosa-av floored at 0.9.0); `vinetas storyboard` folds shots with `GlosaScore.effectiveShots`, reads notation 2.0 JSON shots and 1.0 tags, and honours `ref`, `character` and `caption`. Every storyboard panel records `PanelMetadata.glosa` (notation, digest, and the effective shot as raw `Shot.schemaJSONData()` bytes). Relative `output` resolves against the project root. New `vinetas generate --shot-json <file|->`. SwiftCompartido floored at 7.4.0 so multi-line Fountain notes (and JSON `ref` arrays) are read. See `CHANGELOG.md` for behaviour changes.
 
 **v0.25.0** — Reference images for cloud models, and prompt bundles. OpenAI sends up to 10 reference images through `/v1/images/edits` (multipart) and Gemini through Interactions API image blocks (up to 10, or 6 for Gemini 3 Pro); `CloudModelDescriptor.maxReferenceImages` reports each model's limit, and references are re-encoded to JPEG at ≤ 1536 px on the long edge. `PromptBundle` renders the style, frame size, aspect label and orientation, and the character and reference instructions into the vendor prompt, and is recorded in `PanelMetadata`. `PanelRequest.character` carries a character as its LoRA on-device and as its description plus reference sheets and photos in the cloud; `VinetasClient.prepare(_:characters:)` returns the `PreparedPanel` that would be sent without sending it. CLI: `vinetas generate --character` and `--dry-run` (JSON report of the resolved request), per-model reference help, `list --json` reports `maxReferenceImages`, and a note when a vendor has no native negative-prompt field. Fix: cloud requests are no longer clamped to the local GPU's buffer limit, which had shrunk every cloud render on iOS (1344×768 became 720×400). `docs/CLI_REFERENCE.md` covers all of the above.
 

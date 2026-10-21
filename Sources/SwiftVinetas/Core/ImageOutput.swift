@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import GlosaCore
 import ImageIO
 import UniformTypeIdentifiers
 
@@ -160,6 +161,56 @@ public enum ImageOutput {
     /// engine, ``composedPrompt`` is this bundle rendered.
     public let bundle: PromptBundle?
 
+    /// The GLOSA render record: the effective shot this panel rendered, when
+    /// the panel came from a GLOSA `shot`. `nil` (and omitted from the JSON)
+    /// otherwise.
+    public let glosa: GlosaRecord?
+
+    /// What a panel rendered from a GLOSA `shot`: the notation version, the
+    /// shot's render digest and the effective shot itself in its schema form.
+    ///
+    /// `shot` is stored as the bare schema JSON object written by
+    /// `Shot.schemaJSONData()` — known keys and unknown attributes at the top
+    /// level, no `documentIndex` — not `Shot`'s synthesized `Codable` form.
+    public struct GlosaRecord: Codable, Sendable, Equatable {
+
+      /// The GLOSA notation version the shot was read under
+      /// (`GlosaVersion.notation`).
+      public let notation: String
+
+      /// `Shot.renderDigest` of the effective shot.
+      public let digest: String
+
+      /// The effective shot's schema JSON, carried verbatim.
+      let shot: RawJSONValue
+
+      /// Records `shot` (the effective shot the panel renders).
+      public init(shot: Shot) {
+        self.notation = GlosaVersion.notation
+        self.digest = shot.renderDigest
+        do {
+          self.shot = try RawJSONValue(jsonData: shot.schemaJSONData())
+        } catch {
+          // `schemaJSONData()` always produces valid JSON.
+          assertionFailure("Shot.schemaJSONData() produced invalid JSON: \(error)")
+          self.shot = .object([:])
+        }
+      }
+
+      /// The recorded shot as compact schema JSON text (keys sorted).
+      public func shotJSONData() throws -> Data {
+        try shot.jsonData()
+      }
+
+      /// Decodes the recorded shot with `Shot(schemaJSONData:)`.
+      ///
+      /// - Throws: An `EncodingError` if the shot cannot be re-serialised, or a
+      ///   `GlosaSchemaError` if it is not a valid schema-form shot.
+      public func decodedShot() throws -> Shot {
+        try Shot(schemaJSONData: shotJSONData())
+      }
+    }
+
     public init(
       prompt: String,
       model: String,
@@ -179,7 +230,8 @@ public enum ImageOutput {
       negative: String? = nil,
       negativeApplied: Bool? = nil,
       character: String? = nil,
-      bundle: PromptBundle? = nil
+      bundle: PromptBundle? = nil,
+      glosa: GlosaRecord? = nil
     ) {
       self.prompt = prompt
       self.model = model
@@ -200,6 +252,7 @@ public enum ImageOutput {
       self.negativeApplied = negativeApplied
       self.character = character
       self.bundle = bundle
+      self.glosa = glosa
     }
   }
 
