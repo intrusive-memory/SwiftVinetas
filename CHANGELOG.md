@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-20
+
 ### Changed
 
 - **SwiftCompartido floor raised to 7.4.0.** Fountain notes may now span lines and contain `]`, so `vinetas storyboard` reads GLOSA notation 2.0 shots written in their canonical multi-line form, including `ref` arrays. Earlier SwiftCompartido versions silently dropped them.
@@ -64,6 +66,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - glosa-av follow-up: a whitespace-only `prompt` should be treated as empty upstream. Until then
   `vinetas storyboard` reports it as a per-panel error.
-- SwiftCompartido's Fountain note recognizer rejects `]` inside `[[ ]]`, so a notation 2.0 JSON
-  `ref` array cannot yet be authored in a `.fountain` file. Use the notation 1.0 tag form
-  (`ref="A,B"`) meanwhile.
+
+[Unreleased]: https://github.com/intrusive-memory/SwiftVinetas/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/intrusive-memory/SwiftVinetas/compare/v0.25.0...v0.26.0
