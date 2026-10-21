@@ -141,7 +141,7 @@ let package = Package(
     sibling(
       "SwiftCompartido",
       remote: "https://github.com/intrusive-memory/SwiftCompartido.git",
-      from: "7.3.1"),
+      from: "7.4.0"),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **SwiftCompartido floor raised to 7.4.0.** Fountain notes may now span lines and contain `]`, so `vinetas storyboard` reads GLOSA notation 2.0 shots written in their canonical multi-line form, including `ref` arrays. Earlier SwiftCompartido versions silently dropped them.
 - glosa-av floor raised to 0.9.0; the core `SwiftVinetas` target now links `GlosaCore`
   (`VinetasVocabulary` and `VinetasUI` still do not).
 - `vinetas storyboard` folds shots with `GlosaScore.effectiveShots`, so the fold is the same

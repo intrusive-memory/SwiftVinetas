@@ -144,7 +144,7 @@ Pinned floors (see [Package.swift](Package.swift) for the source of truth):
 | pixart-swift-mlx | `PixArtBackbone` | 0.8.2 | PixArt-Sigma DiT model plugin |
 | SwiftAcervo | `SwiftAcervo` | 0.25.0 | Model download/cache; resharding + integrity verification |
 | glosa-av | `GlosaCore` | 0.8.1 | GLOSA `<shot>` directives for `vinetas storyboard` |
-| SwiftCompartido | `SwiftCompartido` | 7.3.1 | Screenplay parsing (.fountain/.highland/.fdx) |
+| SwiftCompartido | `SwiftCompartido` | 7.4.0 | Screenplay parsing (.fountain/.highland/.fdx) |
 | Universal | `YAML`, `JSON` | 5.3.0 | Prompt file parsing |
 | swift-argument-parser | `ArgumentParser` | 1.7.1 | CLI (vinetas target only) |
 | swift-certificates / swift-crypto | `X509`, `Crypto` | 1.0.0 / 3.0.0 | Pro entitlement JWS verification |
