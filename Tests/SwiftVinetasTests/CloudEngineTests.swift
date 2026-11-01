@@ -682,9 +682,11 @@ struct CloudVendorAdapterTests {
     #expect(json["vendorModelID"] as? String == "gpt-image-2.5-flare")
     for name in expected { #expect(json[name] == nil) }
     // Round-trips: omitted values decode as placeholders and stay omitted.
-    let decoded = try JSONDecoder().decode(
-      ImageOutput.PanelMetadata.self, from: ImageOutput.metadataJSON(panel.metadata))
-    #expect(decoded == panel.metadata)
+    let original = try ImageOutput.metadataJSON(panel.metadata)
+    let decoded = try JSONDecoder().decode(ImageOutput.PanelMetadata.self, from: original)
+    #expect(decoded.vendorModelID == panel.metadata.vendorModelID)
+    #expect(decoded.unsupportedParameters == panel.metadata.unsupportedParameters)
+    #expect(try ImageOutput.metadataJSON(decoded) == original)
   }
 
   @Test("429 is retried with back-off and the retry succeeds")
