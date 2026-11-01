@@ -633,9 +633,58 @@ struct CloudVendorAdapterTests {
         Issue.record("unexpected \(error)")
         return
       }
-      #expect(message?.contains("BFL_API_KEY") == true)
       #expect(message?.contains("secret") == false)
+      // The hint depends on the caller: the CLI reads the environment only.
+      let cli = error.description(keySource: .environmentOnly)
+      #expect(cli.contains("BFL_API_KEY"))
+      #expect(!cli.contains("Settings"))
+      let app = try #require(error.errorDescription)
+      #expect(app.contains("BFL_API_KEY"))
+      #expect(app.contains("Settings → Cloud Engines"))
     }
+  }
+
+  @Test("a missing-key error names Settings for the app and only the variable for the CLI")
+  func missingKeyAdviceDependsOnCaller() {
+    let error = CloudEngineError.missingAPIKey(.openAI)
+    #expect(error.errorDescription?.contains("Settings → Cloud Engines") == true)
+    #expect(error.errorDescription == error.description(keySource: .appSettings))
+    let cli = error.description(keySource: .environmentOnly)
+    #expect(cli.contains("OPENAI_API_KEY"))
+    #expect(!cli.contains("Settings"))
+  }
+
+  @Test("cloud metadata records the vendor model and omits parameters the model never took")
+  func cloudMetadataOmitsUnsupportedParameters() async throws {
+    defer { StubURLProtocol.reset() }
+    StubURLProtocol.handler = { request in
+      let json: [String: Any] = ["data": [["b64_json": stubPNG.base64EncodedString()]]]
+      return (httpResponse(request.url), try JSONSerialization.data(withJSONObject: json))
+    }
+    let client = VinetasClient(
+      router: EngineRouter(engines: [engine(.openAI, client: OpenAIImageClient())]))
+    let panel = try await client.generate(
+      PanelRequest(
+        prompt: "a lighthouse", style: StyleConfig(width: 1344, height: 768),
+        model: CloudModelDescriptor.gptImage25Flare))
+    #expect(panel.metadata.vendorModelID == "gpt-image-2.5-flare")
+    let model = CloudModelDescriptor.gptImage25Flare
+    let expected =
+      [
+        model.supportsSeed ? nil : "seed", model.supportsSteps ? nil : "steps",
+        model.supportsGuidance ? nil : "guidance",
+      ].compactMap { $0 }
+    #expect(panel.metadata.unsupportedParameters == expected)
+
+    let json =
+      try JSONSerialization.jsonObject(
+        with: ImageOutput.metadataJSON(panel.metadata)) as? [String: Any] ?? [:]
+    #expect(json["vendorModelID"] as? String == "gpt-image-2.5-flare")
+    for name in expected { #expect(json[name] == nil) }
+    // Round-trips: omitted values decode as placeholders and stay omitted.
+    let decoded = try JSONDecoder().decode(
+      ImageOutput.PanelMetadata.self, from: ImageOutput.metadataJSON(panel.metadata))
+    #expect(decoded == panel.metadata)
   }
 
   @Test("429 is retried with back-off and the retry succeeds")
