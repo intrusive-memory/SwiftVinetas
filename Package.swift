@@ -53,7 +53,9 @@ let package = Package(
     // a GPU watchdog timeout, and routes library logs to stderr.
     // Keep this as upToNextMajor so a future flux that adopts a fixed mlx is
     // picked up automatically — the mlx-version guarantee lives in flux itself.
-    .package(url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.4.3")),
+    .package(
+      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.4.3")
+    ),
 
     // Shared model management (download, cache, discovery)
     // Floored at 0.23.0: 0.21.0 made the CDN base URL a per-consumer config value
@@ -61,37 +63,43 @@ let package = Package(
     // adds lossless safetensors resharding + model-integrity verification used by
     // the integrity-checkpoint work. Consumers must supply ACERVO_CDN_BASE_URL
     // (CLI / tests / CI) or the AcervoCDNBaseURL Info.plist key (UI apps).
-    .package(url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.25.0")),
+    .package(
+      url: "https://github.com/intrusive-memory/SwiftAcervo.git", .upToNextMajor(from: "0.25.0")),
 
     // Componentized diffusion pipeline (protocols + infrastructure).
     // Floored at 0.9.0: removes the DiffusionPipeline.loadModels pre-flight memory
     // gate (the downstream half of the SwiftVinetas gate removal). 0.8.0 and
     // earlier still refuse loads that would have succeeded.
-    .package(url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.9.0")),
+    .package(
+      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.9.0")),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe).
     // Floored at 0.8.2: 0.8.0 landed the seam-free tiled VAE decode (#45/#83) —
     // PixArtRecipe sets decodeTileLatentSize so the macOS 4K decode transient is
     // bounded — and 0.8.2 is the current published patch.
-    .package(url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.8.2")),
+    .package(
+      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.8.2")
+    ),
 
     // GLOSA screenplay directive parser — provides the `<shot>` storyboard
     // directives consumed by `vinetas storyboard`. Foundation-only leaf.
     // Floored at 0.9.0 for GLOSA notation 2.0 (JSON shots, `Shot.effective`,
     // `Shot.renderDigest`, `Shot.schemaJSONData`).
-    .package(url: "https://github.com/intrusive-memory/glosa-av.git", .upToNextMajor(from: "0.9.1")),
+    .package(
+      url: "https://github.com/intrusive-memory/glosa-av.git", .upToNextMajor(from: "0.9.1")),
 
     // Screenplay file parsing (.fountain / .highland / .fdx) — turns a
     // screenplay path into the `[[ ]]` note stream GlosaCore parses. Same
     // parser glosa-tools uses, so the screenplay→notes extraction has one
     // source of truth.
-    .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", .upToNextMajor(from: "7.4.0")),
+    .package(
+      url: "https://github.com/intrusive-memory/SwiftCompartido.git", .upToNextMajor(from: "7.4.0")),
 
     // YAML/JSON prompt file parsing (zero dependencies)
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
 
     // CLI argument parsing
-    .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
+    .package(url: "https://github.com/apple/swift-argument-parser", from: "1.8.2"),
 
     // swift-tokenizers 0.7.1 carries upstream 0.6.3's "Fixes for Xcode build
     // with artifact bundle", which resolves the UniFFI module-map/linker blocker
@@ -99,15 +107,15 @@ let package = Package(
     // typed-throwing and relabels the encode/decode/tokenize convenience overloads.
     .package(
       url: "https://github.com/DePasqualeOrg/swift-tokenizers.git",
-      .upToNextMinor(from: "0.7.1")),
+      .upToNextMinor(from: "0.7.4")),
 
     // Verifying the App Store entitlement the CLI is gated on. The stored
     // `Transaction.jwsRepresentation` is an Apple-signed JWS whose x5c chain
     // must be validated against a pinned Apple root — swift-certificates does
     // the X.509 work, swift-crypto the ES256 signature check.
-    .package(url: "https://github.com/apple/swift-certificates.git", from: "1.0.0"),
-    .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0"),
-    .package(url: "https://github.com/apple/swift-asn1.git", from: "1.0.0"),
+    .package(url: "https://github.com/apple/swift-certificates.git", from: "1.21.1"),
+    .package(url: "https://github.com/apple/swift-crypto.git", from: "3.15.1"),
+    .package(url: "https://github.com/apple/swift-asn1.git", from: "1.7.4"),
   ],
   targets: [
     // Engine-free vocabulary — Apple system frameworks only, no package
