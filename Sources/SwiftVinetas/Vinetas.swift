@@ -407,6 +407,16 @@ extension VinetasClient {
     // the metadata must describe the PNG it travels with. `composedPrompt` is
     // the engine's own report of the text it used — for a cloud engine, the
     // rendered PromptBundle.
+    // A cloud model records the vendor's own model id, and drops the
+    // parameters it never takes: they were not sent, so their values here are
+    // placeholders that must not read as reproducible settings.
+    let cloudModel = model as? CloudModelDescriptor
+    var unsupported: [String] = []
+    if let cloudModel {
+      if !cloudModel.supportsSeed { unsupported.append("seed") }
+      if !cloudModel.supportsSteps { unsupported.append("steps") }
+      if !cloudModel.supportsGuidance { unsupported.append("guidance") }
+    }
     let metadata = ImageOutput.PanelMetadata(
       prompt: prompt,
       model: model.id,
@@ -427,7 +437,9 @@ extension VinetasClient {
       negativeApplied: negative.map { _ in engine.supports(.negativePrompt) },
       character: request.character?.slug,
       bundle: prepared.bundle,
-      glosa: request.shot.map(ImageOutput.PanelMetadata.GlosaRecord.init(shot:))
+      glosa: request.shot.map(ImageOutput.PanelMetadata.GlosaRecord.init(shot:)),
+      vendorModelID: cloudModel?.vendorModelID,
+      unsupportedParameters: unsupported.isEmpty ? nil : unsupported
     )
     return GeneratedPanel(image: result.image, metadata: metadata)
   }

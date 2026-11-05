@@ -166,6 +166,18 @@ public enum ImageOutput {
     /// otherwise.
     public let glosa: GlosaRecord?
 
+    /// The vendor's own model identifier for a cloud panel (e.g.
+    /// `gemini-3-pro-image`), so the record says which model actually ran.
+    /// `nil` (and omitted from the JSON) for on-device panels.
+    public let vendorModelID: String?
+
+    /// Names (`seed`, `steps`, `guidance`) of the generation parameters the
+    /// model does not take, so they were never sent. Their values in this
+    /// record are placeholders and are omitted from the JSON, which stops a
+    /// reader from assuming `seed: 0` reproduces the image. `nil` (and omitted)
+    /// when the model took them all.
+    public let unsupportedParameters: [String]?
+
     /// What a panel rendered from a GLOSA `shot`: the notation version, the
     /// shot's render digest and the effective shot itself in its schema form.
     ///
@@ -231,7 +243,9 @@ public enum ImageOutput {
       negativeApplied: Bool? = nil,
       character: String? = nil,
       bundle: PromptBundle? = nil,
-      glosa: GlosaRecord? = nil
+      glosa: GlosaRecord? = nil,
+      vendorModelID: String? = nil,
+      unsupportedParameters: [String]? = nil
     ) {
       self.prompt = prompt
       self.model = model
@@ -253,6 +267,69 @@ public enum ImageOutput {
       self.character = character
       self.bundle = bundle
       self.glosa = glosa
+      self.vendorModelID = vendorModelID
+      self.unsupportedParameters = unsupportedParameters
+    }
+
+    private enum CodingKeys: String, CodingKey {
+      case prompt, model, seed, steps, guidance, width, height, durationSeconds, loras
+      case generatedAt, mode, engine, references, style, composedPrompt, negative
+      case negativeApplied, character, bundle, glosa, vendorModelID, unsupportedParameters
+    }
+
+    public init(from decoder: Decoder) throws {
+      let c = try decoder.container(keyedBy: CodingKeys.self)
+      let unsupported = try c.decodeIfPresent([String].self, forKey: .unsupportedParameters)
+      self.prompt = try c.decode(String.self, forKey: .prompt)
+      self.model = try c.decode(String.self, forKey: .model)
+      // Omitted for parameters the model never took: decode as placeholders.
+      self.seed = try c.decodeIfPresent(UInt64.self, forKey: .seed) ?? 0
+      self.steps = try c.decodeIfPresent(Int.self, forKey: .steps) ?? 0
+      self.guidance = try c.decodeIfPresent(Float.self, forKey: .guidance) ?? 0
+      self.width = try c.decode(Int.self, forKey: .width)
+      self.height = try c.decode(Int.self, forKey: .height)
+      self.durationSeconds = try c.decode(Double.self, forKey: .durationSeconds)
+      self.loras = try c.decodeIfPresent([LoRAEntry].self, forKey: .loras)
+      self.generatedAt = try c.decode(String.self, forKey: .generatedAt)
+      self.mode = try c.decodeIfPresent(Mode.self, forKey: .mode)
+      self.engine = try c.decodeIfPresent(String.self, forKey: .engine)
+      self.references = try c.decodeIfPresent([ReferenceRecord].self, forKey: .references)
+      self.style = try c.decodeIfPresent(String.self, forKey: .style)
+      self.composedPrompt = try c.decodeIfPresent(String.self, forKey: .composedPrompt)
+      self.negative = try c.decodeIfPresent(String.self, forKey: .negative)
+      self.negativeApplied = try c.decodeIfPresent(Bool.self, forKey: .negativeApplied)
+      self.character = try c.decodeIfPresent(String.self, forKey: .character)
+      self.bundle = try c.decodeIfPresent(PromptBundle.self, forKey: .bundle)
+      self.glosa = try c.decodeIfPresent(GlosaRecord.self, forKey: .glosa)
+      self.vendorModelID = try c.decodeIfPresent(String.self, forKey: .vendorModelID)
+      self.unsupportedParameters = unsupported
+    }
+
+    public func encode(to encoder: Encoder) throws {
+      var c = encoder.container(keyedBy: CodingKeys.self)
+      let omitted = Set(unsupportedParameters ?? [])
+      try c.encode(prompt, forKey: .prompt)
+      try c.encode(model, forKey: .model)
+      if !omitted.contains("seed") { try c.encode(seed, forKey: .seed) }
+      if !omitted.contains("steps") { try c.encode(steps, forKey: .steps) }
+      if !omitted.contains("guidance") { try c.encode(guidance, forKey: .guidance) }
+      try c.encode(width, forKey: .width)
+      try c.encode(height, forKey: .height)
+      try c.encode(durationSeconds, forKey: .durationSeconds)
+      try c.encodeIfPresent(loras, forKey: .loras)
+      try c.encode(generatedAt, forKey: .generatedAt)
+      try c.encodeIfPresent(mode, forKey: .mode)
+      try c.encodeIfPresent(engine, forKey: .engine)
+      try c.encodeIfPresent(references, forKey: .references)
+      try c.encodeIfPresent(style, forKey: .style)
+      try c.encodeIfPresent(composedPrompt, forKey: .composedPrompt)
+      try c.encodeIfPresent(negative, forKey: .negative)
+      try c.encodeIfPresent(negativeApplied, forKey: .negativeApplied)
+      try c.encodeIfPresent(character, forKey: .character)
+      try c.encodeIfPresent(bundle, forKey: .bundle)
+      try c.encodeIfPresent(glosa, forKey: .glosa)
+      try c.encodeIfPresent(vendorModelID, forKey: .vendorModelID)
+      try c.encodeIfPresent(unsupportedParameters, forKey: .unsupportedParameters)
     }
   }
 
