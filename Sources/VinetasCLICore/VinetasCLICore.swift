@@ -83,10 +83,10 @@ public struct Generate: AsyncParsableCommand {
       discussion: """
         Cloud models run on the vendor's servers with your own API key and are
         never Pro-gated. Supply the key through the environment
-        (OPENAI_API_KEY, GEMINI_API_KEY, BFL_API_KEY, STABILITY_API_KEY) or
-        save it in Vinetas → Settings → Cloud Engines; `vinetas list` shows
-        every cloud model and whether a key resolves. There is deliberately no
-        --api-key flag.
+        (OPENAI_API_KEY, GEMINI_API_KEY, BFL_API_KEY, STABILITY_API_KEY). Keys
+        saved in the Vinetas app are not visible to this command-line tool.
+        `vinetas list` shows every cloud model and whether a key resolves.
+        There is deliberately no --api-key flag.
         """
     )
   )
@@ -349,7 +349,8 @@ public struct Generate: AsyncParsableCommand {
           )
         }
         let warnings = cloudCapabilityWarnings(
-          for: cloud, steps: steps, guidance: guidance, seed: seed, negative: negative)
+          for: cloud, steps: steps, guidance: guidance, seed: seed, negative: negative,
+          aspect: aspect.flatMap { AspectRatio(rawValue: $0) })
         for line in warnings { stderrPrint(line) }
         warnedNegative = warnings.contains { $0.contains("--negative") }
       }
@@ -432,8 +433,11 @@ public struct Generate: AsyncParsableCommand {
 
     stderrPrint("[vinetas] Generating panel...")
     stderrPrint("[vinetas] Model: \(cliModel.name)")
-    stderrPrint("[vinetas] Dimensions: \(styleConfig.width)x\(styleConfig.height)")
-    stderrPrint("[vinetas] Steps: \(styleConfig.steps)")
+    for line in requestLogLines(
+      for: cliModel, style: styleConfig, aspect: aspect.flatMap { AspectRatio(rawValue: $0) })
+    {
+      stderrPrint(line)
+    }
 
     // Download model if not already cached (zero-config first run). A cloud
     // model has nothing to download.
@@ -443,6 +447,9 @@ public struct Generate: AsyncParsableCommand {
     // 4-step / 512×512 overrides are already applied to styleConfig above), so
     // it records real provenance metadata like any other panel.
     let panel = try await CLIEnvironment.client.generate(panelRequest)
+    if cliModel.isCloud {
+      stderrPrint(cloudOutputSizeLine(width: panel.image.width, height: panel.image.height))
+    }
     if let loadedCharacter {
       let carried =
         panel.metadata.loras?.isEmpty == false
@@ -494,10 +501,10 @@ public struct Batch: AsyncParsableCommand {
       discussion: """
         Cloud models run on the vendor's servers with your own API key and are
         never Pro-gated. Supply the key through the environment
-        (OPENAI_API_KEY, GEMINI_API_KEY, BFL_API_KEY, STABILITY_API_KEY) or
-        save it in Vinetas → Settings → Cloud Engines; `vinetas list` shows
-        every cloud model and whether a key resolves. There is deliberately no
-        --api-key flag.
+        (OPENAI_API_KEY, GEMINI_API_KEY, BFL_API_KEY, STABILITY_API_KEY). Keys
+        saved in the Vinetas app are not visible to this command-line tool.
+        `vinetas list` shows every cloud model and whether a key resolves.
+        There is deliberately no --api-key flag.
         """
     )
   )
@@ -578,6 +585,20 @@ public struct Batch: AsyncParsableCommand {
       stderrPrint("[vinetas] Aspect ratio: \(aspectName) (\(ratio.width)x\(ratio.height))")
     }
 
+    // Cloud vendors ignore style keys they don't take: say so once, up front,
+    // as `generate` does for the equivalent flags.
+    if let cloud = cliModel.cloud {
+      let promptFile = try PromptFile.parse(url: promptURL)
+      let warnings = cloudCapabilityWarnings(
+        for: cloud,
+        steps: promptFile.project.style?.steps,
+        guidance: promptFile.project.style?.guidance,
+        seed: promptFile.panels.lazy.compactMap(\.seed).first,
+        negative: promptFile.project.style?.negative,
+        fromPromptsFile: true)
+      for line in warnings { stderrPrint(line) }
+    }
+
     // Download model if not cached (zero-config first run). A cloud model has
     // nothing to download.
     try await downloadIfNeeded(cliModel)
@@ -596,7 +617,9 @@ public struct Batch: AsyncParsableCommand {
       let filename = String(format: "panel-%03d.png", panelNumber)
       let panelURL = outputDirURL.appendingPathComponent(filename)
       try ImageOutput.writePanel(image: panel.image, metadata: panel.metadata, to: panelURL)
-      stderrPrint("[vinetas] Wrote \(filename) (seed: \(panel.metadata.seed))")
+      let seeded = panel.metadata.unsupportedParameters?.contains("seed") != true
+      stderrPrint(
+        "[vinetas] Wrote \(filename)" + (seeded ? " (seed: \(panel.metadata.seed))" : ""))
     }
 
     stderrPrint(
@@ -661,8 +684,7 @@ public struct Download: AsyncParsableCommand {
     if let cloud = cliModel.cloud {
       print(
         "'\(cloud.id)' is a cloud model served by \(cloud.provider.displayName) — nothing to download. "
-          + "Set \(cloud.provider.environmentVariable) (or add the key in Vinetas → Settings → "
-          + "Cloud Engines) and run `vinetas generate --model \(cloud.id)`."
+          + "Set \(cloud.provider.environmentVariable) in the environment and run `vinetas generate --model \(cloud.id)`."
       )
       return
     }
@@ -928,7 +950,7 @@ public struct Info: AsyncParsableCommand {
     } else {
       print(
         "API key:            not configured — set \(cloud.provider.environmentVariable) "
-          + "or add it in Vinetas → Settings → Cloud Engines")
+          + "in the environment")
     }
     print("Get a key:          \(cloud.provider.consoleURL.absoluteString)")
     print("Terms:              \(cloud.provider.termsURL.absoluteString)")

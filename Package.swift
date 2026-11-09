@@ -86,7 +86,7 @@ let package = Package(
     // Floored at 0.9.0 for GLOSA notation 2.0 (JSON shots, `Shot.effective`,
     // `Shot.renderDigest`, `Shot.schemaJSONData`).
     .package(
-      url: "https://github.com/intrusive-memory/glosa-av.git", .upToNextMajor(from: "0.9.0")),
+      url: "https://github.com/intrusive-memory/glosa-av.git", .upToNextMajor(from: "0.12.0")),
 
     // Screenplay file parsing (.fountain / .highland / .fdx) — turns a
     // screenplay path into the `[[ ]]` note stream GlosaCore parses. Same
@@ -99,7 +99,7 @@ let package = Package(
     .package(url: "https://github.com/marcprux/universal.git", from: "5.3.0"),
 
     // CLI argument parsing
-    .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
+    .package(url: "https://github.com/apple/swift-argument-parser", from: "1.8.2"),
 
     // swift-tokenizers 0.7.1 carries upstream 0.6.3's "Fixes for Xcode build
     // with artifact bundle", which resolves the UniFFI module-map/linker blocker
@@ -107,15 +107,15 @@ let package = Package(
     // typed-throwing and relabels the encode/decode/tokenize convenience overloads.
     .package(
       url: "https://github.com/DePasqualeOrg/swift-tokenizers.git",
-      .upToNextMinor(from: "0.7.1")),
+      .upToNextMinor(from: "0.7.4")),
 
     // Verifying the App Store entitlement the CLI is gated on. The stored
     // `Transaction.jwsRepresentation` is an Apple-signed JWS whose x5c chain
     // must be validated against a pinned Apple root — swift-certificates does
     // the X.509 work, swift-crypto the ES256 signature check.
-    .package(url: "https://github.com/apple/swift-certificates.git", from: "1.0.0"),
-    .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0"),
-    .package(url: "https://github.com/apple/swift-asn1.git", from: "1.0.0"),
+    .package(url: "https://github.com/apple/swift-certificates.git", from: "1.21.1"),
+    .package(url: "https://github.com/apple/swift-crypto.git", from: "3.15.1"),
+    .package(url: "https://github.com/apple/swift-asn1.git", from: "1.7.4"),
   ],
   targets: [
     // Engine-free vocabulary — Apple system frameworks only, no package

@@ -225,6 +225,7 @@ struct CloudCLITests {
     #expect(exit.rawValue == CLIExitCode.missingAPIKey)
     #expect(result.stderr.contains("error:"))
     #expect(result.stderr.contains("OPENAI_API_KEY"))
+    #expect(!result.stderr.contains("Settings"))
     #expect(result.stderr.contains("nothing to download"))
     #expect(!FileManager.default.fileExists(atPath: output.path))
     #expect(CLIStubURLProtocol.requestCount == 0)
@@ -266,6 +267,16 @@ struct CloudCLITests {
     #expect(stderr.components(separatedBy: "Avoid:\" line").count == 2)  // exactly once
     #expect(metadata.composedPrompt?.hasSuffix("Avoid: blurry.") == true)
     #expect(stderr.contains("Model: openai-gpt-image-2.5-flare"))
+    // Cloud log: no pixel request or step count up front; the real size after.
+    #expect(!stderr.contains("Steps:"))
+    #expect(!stderr.contains("Dimensions:"))
+    #expect(stderr.contains("Output size: 48x32"))
+    // The sidecar records the vendor model and omits what was never sent.
+    let raw = try JSONSerialization.jsonObject(with: Data(contentsOf: sidecar)) as? [String: Any]
+    #expect(raw?["vendorModelID"] as? String == CloudModelDescriptor.gptImage25Flare.vendorModelID)
+    #expect(raw?["steps"] == nil)
+    #expect(raw?["guidance"] == nil)
+    #expect(raw?["seed"] == nil)
     #expect(stderr.contains("nothing to download"))
     #expect(!stderr.contains(Self.secret))
     #expect(CLIStubURLProtocol.requestCount == 1)
@@ -384,6 +395,78 @@ struct CloudCLITests {
     #expect(CLIStubURLProtocol.requestCount == 2)
   }
 
+  @Test("batch warns once per style key a cloud model ignores")
+  func batchWarnsAboutIgnoredStyle() async throws {
+    defer { CLIStubURLProtocol.reset() }
+    CLIStubURLProtocol.handler = openAIImageReply
+    let client = Self.makeClient(keys: [.openAI: Self.secret], providers: [.openAI])
+    let dir = try Self.tempDir()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let yaml = """
+      version: 1
+      project:
+        title: "Cloud batch"
+        style:
+          steps: 12
+          guidance: 5
+          negative: "blurry"
+      panels:
+        - prompt: "one"
+          seed: 3
+      """
+    let yamlURL = dir.appendingPathComponent("prompts.yaml")
+    try yaml.write(to: yamlURL, atomically: true, encoding: .utf8)
+
+    let stderr = try await Self.run(client: client) {
+      try await Batch.parse([
+        yamlURL.path, "--output-dir", dir.appendingPathComponent("panels").path,
+        "--model", "openai-gpt-image-2.5-flare",
+      ]).run()
+    }
+    #expect(stderr.contains("style.steps ignored"))
+    #expect(stderr.contains("style.guidance ignored"))
+    #expect(stderr.contains("seed ignored"))
+    #expect(stderr.contains("style.negative is sent in the prompt"))
+    #expect(!stderr.contains("(seed:"))
+  }
+
+  @Test("capability warnings are silent for supported options and flag unsupported aspects")
+  func capabilityWarningsPureFunction() {
+    let flare = CloudModelDescriptor.gptImage25Flare
+    #expect(
+      cloudCapabilityWarnings(for: flare, steps: nil, guidance: nil, seed: nil, negative: nil)
+        .isEmpty)
+    // Aspect support is enforced up front: strip is outside OpenAI's 1:3-3:1 range.
+    let strip = cloudCapabilityWarnings(
+      for: flare, steps: nil, guidance: nil, seed: nil, negative: nil, aspect: .strip)
+    #expect(strip.count == 1)
+    #expect(strip[0].contains("'strip'"))
+    #expect(strip[0].contains("closest ratio"))
+    #expect(
+      cloudCapabilityWarnings(
+        for: flare, steps: nil, guidance: nil, seed: nil, negative: nil, aspect: .wide
+      ).isEmpty)
+    // Models that take explicit sizes support every aspect.
+    #expect(
+      cloudCapabilityWarnings(
+        for: .flux2Pro, steps: nil, guidance: nil, seed: nil, negative: nil, aspect: .strip
+      ).isEmpty)
+  }
+
+  @Test("request log lines name the aspect for a cloud model and the pixels for on-device")
+  func requestLogLinesPerModel() throws {
+    let cloud = try #require(CLIModel.resolve("openai-gpt-image-2.5-flare"))
+    var style = StyleConfig(steps: 30)
+    style.width = AspectRatio.wide.width
+    style.height = AspectRatio.wide.height
+    let cloudLines = requestLogLines(for: cloud, style: style, aspect: .wide)
+    #expect(cloudLines.count == 1)
+    #expect(cloudLines[0].contains("Aspect: wide"))
+    let local = requestLogLines(for: .klein4b, style: style, aspect: .wide)
+    #expect(local.contains { $0.contains("Dimensions:") })
+    #expect(local.contains { $0.contains("Steps: 30") })
+  }
+
   // MARK: list / info / download
 
   @Test("list --json reports cloud rows with key status and never leaks the key")
@@ -475,6 +558,7 @@ struct CloudCLITests {
     #expect(stdout.contains("Vendor model:       flux-2-flex"))
     #expect(stdout.contains("steps yes · guidance yes · seed yes · negative prompt no"))
     #expect(stdout.contains("not configured — set BFL_API_KEY"))
+    #expect(!stdout.contains("Settings"))
     #expect(stdout.contains("not Pro-gated"))
   }
 
@@ -493,6 +577,7 @@ struct CloudCLITests {
     let stdout = String(decoding: result.stdout, as: UTF8.self)
     #expect(stdout.contains("nothing to download"))
     #expect(stdout.contains("OPENAI_API_KEY"))
+    #expect(!stdout.contains("Settings"))
   }
 
   // MARK: storyboard

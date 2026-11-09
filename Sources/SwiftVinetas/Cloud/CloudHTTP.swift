@@ -73,7 +73,7 @@ enum CloudHTTP {
         throw CloudEngineError.httpStatus(
           provider: provider, status: http.statusCode,
           message: errorMessage(from: data)
-            ?? "check the API key (\(provider.environmentVariable) or Vinetas → Settings → Cloud Engines)"
+            ?? CloudEngineError.authFallbackMessage
         )
       }
       throw CloudEngineError.httpStatus(
