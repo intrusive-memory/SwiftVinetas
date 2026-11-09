@@ -86,7 +86,7 @@ let package = Package(
     // Floored at 0.9.0 for GLOSA notation 2.0 (JSON shots, `Shot.effective`,
     // `Shot.renderDigest`, `Shot.schemaJSONData`).
     .package(
-      url: "https://github.com/intrusive-memory/glosa-av.git", .upToNextMajor(from: "0.9.1")),
+      url: "https://github.com/intrusive-memory/glosa-av.git", .upToNextMajor(from: "0.12.0")),
 
     // Screenplay file parsing (.fountain / .highland / .fdx) — turns a
     // screenplay path into the `[[ ]]` note stream GlosaCore parses. Same
