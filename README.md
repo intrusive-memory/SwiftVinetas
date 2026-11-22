@@ -51,7 +51,7 @@ A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see th
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.27.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.27.1")
 ]
 ```
 
@@ -261,6 +261,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.27.1** — PixArt-Sigma generates real images again. PixArt-Sigma-XL-2-1024-MS scrambles its output away from its 1024-class training sizes (every 512×512 request came out as blocks of noise, #39); `PixArtEngine` now generates at the nearest of diffusers' 1024 resolution bins (pixart-swift-mlx 0.10.0) and resizes and center-crops to the size asked for. The GPU example test asserts Apple Vision recognizes something in each image.
 
 **v0.27.0** — The image pipeline moves to mlx-swift 0.33. Floors: flux-2-swift-mlx 3.5.0 (lifts the exact mlx-swift 0.31.3 pin; the upstream #410 deadlock is fixed), SwiftTuberia 0.10.0, pixart-swift-mlx 0.9.0, swift-tokenizers 0.7.5, glosa-av 0.12.0, swift-argument-parser 1.8.2. CLI: key advice names the environment variable only (a key saved in the app is not visible to the CLI); `batch` warns about style and seed settings a cloud model ignores; `generate`/`batch` warn when `--aspect` is outside a cloud model's supported ratios; the log and the sidecar report the real output size and omit seed/steps/guidance a cloud model never took (`unsupportedParameters`). Known issue: PixArt-Sigma output is scrambled below 1024-class sizes (e.g. 512×512), as in 0.26.0; the 1024 model needs resolution binning, which a follow-up release adds.
 

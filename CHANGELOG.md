@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-11-22
+
+### Fixed
+
+- PixArt-Sigma produced blocks of noise at 512×512 and other sizes away from its 1024-class training sizes (#39). `PixArtEngine` now generates at the nearest diffusers `ASPECT_RATIO_1024_BIN` size (`PixArtDiTConfiguration.binnedResolution`, pixart-swift-mlx 0.10.0) and resizes and center-crops to the requested size, as diffusers' `PixArtSigmaPipeline` does.
+
+### Changed
+
+- pixart-swift-mlx floor 0.10.0.
+- The GPU example test fails when Apple Vision recognizes nothing in a generated image.
+
 ## [0.27.0] - 2026-11-22
 
 ### Changed

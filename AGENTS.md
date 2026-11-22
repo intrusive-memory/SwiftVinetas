@@ -5,7 +5,7 @@ updated: 2026-10-18
 
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.27.0
+**Version**: 0.27.1
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -288,11 +288,15 @@ SwiftVinetas/
 
 ## Recent Changes
 
+### v0.27.1
+
+- **PixArt fixed** — `PixArtEngine` generates at `PixArtDiTConfiguration.binnedResolution` (pixart-swift-mlx 0.10.0) and resizes/center-crops to the requested size. The 1024 model scrambled every sub-1024 request (#39). Never pass a raw request size to the PixArt pipeline.
+- **GPU test guard** — `assertImageRecognizable` fails when Apple Vision finds no scene label; the scrambled panels had none and passed the pixel checks.
+
 ### v0.27.0
 
 - **mlx-swift 0.33** — flux-2-swift-mlx floored at 3.5.0 (lifts the exact mlx-swift 0.31.3 pin; upstream #410 is fixed), SwiftTuberia 0.10.0, pixart-swift-mlx 0.9.0, swift-tokenizers 0.7.5. Also glosa-av 0.12.0 and swift-argument-parser 1.8.2.
 - **CLI cloud fixes** — key advice names the environment variable only; `batch` warns about settings a cloud model ignores; `--aspect` outside a cloud model's ratios warns up front; log and sidecar report the real output size and omit parameters a cloud model never took.
-- **Known issue** — PixArt-Sigma output is scrambled below 1024-class sizes (pre-existing, #39): PixArt-Sigma-XL-2-1024-MS must generate at a 1024 aspect bin and be resized, as diffusers does. Fix to follow.
 
 ### v0.20.1
 
