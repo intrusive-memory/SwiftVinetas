@@ -139,14 +139,14 @@ Pinned floors (see [Package.swift](Package.swift) for the source of truth):
 
 | Package | Import | Min version | Purpose |
 |---------|--------|-------------|---------|
-| flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | 3.4.3 | FLUX.2 pipeline (MIT) |
-| SwiftTubería | `Tuberia`, `TuberiaCatalog` | 0.9.0 | Componentized diffusion pipeline protocols |
-| pixart-swift-mlx | `PixArtBackbone` | 0.8.2 | PixArt-Sigma DiT model plugin |
+| flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | 3.5.0 | FLUX.2 pipeline (MIT) |
+| SwiftTubería | `Tuberia`, `TuberiaCatalog` | 0.10.0 | Componentized diffusion pipeline protocols |
+| pixart-swift-mlx | `PixArtBackbone` | 0.9.0 | PixArt-Sigma DiT model plugin |
 | SwiftAcervo | `SwiftAcervo` | 0.25.0 | Model download/cache; resharding + integrity verification |
-| glosa-av | `GlosaCore` | 0.8.1 | GLOSA `<shot>` directives for `vinetas storyboard` |
+| glosa-av | `GlosaCore` | 0.12.0 | GLOSA `<shot>` directives for `vinetas storyboard` |
 | SwiftCompartido | `SwiftCompartido` | 7.4.0 | Screenplay parsing (.fountain/.highland/.fdx) |
 | Universal | `YAML`, `JSON` | 5.3.0 | Prompt file parsing |
-| swift-argument-parser | `ArgumentParser` | 1.7.1 | CLI (vinetas target only) |
+| swift-argument-parser | `ArgumentParser` | 1.8.2 | CLI (vinetas target only) |
 | swift-certificates / swift-crypto | `X509`, `Crypto` | 1.0.0 / 3.0.0 | Pro entitlement JWS verification |
 
 **Local sibling overrides**: on `development`, `Package.swift` carries a `sibling(...)` helper that prefers a `../<package-name>` checkout when present and `CI != "true"`, falling back to the pinned remote otherwise. Lets in-flight upstream changes be exercised end-to-end without cutting a release. CI always uses the pinned remotes, and released tags ship a remote-only manifest with the helper stripped.
