@@ -170,6 +170,7 @@ struct AllModelsExampleTests {
     #expect(image.width > 0, "\(model.displayName): generated image has zero width")
     #expect(image.height > 0, "\(model.displayName): generated image has zero height")
     assertImageNotGarbage(image)
+    assertImageRecognizable(image, model.displayName)
 
     // Write PNG to Desktop/SwiftVinetasExamples/<model-id>.png
     try FileManager.default.createDirectory(

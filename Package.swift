@@ -78,9 +78,11 @@ let package = Package(
     // PixArt-Sigma model plugin (DiT backbone + recipe).
     // Floored at 0.8.2: 0.8.0 landed the seam-free tiled VAE decode (#45/#83) —
     // PixArtRecipe sets decodeTileLatentSize so the macOS 4K decode transient is
-    // bounded — and 0.9.0 moves to SwiftTuberia 0.10.0 / mlx-swift 0.33.
+    // bounded — 0.9.0 moves to SwiftTuberia 0.10.0 / mlx-swift 0.33, and
+    // 0.10.0 adds the 1024 resolution bins PixArtEngine generates at.
     .package(
-      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.9.0")
+      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git",
+      .upToNextMajor(from: "0.10.0")
     ),
 
     // GLOSA screenplay directive parser — provides the `<shot>` storyboard
