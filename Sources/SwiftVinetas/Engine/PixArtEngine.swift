@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import PixArtBackbone
 import SwiftAcervo
@@ -434,13 +435,23 @@ public actor PixArtEngine: ImageGenerationEngine {
       )
     }
 
+    // The pipeline ran at the request's resolution bin; bring the image to
+    // the size asked for.
+    guard
+      let image = Self.resizeAndCenterCrop(cgImage, width: request.width, height: request.height)
+    else {
+      throw VinetasError.generationFailed(
+        "PixArt could not resize its \(cgImage.width)×\(cgImage.height) image to \(request.width)×\(request.height)."
+      )
+    }
+
     let elapsed = clock.now - startTime
     let durationSeconds =
       Double(elapsed.components.seconds)
       + Double(elapsed.components.attoseconds) / 1e18
 
     return GenerationResult(
-      image: cgImage,
+      image: image,
       usedPrompt: request.prompt,
       seed: UInt64(resolvedSeed),
       durationSeconds: durationSeconds,
@@ -738,19 +749,50 @@ public actor PixArtEngine: ImageGenerationEngine {
 
   /// Translate a SwiftVinetas ``GenerationRequest`` into a Tuberia ``DiffusionGenerationRequest``.
   ///
+  /// The size is the request's resolution bin, not the request's own size:
+  /// PixArt-Sigma 1024 scrambles its output away from its training sizes
+  /// (512×512 comes out as blocks of noise), so it generates at the nearest
+  /// ``PixArtDiTConfiguration/binnedResolution(width:height:)`` bin and
+  /// ``generate(request:stepProgress:)`` resizes the result, as diffusers'
+  /// `PixArtSigmaPipeline` does.
+  ///
   /// - Parameter seed: Pre-resolved seed (always concrete; caller generates random value if request has none).
-  private func translateRequest(_ request: GenerationRequest, seed: UInt32)
+  func translateRequest(_ request: GenerationRequest, seed: UInt32)
     -> DiffusionGenerationRequest
   {
+    let bin = PixArtDiTConfiguration.binnedResolution(width: request.width, height: request.height)
     return DiffusionGenerationRequest(
       prompt: request.prompt,
       negativePrompt: request.negativePrompt,
-      width: request.width,
-      height: request.height,
+      width: bin.width,
+      height: bin.height,
       steps: request.steps,
       guidanceScale: request.guidanceScale,
       seed: seed,
       loRA: activeLoRAConfig
     )
+  }
+
+  /// Scales `image` to cover `width` × `height` and crops the center, as
+  /// diffusers' `PixArtImageProcessor.resize_and_crop_tensor` does. Returns
+  /// the image unchanged when it is already that size.
+  static func resizeAndCenterCrop(_ image: CGImage, width: Int, height: Int) -> CGImage? {
+    if image.width == width && image.height == height { return image }
+    let scale = max(Double(width) / Double(image.width), Double(height) / Double(image.height))
+    let scaledWidth = Double(image.width) * scale
+    let scaledHeight = Double(image.height) * scale
+    guard
+      let context = CGContext(
+        data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+    else { return nil }
+    context.interpolationQuality = .high
+    context.draw(
+      image,
+      in: CGRect(
+        x: (Double(width) - scaledWidth) / 2, y: (Double(height) - scaledHeight) / 2,
+        width: scaledWidth, height: scaledHeight))
+    return context.makeImage()
   }
 }
