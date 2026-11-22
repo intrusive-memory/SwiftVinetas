@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-22
+
+### Changed
+
+- The image pipeline moves to mlx-swift 0.33: flux-2-swift-mlx floor 3.5.0 (no longer pins mlx-swift exactly to 0.31.3), SwiftTuberia 0.10.0, pixart-swift-mlx 0.9.0, swift-tokenizers 0.7.5.
+- glosa-av floor 0.12.0; swift-argument-parser 1.8.2.
+- CLI: cloud key advice names the environment variable only (help, `info`, `download`, exit 78 and 401 errors).
+- CLI: the sidecar records `vendorModelID` and omits seed, steps and guidance a cloud model never took (listed in `unsupportedParameters`).
+
+### Fixed
+
+- `vinetas batch` warns about `style.steps`, `guidance`, `negative` and panel seeds that a cloud model ignores, and no longer prints a fake seed.
+- `vinetas generate`/`batch` warn up front when `--aspect` is outside a cloud model's supported ratios.
+- `vinetas generate` logs the real output size for cloud models.
+
+### Known issues
+
+- PixArt-Sigma generation is scrambled below 1024-class sizes such as 512×512, as in 0.26.0 (#39). The 1024 model needs resolution binning; a follow-up release adds it.
+
 ## [0.26.0] - 2026-10-20
 
 ### Changed

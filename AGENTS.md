@@ -5,7 +5,7 @@ updated: 2026-10-18
 
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.26.0-dev
+**Version**: 0.27.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -50,7 +50,7 @@ A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see th
 ## Queryable Codemap
 
 A prebuilt [graphify](https://pypi.org/project/graphifyy/) knowledge graph of this
-codebase lives in [`graphify-out/`](graphify-out/) (3223 nodes · 5531 edges). **Prefer
+codebase lives in [`graphify-out/`](graphify-out/) (4347 nodes · 7458 edges). **Prefer
 querying it before grepping** for architecture or "what connects to what" questions:
 
 ```bash
@@ -287,6 +287,12 @@ SwiftVinetas/
 7. Follow agent-specific instructions — see [CLAUDE.md](CLAUDE.md) or [GEMINI.md](GEMINI.md)
 
 ## Recent Changes
+
+### v0.27.0
+
+- **mlx-swift 0.33** — flux-2-swift-mlx floored at 3.5.0 (lifts the exact mlx-swift 0.31.3 pin; upstream #410 is fixed), SwiftTuberia 0.10.0, pixart-swift-mlx 0.9.0, swift-tokenizers 0.7.5. Also glosa-av 0.12.0 and swift-argument-parser 1.8.2.
+- **CLI cloud fixes** — key advice names the environment variable only; `batch` warns about settings a cloud model ignores; `--aspect` outside a cloud model's ratios warns up front; log and sidecar report the real output size and omit parameters a cloud model never took.
+- **Known issue** — PixArt-Sigma output is scrambled below 1024-class sizes (pre-existing, #39): PixArt-Sigma-XL-2-1024-MS must generate at a 1024 aspect bin and be resized, as diffusers does. Fix to follow.
 
 ### v0.20.1
 
