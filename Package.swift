@@ -51,10 +51,11 @@ let package = Package(
     // 3.4.3 removes the RAM-tier image-size gate in generateWithResult (no more
     // insufficientMemory for oversized images), quantizes incrementally to avoid
     // a GPU watchdog timeout, and routes library logs to stderr.
-    // Keep this as upToNextMajor so a future flux that adopts a fixed mlx is
-    // picked up automatically — the mlx-version guarantee lives in flux itself.
+    // 3.5.0 lifts the exact mlx-swift 0.31.3 pin to mlx-swift 0.33 (the #410
+    // deadlock is fixed upstream), on SwiftTuberia 0.10.0.
+    // Keep this as upToNextMajor: the mlx-version guarantee lives in flux itself.
     .package(
-      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.4.3")
+      url: "https://github.com/intrusive-memory/flux-2-swift-mlx.git", .upToNextMajor(from: "3.5.0")
     ),
 
     // Shared model management (download, cache, discovery)
@@ -69,16 +70,17 @@ let package = Package(
     // Componentized diffusion pipeline (protocols + infrastructure).
     // Floored at 0.9.0: removes the DiffusionPipeline.loadModels pre-flight memory
     // gate (the downstream half of the SwiftVinetas gate removal). 0.8.0 and
-    // earlier still refuse loads that would have succeeded.
+    // earlier still refuse loads that would have succeeded. 0.10.0 moves to
+    // mlx-swift 0.33 and swift-tokenizers 0.7.5, in step with flux 3.5.0.
     .package(
-      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.9.0")),
+      url: "https://github.com/intrusive-memory/SwiftTuberia.git", .upToNextMajor(from: "0.10.0")),
 
     // PixArt-Sigma model plugin (DiT backbone + recipe).
     // Floored at 0.8.2: 0.8.0 landed the seam-free tiled VAE decode (#45/#83) —
     // PixArtRecipe sets decodeTileLatentSize so the macOS 4K decode transient is
-    // bounded — and 0.8.2 is the current published patch.
+    // bounded — and 0.9.0 moves to SwiftTuberia 0.10.0 / mlx-swift 0.33.
     .package(
-      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.8.2")
+      url: "https://github.com/intrusive-memory/pixart-swift-mlx.git", .upToNextMajor(from: "0.9.0")
     ),
 
     // GLOSA screenplay directive parser — provides the `<shot>` storyboard
@@ -107,7 +109,7 @@ let package = Package(
     // typed-throwing and relabels the encode/decode/tokenize convenience overloads.
     .package(
       url: "https://github.com/DePasqualeOrg/swift-tokenizers.git",
-      .upToNextMinor(from: "0.7.4")),
+      .upToNextMinor(from: "0.7.5")),
 
     // Verifying the App Store entitlement the CLI is gated on. The stored
     // `Transaction.jwsRepresentation` is an Apple-signed JWS whose x5c chain
