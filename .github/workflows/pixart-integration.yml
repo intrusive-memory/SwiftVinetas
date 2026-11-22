@@ -57,7 +57,7 @@ jobs:
   pixart-integration:
     name: PixArt Integration (macOS)
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 35
 
     steps:

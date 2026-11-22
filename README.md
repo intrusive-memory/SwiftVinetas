@@ -51,7 +51,7 @@ A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see th
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.26.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.27.0")
 ]
 ```
 
@@ -261,6 +261,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.27.0** — The image pipeline moves to mlx-swift 0.33. Floors: flux-2-swift-mlx 3.5.0 (lifts the exact mlx-swift 0.31.3 pin; the upstream #410 deadlock is fixed), SwiftTuberia 0.10.0, pixart-swift-mlx 0.9.0, swift-tokenizers 0.7.5, glosa-av 0.12.0, swift-argument-parser 1.8.2. CLI: key advice names the environment variable only (a key saved in the app is not visible to the CLI); `batch` warns about style and seed settings a cloud model ignores; `generate`/`batch` warn when `--aspect` is outside a cloud model's supported ratios; the log and the sidecar report the real output size and omit seed/steps/guidance a cloud model never took (`unsupportedParameters`). Known issue: PixArt-Sigma output is scrambled below 1024-class sizes (e.g. 512×512), as in 0.26.0; the 1024 model needs resolution binning, which a follow-up release adds.
 
 **v0.26.0** — GLOSA notation 2.0 storyboards. The core `SwiftVinetas` target links `GlosaCore` (glosa-av floored at 0.9.0); `vinetas storyboard` folds shots with `GlosaScore.effectiveShots`, reads notation 2.0 JSON shots and 1.0 tags, and honours `ref`, `character` and `caption`. Every storyboard panel records `PanelMetadata.glosa` (notation, digest, and the effective shot as raw `Shot.schemaJSONData()` bytes). Relative `output` resolves against the project root. New `vinetas generate --shot-json <file|->`. SwiftCompartido floored at 7.4.0 so multi-line Fountain notes (and JSON `ref` arrays) are read. See `CHANGELOG.md` for behaviour changes.
 

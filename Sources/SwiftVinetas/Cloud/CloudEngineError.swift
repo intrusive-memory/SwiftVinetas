@@ -36,19 +36,58 @@ public enum CloudEngineError: LocalizedError, Sendable, Equatable {
   /// The returned bytes could not be decoded as an image.
   case imageDecodingFailed(provider: CloudProvider)
 
+  /// Where a host lets the user supply an API key. The error text names only
+  /// the ways that actually work for the caller.
+  public enum KeySourceHint: Sendable, Equatable {
+    /// The Vinetas app: the environment variable or Settings → Cloud Engines.
+    case appSettings
+    /// The command-line tool: the environment variable only. It has no
+    /// keychain access group, so a key saved in the app is invisible to it.
+    case environmentOnly
+  }
+
+  /// Placeholder vendor message for a 401/403 that carried no body message.
+  /// ``description(keySource:)`` expands it into the host-appropriate advice.
+  static let authFallbackMessage = "check the API key"
+
   public var errorDescription: String? {
+    description(keySource: .appSettings)
+  }
+
+  /// The error text with key-supply advice for `keySource`. ``errorDescription``
+  /// is this with ``KeySourceHint/appSettings``; the CLI passes
+  /// ``KeySourceHint/environmentOnly``.
+  public func description(keySource: KeySourceHint) -> String {
+    func advice(_ provider: CloudProvider) -> String {
+      switch keySource {
+      case .appSettings:
+        return "\(provider.environmentVariable) or Vinetas → Settings → Cloud Engines"
+      case .environmentOnly:
+        return provider.environmentVariable
+      }
+    }
     switch self {
     case .missingAPIKey(let provider):
-      return
-        "No \(provider.displayName) API key found. Set \(provider.environmentVariable) in the "
-        + "environment, or add a key in Vinetas → Settings → Cloud Engines."
+      switch keySource {
+      case .appSettings:
+        return
+          "No \(provider.displayName) API key found. Set \(provider.environmentVariable) in the "
+          + "environment, or add a key in Vinetas → Settings → Cloud Engines."
+      case .environmentOnly:
+        return
+          "No \(provider.displayName) API key found. Set \(provider.environmentVariable) in the "
+          + "environment."
+      }
     case .noModelLoaded:
       return "The cloud engine has no model selected."
     case .unsupportedModel(let modelID, let engineID):
       return "Model \(modelID) is not served by engine \(engineID)."
     case .unsupportedFeature(let feature, let provider):
       return "\(feature) is not supported by \(provider.displayName)."
-    case .httpStatus(let provider, let status, let message):
+    case .httpStatus(let provider, let status, let rawMessage):
+      let message =
+        rawMessage == Self.authFallbackMessage
+        ? "\(Self.authFallbackMessage) (\(advice(provider)))" : rawMessage
       if let message, !message.isEmpty {
         return "\(provider.displayName) returned HTTP \(status): \(message)"
       }

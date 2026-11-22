@@ -5,7 +5,7 @@ updated: 2026-10-18
 
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.26.0
+**Version**: 0.27.0
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -50,7 +50,7 @@ A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see th
 ## Queryable Codemap
 
 A prebuilt [graphify](https://pypi.org/project/graphifyy/) knowledge graph of this
-codebase lives in [`graphify-out/`](graphify-out/) (3223 nodes · 5531 edges). **Prefer
+codebase lives in [`graphify-out/`](graphify-out/) (4347 nodes · 7458 edges). **Prefer
 querying it before grepping** for architecture or "what connects to what" questions:
 
 ```bash
@@ -139,14 +139,14 @@ Pinned floors (see [Package.swift](Package.swift) for the source of truth):
 
 | Package | Import | Min version | Purpose |
 |---------|--------|-------------|---------|
-| flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | 3.4.3 | FLUX.2 pipeline (MIT) |
-| SwiftTubería | `Tuberia`, `TuberiaCatalog` | 0.9.0 | Componentized diffusion pipeline protocols |
-| pixart-swift-mlx | `PixArtBackbone` | 0.8.2 | PixArt-Sigma DiT model plugin |
+| flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | 3.5.0 | FLUX.2 pipeline (MIT) |
+| SwiftTubería | `Tuberia`, `TuberiaCatalog` | 0.10.0 | Componentized diffusion pipeline protocols |
+| pixart-swift-mlx | `PixArtBackbone` | 0.9.0 | PixArt-Sigma DiT model plugin |
 | SwiftAcervo | `SwiftAcervo` | 0.25.0 | Model download/cache; resharding + integrity verification |
-| glosa-av | `GlosaCore` | 0.8.1 | GLOSA `<shot>` directives for `vinetas storyboard` |
+| glosa-av | `GlosaCore` | 0.12.0 | GLOSA `<shot>` directives for `vinetas storyboard` |
 | SwiftCompartido | `SwiftCompartido` | 7.4.0 | Screenplay parsing (.fountain/.highland/.fdx) |
 | Universal | `YAML`, `JSON` | 5.3.0 | Prompt file parsing |
-| swift-argument-parser | `ArgumentParser` | 1.7.1 | CLI (vinetas target only) |
+| swift-argument-parser | `ArgumentParser` | 1.8.2 | CLI (vinetas target only) |
 | swift-certificates / swift-crypto | `X509`, `Crypto` | 1.0.0 / 3.0.0 | Pro entitlement JWS verification |
 
 **Local sibling overrides**: on `development`, `Package.swift` carries a `sibling(...)` helper that prefers a `../<package-name>` checkout when present and `CI != "true"`, falling back to the pinned remote otherwise. Lets in-flight upstream changes be exercised end-to-end without cutting a release. CI always uses the pinned remotes, and released tags ship a remote-only manifest with the helper stripped.
@@ -287,6 +287,12 @@ SwiftVinetas/
 7. Follow agent-specific instructions — see [CLAUDE.md](CLAUDE.md) or [GEMINI.md](GEMINI.md)
 
 ## Recent Changes
+
+### v0.27.0
+
+- **mlx-swift 0.33** — flux-2-swift-mlx floored at 3.5.0 (lifts the exact mlx-swift 0.31.3 pin; upstream #410 is fixed), SwiftTuberia 0.10.0, pixart-swift-mlx 0.9.0, swift-tokenizers 0.7.5. Also glosa-av 0.12.0 and swift-argument-parser 1.8.2.
+- **CLI cloud fixes** — key advice names the environment variable only; `batch` warns about settings a cloud model ignores; `--aspect` outside a cloud model's ratios warns up front; log and sidecar report the real output size and omit parameters a cloud model never took.
+- **Known issue** — PixArt-Sigma output is scrambled below 1024-class sizes (pre-existing, #39): PixArt-Sigma-XL-2-1024-MS must generate at a 1024 aspect bin and be resized, as diffusers does. Fix to follow.
 
 ### v0.20.1
 

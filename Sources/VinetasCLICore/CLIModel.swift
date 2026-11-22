@@ -96,28 +96,79 @@ func cloudCapabilityWarnings(
   steps: Int?,
   guidance: Float?,
   seed: UInt64?,
-  negative: String?
+  negative: String?,
+  aspect: AspectRatio? = nil,
+  fromPromptsFile: Bool = false
 ) -> [String] {
+  // A prompts file names these as YAML keys, not flags.
+  func label(_ flag: String, _ key: String) -> String {
+    fromPromptsFile ? key : flag
+  }
   var lines: [String] = []
   if steps != nil, !model.supportsSteps {
-    lines.append("warning: \(model.id) does not take a step count; --steps ignored")
+    lines.append(
+      "warning: \(model.id) does not take a step count; \(label("--steps", "style.steps")) ignored")
   }
   if guidance != nil, !model.supportsGuidance {
-    lines.append("warning: \(model.id) does not take a guidance scale; --guidance ignored")
+    lines.append(
+      "warning: \(model.id) does not take a guidance scale; "
+        + "\(label("--guidance", "style.guidance")) ignored")
   }
   if seed != nil, !model.supportsSeed {
     lines.append(
-      "warning: \(model.id) does not take a seed; --seed ignored and the output is not reproducible"
-    )
+      "warning: \(model.id) does not take a seed; \(label("--seed", "seed")) ignored and the "
+        + "output is not reproducible")
   }
   if let negative, !negative.isEmpty, !model.supportsNegativePrompt {
     // Not dropped: the prompt bundle writes it into the prompt as an
     // "Avoid:" line, which instruction-following models honour loosely.
     lines.append(
-      "note: \(model.id) has no negative-prompt field; --negative is sent in the prompt as "
-        + "an \"Avoid:\" line")
+      "note: \(model.id) has no negative-prompt field; "
+        + "\(label("--negative", "style.negative")) is sent in the prompt as an \"Avoid:\" line")
+  }
+  if let aspect, !model.supportedAspectRatios.contains(aspect) {
+    let supported = model.supportedAspectRatios.map(\.rawValue).joined(separator: ", ")
+    lines.append(
+      "warning: \(model.id) does not support the '\(aspect.rawValue)' aspect; the vendor will "
+        + "use its closest ratio (supported: \(supported))")
   }
   return lines
+}
+
+/// The up-front stderr lines describing what a generation will request.
+///
+/// On-device models render exactly the requested size and step count, so both
+/// are logged. A cloud vendor takes neither as given: it snaps to its own
+/// aspect presets (the real size is logged once the image arrives, see
+/// ``cloudOutputSizeLine(width:height:)``) and most take no step count.
+func requestLogLines(
+  for model: CLIModel, style: StyleConfig, aspect: AspectRatio?
+) -> [String] {
+  guard let cloud = model.cloud else {
+    return [
+      "[vinetas] Dimensions: \(style.width)x\(style.height)",
+      "[vinetas] Steps: \(style.steps)",
+    ]
+  }
+  var lines: [String] = []
+  let ratio =
+    aspect
+    ?? AspectRatio.allCases.first {
+      $0.width == style.width && $0.height == style.height
+    }
+  if let ratio {
+    lines.append("[vinetas] Aspect: \(ratio.rawValue) (the vendor chooses the pixel size)")
+  } else {
+    lines.append(
+      "[vinetas] Aspect: \(style.width):\(style.height) (the vendor chooses the pixel size)")
+  }
+  if cloud.supportsSteps { lines.append("[vinetas] Steps: \(style.steps)") }
+  return lines
+}
+
+/// The size the vendor actually returned, logged after generation.
+func cloudOutputSizeLine(width: Int, height: Int) -> String {
+  "[vinetas] Output size: \(width)x\(height)"
 }
 
 // MARK: - Download
@@ -191,7 +242,7 @@ func reportingCloudErrors<T>(_ body: () async throws -> T) async throws -> T {
   do {
     return try await body()
   } catch let error as CloudEngineError {
-    stderrPrint("error: \(error.localizedDescription)")
+    stderrPrint("error: \(error.description(keySource: .environmentOnly))")
     throw ExitCode(CLIExitCode.code(for: error))
   }
 }
