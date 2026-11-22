@@ -141,7 +141,7 @@ Pinned floors (see [Package.swift](Package.swift) for the source of truth):
 |---------|--------|-------------|---------|
 | flux-2-swift-mlx | `Flux2Core`, `FluxTextEncoders` | 3.5.0 | FLUX.2 pipeline (MIT) |
 | SwiftTubería | `Tuberia`, `TuberiaCatalog` | 0.10.0 | Componentized diffusion pipeline protocols |
-| pixart-swift-mlx | `PixArtBackbone` | 0.9.0 | PixArt-Sigma DiT model plugin |
+| pixart-swift-mlx | `PixArtBackbone` | 0.10.0 | PixArt-Sigma DiT model plugin |
 | SwiftAcervo | `SwiftAcervo` | 0.25.0 | Model download/cache; resharding + integrity verification |
 | glosa-av | `GlosaCore` | 0.12.0 | GLOSA `<shot>` directives for `vinetas storyboard` |
 | SwiftCompartido | `SwiftCompartido` | 7.4.0 | Screenplay parsing (.fountain/.highland/.fdx) |

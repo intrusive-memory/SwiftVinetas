@@ -155,3 +155,41 @@ func assertModelDownloaded(_ model: any ModelDescriptor) async throws {
     available, "Model '\(model.displayName)' is not available on disk — run the download step first"
   )
 }
+
+#if canImport(Vision)
+  import Vision
+
+  /// Apple Vision's on-device scene labels for `image`, most confident first.
+  func visionLabels(_ image: CGImage, minimumConfidence: Float = 0.1) throws -> [(
+    label: String, confidence: Float
+  )] {
+    let request = VNClassifyImageRequest()
+    try VNImageRequestHandler(cgImage: image).perform([request])
+    return (request.results ?? [])
+      .filter { $0.confidence >= minimumConfidence }
+      .sorted { $0.confidence > $1.confidence }
+      .map { ($0.identifier, $0.confidence) }
+  }
+#endif
+
+/// Fails when Apple Vision recognizes nothing in `image`.
+///
+/// A scrambled diffusion output (PixArt at 512×512 before resolution binning
+/// was the case that slipped through) gets no scene label at all, while any
+/// real picture gets several. ``assertImageNotGarbage(_:)`` only catches
+/// blank or flat images; this catches noise that has colour and contrast.
+func assertImageRecognizable(_ image: CGImage, _ name: String) {
+  #if canImport(Vision)
+    do {
+      let labels = try visionLabels(image, minimumConfidence: 0.2)
+      #expect(
+        !labels.isEmpty,
+        "\(name): Vision recognizes nothing in the image (scrambled output?)")
+      print(
+        "[vision] \(name): \(labels.prefix(5).map { "\($0.label) \(String(format: "%.2f", $0.confidence))" }.joined(separator: ", "))"
+      )
+    } catch {
+      Issue.record("\(name): Vision classification failed: \(error)")
+    }
+  #endif
+}
