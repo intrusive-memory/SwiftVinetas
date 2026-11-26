@@ -189,10 +189,10 @@ What this means for the design:
 - **R-12.** `ModelSummary.cloud` stays as the display table for modules without
   networking. Add a value type, `ModelAvailability` (`available`, `unavailable`,
   `unchecked`), that hosts pass in. `VinetasVocabulary` doesn't fetch anything.
-- **R-13.** `VinetasGenerationSettingsPanel` already takes a `models:` list, so
-  hosts pass only available models. `VinetasPromptDraft`'s lookup by ID
-  (`ModelSummary.allIncludingCloud`) keeps resolving every known model, so a draft
-  that names an unavailable model still shows its name, marked unavailable.
+- **R-13.** VinetasUI needs no change: `VinetasGenerationSettingsPanel` already takes
+  any `models:` list, and `VinetasPromptDraft`'s lookup by ID
+  (`ModelSummary.allIncludingCloud`) keeps resolving every known model. The Vinetas
+  app doesn't use this panel; each app has its own `GenerationSettingsPanel` (§7.1).
 
 ### 5.5 The `vinetas` CLI
 
@@ -245,9 +245,10 @@ What this means for the design:
 ### 7.1 Vinetas app (macOS and iPad)
 
 - **V-1.** Bump the SwiftVinetas floor to the release that ships §5.
-- **V-2.** `CloudProviderRegistry.availableModels` returns known models that are in
-  `releasedProviders`, have a key, **and** are available in the latest snapshot.
-  The registry listens to `cloudAvailability.updates`.
+- **V-2.** `CloudProviderRegistry` publishes `availableCloudModelIDs: Set<String>`
+  beside `configuredProviders`: known models that are in `releasedProviders`, have a
+  key, **and** are available in the latest snapshot. It listens to
+  `cloudAvailability.updates`. Its `availableModels` filters on the same set.
 - **V-3.** Refresh triggers:
   - app launch, for each configured vendor, respecting the cache
   - saving or removing a key in Settings → Cloud Engines (forced)
@@ -259,13 +260,18 @@ What this means for the design:
   all known models shown." It replaces the static model names in
   `SettingsCloudTab.swift:109` with the available ones.
 - **V-5.** When the selected model becomes unavailable, the studio moves the
-  selection to the first available model and says why, as `applyCloudProviders`
-  already does for a removed key. `AppDefaults.resolveDefaultModel` skips an
-  unavailable cloud model the same way.
+  selection to the first available model and shows a one-line notice: "<model> isn't
+  available for your key; switched to <model>." The same notice is added for a removed
+  key, which today switches silently (`GenerationViewModel.applyCloudProviders`).
+  `AppDefaults.resolveDefaultModel` skips an unavailable cloud model the same way.
 - **V-6.** The gallery and the record details keep showing a record's model name
   even when that model is no longer available (R-2).
-- **V-7.** Both pickers (`Vinetas/` and `VinetasIOS/`
-  `GenerationSettingsPanel.swift`) and the Settings Defaults tab use V-2's list.
+- **V-7.** Both studio pickers (`Vinetas/` and `VinetasIOS/`
+  `GenerationSettingsPanel.swift`) get their cloud models from
+  `GenerationViewModel.cloudModels`, which today filters only by
+  `configuredCloudProviders`. `applyCloudProviders` takes the registry's
+  `availableCloudModelIDs` as well, and `cloudModels` filters on it. The Settings
+  Defaults tab already reads `CloudProviderRegistry.availableModels` (V-2).
 - **V-8.** Tests:
   - the registry filter
   - the selection fallback
@@ -278,6 +284,9 @@ Escribir offers every model in `ModelSummary.allIncludingCloud`
 (`Shared/Storyboard/ShotDraftMapping.swift:64`) when composing a shot note. It
 holds no vendor keys, so it can't run a check itself.
 
+- **E-0.** Add the `group.intrusive-memory.models` App Group to Escribir's
+  entitlements (it has none today) and update its provisioning profiles. Raise its
+  SwiftVinetas floor (it resolves 0.26.0) to the release that ships §5.
 - **E-1.** Escribir reads the availability snapshots that Vinetas and the CLI write,
   if decision D-4 puts them somewhere Escribir can read. It then offers on-device
   models plus available cloud models, and labels the rest "not checked".
@@ -325,12 +334,13 @@ models a key can't use. The rest follows in 1.2.1.
 **In 1.2.0:**
 
 - **D-6** model-table refresh, as its own SwiftVinetas patch release first.
-- **SwiftVinetas:** R-1 to R-5, R-6 to R-11, R-12 and R-13, R-18, R-19, R-21, R-22.
+- **SwiftVinetas:** R-1 to R-5, R-6 to R-11, R-18, R-19, R-21, R-22. R-13 needs no
+  change.
   - From R-5a, only the rule that a model is unavailable on or after its
     `shutdown_date`. The `retiringSoon` flag and "Retires on" text wait.
   - Google's `400 API_KEY_INVALID` is a key error on the generation path as well as
     in the check (R-5).
-- **Vinetas app:** V-1, V-2, V-5, V-6, V-7.
+- **Vinetas app:** V-1, V-2, V-5 (including the notice), V-6, V-7.
   - V-3 without the Refresh button: launch, key saved or removed, and
     `modelUnavailable`.
   - V-8 without the Settings status-text tests.
@@ -338,6 +348,7 @@ models a key can't use. The rest follows in 1.2.1.
 **In 1.2.1:**
 
 - R-5a's `retiringSoon` warning.
+- R-12's `ModelAvailability` type in VinetasVocabulary, with Escribir.
 - The CLI: R-14 to R-17. Until then, `vinetas list` and generation keep today's
   behaviour, and a dropped model fails with R-11's `modelUnavailable` message.
 - Telemetry: R-20.
