@@ -51,7 +51,7 @@ A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see th
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.27.1")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.27.2")
 ]
 ```
 
@@ -261,6 +261,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.27.2** — Three new cloud models: GPT Image 2.6 Flare and Sunburst (OpenAI) and Gemini 3.1 Flash Lite Image (Google, 1K output only). The default model is unchanged.
 
 **v0.27.1** — PixArt-Sigma generates real images again. PixArt-Sigma-XL-2-1024-MS scrambles its output away from its 1024-class training sizes (every 512×512 request came out as blocks of noise, #39); `PixArtEngine` now generates at the nearest of diffusers' 1024 resolution bins (pixart-swift-mlx 0.10.0) and resizes and center-crops to the size asked for. The GPU example test asserts Apple Vision recognizes something in each image.
 
