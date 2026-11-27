@@ -22,7 +22,7 @@ struct ModelSummaryRoundTripTests {
   @Test
   func testVocabularyCloudSummariesEqualCoreMapping() {
     #expect(ModelSummary.cloud == CloudModelDescriptor.all.map(\.summary))
-    #expect(ModelSummary.cloud.count == 9)
+    #expect(ModelSummary.cloud.count == 12)
     #expect(ModelSummary.cloud.allSatisfy { $0.isCloud })
   }
 

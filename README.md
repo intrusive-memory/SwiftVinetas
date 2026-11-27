@@ -51,7 +51,7 @@ A host that only edits prompts links `VinetasUI` and `VinetasVocabulary`; see th
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.27.1")
+    .package(url: "https://github.com/intrusive-memory/SwiftVinetas.git", from: "0.27.2")
 ]
 ```
 
@@ -203,7 +203,7 @@ Models are downloaded from HuggingFace on first use and cached in the App Group 
 
 ### Cloud models
 
-Nine commercial models run side by side with the on-device engines, each behind the user's own API key: OpenAI (`openai-gpt-image-2.5-flare`, `openai-gpt-image-2.5-sunburst`), Google (`google-nano-banana-2.1`, `google-gemini-3.1-flash-image`, `google-gemini-3-pro-image`), Black Forest Labs (`bfl-flux-2-pro`, `bfl-flux-2-flex`) and Stability AI (`stability-core`, `stability-ultra`). `VinetasClient` registers one `CloudImageEngine` per vendor by default; they route through `EngineRouter` like any other engine, are never Pro-gated, and need nothing downloaded.
+Twelve commercial models run side by side with the on-device engines, each behind the user's own API key: OpenAI (`openai-gpt-image-2.6-flare`, `openai-gpt-image-2.6-sunburst`, `openai-gpt-image-2.5-flare`, `openai-gpt-image-2.5-sunburst`), Google (`google-nano-banana-2.1`, `google-gemini-3.1-flash-image`, `google-gemini-3-pro-image`), Black Forest Labs (`bfl-flux-2-pro`, `bfl-flux-2-flex`) and Stability AI (`stability-core`, `stability-ultra`). `VinetasClient` registers one `CloudImageEngine` per vendor by default; they route through `EngineRouter` like any other engine, are never Pro-gated, and need nothing downloaded.
 
 Keys resolve from the environment first (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `BFL_API_KEY`, `STABILITY_API_KEY`), then from the keychain item the Vinetas app writes (a shared keychain access group; the CLI itself does not hold that group yet, so from the command line use the environment variable). There is no `--api-key` flag, and no key is ever written to disk in plaintext or printed. Cloud failures map to documented exit codes (78 no key, 65 moderated, 69 vendor error). See [docs/CLI_REFERENCE.md § Models and `--model`](docs/CLI_REFERENCE.md#models-and---model) and [docs/REQUIREMENTS-CLOUD-ENGINES.md](docs/REQUIREMENTS-CLOUD-ENGINES.md).
 
@@ -261,6 +261,8 @@ xcodebuild test -scheme SwiftVinetas-Package -destination 'platform=macOS'
 - [Test Analysis](docs/TEST_ANALYSIS.md) — Test-suite audit findings
 
 ## Status
+
+**v0.27.2** — Three new cloud models: GPT Image 2.6 Flare and Sunburst (OpenAI) and Gemini 3.1 Flash Lite Image (Google, 1K output only). The default model is unchanged.
 
 **v0.27.1** — PixArt-Sigma generates real images again. PixArt-Sigma-XL-2-1024-MS scrambles its output away from its 1024-class training sizes (every 512×512 request came out as blocks of noise, #39); `PixArtEngine` now generates at the nearest of diffusers' 1024 resolution bins (pixart-swift-mlx 0.10.0) and resizes and center-crops to the size asked for. The GPU example test asserts Apple Vision recognizes something in each image.
 

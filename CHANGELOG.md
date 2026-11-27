@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.27.2] - 2026-11-26
+
+### Added
+
+- Cloud models `gpt-image-2.6-flare` and `gpt-image-2.6-sunburst` (OpenAI, listed before their 2.5 counterparts) and `gemini-3.1-flash-lite-image` (Google, after `gemini-3.1-flash-image`), in `CloudModelDescriptor`, `CloudProvider.models` and `ModelSummary.cloud` (now twelve). The default model is unchanged.
+
+### Fixed
+
+- `gemini-3.1-flash-lite-image` supports only 1K output, so `GeminiImageClient` always sends `image_size` `1K` for it instead of `2K`/`4K` for larger panels.
+
 ## [0.27.1] - 2026-11-22
 
 ### Fixed
@@ -97,5 +107,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - glosa-av follow-up: a whitespace-only `prompt` should be treated as empty upstream. Until then
   `vinetas storyboard` reports it as a per-panel error.
 
-[Unreleased]: https://github.com/intrusive-memory/SwiftVinetas/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/intrusive-memory/SwiftVinetas/compare/v0.27.2...HEAD
+[0.27.2]: https://github.com/intrusive-memory/SwiftVinetas/compare/v0.27.1...v0.27.2
 [0.26.0]: https://github.com/intrusive-memory/SwiftVinetas/compare/v0.25.0...v0.26.0

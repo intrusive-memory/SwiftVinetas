@@ -119,7 +119,7 @@ struct CloudCatalogTests {
   func cloudModelIDsAreUniqueAndResolvable() {
     let ids = CloudModelDescriptor.all.map(\.id)
     #expect(Set(ids).count == ids.count)
-    #expect(ids.count == 9)
+    #expect(ids.count == 12)
     for model in CloudModelDescriptor.all {
       #expect(CloudModelDescriptor.byID[model.id] == model)
       #expect(model.engineID.hasPrefix("cloud-"))
@@ -902,6 +902,40 @@ struct CloudVendorAdapterTests {
     #expect(format["aspect_ratio"] as? String == "16:9")
     #expect(format["image_size"] as? String == "4K")
     #expect(body["generation_config"] == nil && body["seed"] == nil)
+  }
+
+  @Test(
+    "Gemini image_size by model for a 1920x1080 request",
+    arguments: [
+      (CloudModelDescriptor.gemini31FlashLiteImage, "1K"),
+      (CloudModelDescriptor.gemini31FlashImage, "2K"),
+    ])
+  func geminiImageSizeRespectsModelCap(model: CloudModelDescriptor, expected: String) async throws {
+    defer { StubURLProtocol.reset() }
+    StubURLProtocol.handler = { request in
+      let json: [String: Any] = [
+        "status": "completed",
+        "steps": [
+          [
+            "type": "model_output",
+            "content": [
+              ["type": "image", "mime_type": "image/jpeg", "data": stubPNG.base64EncodedString()]
+            ],
+          ]
+        ],
+      ]
+      return (httpResponse(request.url), try JSONSerialization.data(withJSONObject: json))
+    }
+
+    let engine = engine(.google, client: GeminiImageClient())
+    try await engine.loadModel(model, progress: { _ in })
+    _ = try await engine.generate(
+      request: makeRequest(width: 1920, height: 1080), stepProgress: nil)
+
+    let request = try #require(StubURLProtocol.requests.first)
+    let format = try #require(request.jsonBody["response_format"] as? [String: Any])
+    #expect(request.jsonBody["model"] as? String == model.vendorModelID)
+    #expect(format["image_size"] as? String == expected)
   }
 
   @Test("Gemini text-only reply is moderation")
