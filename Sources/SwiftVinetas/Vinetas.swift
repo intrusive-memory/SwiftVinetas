@@ -44,6 +44,12 @@ public final class VinetasClient: Sendable {
   /// The engine router used to dispatch generation requests.
   public let router: EngineRouter
 
+  /// Which cloud models the configured API keys can use. The default client
+  /// builds it with the same key store and `URLSession` as its cloud engines
+  /// and the default snapshot directory. Creating it makes no network call;
+  /// checks run on ``CloudModelAvailability/refresh(_:force:)``.
+  public let cloudAvailability: CloudModelAvailability
+
   /// The current SwiftVinetas library version.
   public static let version = "0.27.2-dev"
 
@@ -133,11 +139,15 @@ public final class VinetasClient: Sendable {
     let totalMemoryGB = DeviceCapability.current.totalMemoryGB
     let deviceArch = DeviceCapability.current.chipGeneration.rawValue
     let localEngines: [any ImageGenerationEngine] = [PixArtEngine(), Flux2Engine()]
+    let cloudKeyStore = ChainedAPIKeyStore.default
+    let cloudSession = CloudHTTP.makeSession()
     let cloudEngines: [any ImageGenerationEngine] = CloudProvider.allCases.map {
-      CloudImageEngine(provider: $0)
+      CloudImageEngine(provider: $0, keyStore: cloudKeyStore, session: cloudSession)
     }
     let engines = localEngines + cloudEngines
     self.router = EngineRouter(engines: engines)
+    self.cloudAvailability = CloudModelAvailability(
+      keyStore: cloudKeyStore, session: cloudSession)
 
     // Emit telemetry events for client init + engine registration. The reporter
     // is nil here (setTelemetry has not yet been called) so these capture calls
@@ -170,9 +180,13 @@ public final class VinetasClient: Sendable {
   ///
   /// Use this to inject a ``MockEngine`` or other test doubles.
   ///
-  /// - Parameter router: The engine router to use for dispatch.
-  public init(router: EngineRouter) {
+  /// - Parameters:
+  ///   - router: The engine router to use for dispatch.
+  ///   - cloudAvailability: The availability service; `nil` builds one with
+  ///     the default key store, session and snapshot directory.
+  public init(router: EngineRouter, cloudAvailability: CloudModelAvailability? = nil) {
     self.router = router
+    self.cloudAvailability = cloudAvailability ?? CloudModelAvailability()
   }
 }
 
