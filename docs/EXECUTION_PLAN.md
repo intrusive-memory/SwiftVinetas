@@ -56,7 +56,7 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 
 **Entry criteria**:
 - [ ] First sortie — no prerequisites. Recon A-01 to A-03 confirm `CloudModelDescriptor` (`Sources/SwiftVinetas/Cloud/CloudModelDescriptor.swift`), `ModelSummary.cloud` (`Sources/VinetasVocabulary/ModelSummary.swift:451`) and the parity test (`Tests/SwiftVinetasTests/ModelSummaryRoundTripTests.swift:24`, asserts `count == 9`).
-- [ ] OQ-1 is answered.
+- [x] OQ-1 is answered.
 
 **Tasks**:
 1. From the vendors' current API docs, record each new model's capabilities: sizes or aspect ratios, steps, guidance, seed, negative prompt, reference-image limit, pricing hint. Models: `gpt-image-2.6-flare`, `gpt-image-2.6-sunburst`, `gemini-3.1-flash-lite-image`. Put the sources in a comment above each descriptor.
@@ -76,7 +76,7 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 
 **Entry criteria**:
 - [ ] G-1 done: S1 merged and released; `feature/cloud-model-discovery` cut from `development`.
-- [ ] OQ-2 is answered.
+- [x] OQ-2 is answered.
 - [ ] Recon A-07, A-08, A-16 hold: `CloudHTTP.perform` (`CloudHTTP.swift:63–88`), the 9 `CloudEngineError` cases, and the two exhaustive switches (`CloudEngineError.swift:69`, `Sources/VinetasCLICore/CLIModel.swift:225`).
 
 **Tasks**:
@@ -121,7 +121,7 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 
 **Entry criteria**:
 - [ ] Sortie 3 exit criteria met.
-- [ ] OQ-3 is answered.
+- [x] OQ-3 is answered.
 - [ ] Recon A-13 holds: SwiftVinetas has no App Group helper; the App Group is reached through SwiftAcervo (`Acervo.sharedModelsDirectory`).
 
 **Tasks**:
@@ -259,6 +259,7 @@ on `release/1.2.0`; switch only after confirming it is clean.
 **Why blocking**: Sortie 1's order and its proof that each model works both depend on it.
 **Recommendation**: Put each new model before the model it supersedes (2.6 before 2.5; Flash Lite after Flash), and keep the default model unchanged. Approve three generations at the smallest size, about $0.10 in total.
 **Rationale**: The vendors now recommend the newer IDs. Keeping the default avoids changing what existing users get without notice.
+**Resolution (2026-11-26)**: Accepted. Smoke test done: one generation each for `gpt-image-2.6-flare`, `gpt-image-2.6-sunburst` (OpenAI `/v1/images/generations`, 1024x1024, PNG) and `gemini-3.1-flash-lite-image` (Google `/v1beta/interactions`, 1:1, 1K, JPEG) returned 200 with a decodable image, using the adapters' request bodies. Sortie 1 makes no paid calls.
 
 ### OQ-2: How a rejected key surfaces at generation
 **Affects**: Sortie 2 (and Sortie 6)
@@ -267,6 +268,7 @@ on `release/1.2.0`; switch only after confirming it is clean.
 **Why blocking**: The new case and its exit code are public API, and Sortie 2's tests assert them.
 **Recommendation**: Add `keyRejected(provider:reason:)`, with reason `expired` / `invalid` / `notPermitted`, and map it to exit 78 (`EX_CONFIG`), the same as a missing key.
 **Rationale**: For a user, a rejected key is the same as a missing one: fix it in Settings. Exit 69 stays for vendor-side failures.
+**Resolution (2026-11-26)**: Accepted: `keyRejected(provider:reason:)`, reasons `expired` / `invalid` / `notPermitted`, CLI exit 78.
 
 ### OQ-3: Where snapshots live when the App Group isn't available
 **Affects**: Sortie 4
@@ -275,6 +277,7 @@ on `release/1.2.0`; switch only after confirming it is clean.
 **Why blocking**: Sortie 4's store needs one defined fallback.
 **Recommendation**: Use `<App Group container>/vinetas-cloud-availability/`, resolved through SwiftAcervo's App Group ID. Without the container, fall back to `Caches/io.intrusive-memory.Vinetas/cloud-availability/`. Tests always inject a temp directory.
 **Rationale**: It follows the CLI's existing `vinetas-io` pattern (`VinetasCLICore.swift:976`), and a cache that can't reach the group still works, just unshared.
+**Resolution (2026-11-26)**: Recommendation adopted (not separately addressed; reversible before Sortie 4).
 
 ### Non-blocking (from recon § Unverifiable)
 - U-1 (OpenAI unverified organisations), U-2 (Google region and tier), U-3 (BFL and Stability removed-model responses) don't block 1.2.0. Sortie 2's classifier handles each as far as the vendor docs say.
