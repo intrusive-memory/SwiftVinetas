@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Vendor model listings: each adapter can ask its vendor which models a key can use (OpenAI and Google list models; Black Forest Labs and Stability AI check the key through their credit endpoints).
 - `CloudModelAvailability`, reachable as `VinetasClient.cloudAvailability`: per-provider `CloudAvailabilitySnapshot`s with `snapshot(for:)`, `refresh(_:force:)`, `availableModels()`, `isAvailable(_:)` and an `updates` stream. Snapshots are cached for 24 hours, invalidated by a key change, kept on disk without any key material, bounded to 40 seconds per check, and backed off for 5 minutes after a failure.
 - A generation that fails with `modelUnavailable` removes the model from the provider's snapshot, and one that fails with `keyRejected` marks the snapshot `.keyRejected`; each publishes one update and the original error is still thrown. `CloudImageEngine.setCloudErrorHandler(_:)` exposes the hook.
+- Smart expiry for availability snapshots: a snapshot records the raw vendor model IDs and a digest of the catalog (`CloudProvider.models`) of the build that wrote it. A snapshot written by a build with a different catalog is re-mapped through the reader's own model table until the next check, so adding, removing or re-aliasing a model needs no other edit. The on-disk store is now schema version 2; files with another version are ignored, not deleted.
+- Offline acceptance tests (`CloudModelAcceptanceTests`) over every OpenAI and Google model in `CloudModelDescriptor.all`: model field, request size per supported ratio, no unsupported parameter sent, reference limit, and the 4:1 strip. A model added to the catalog is covered automatically.
+- `make test-cloud-models` and the `SwiftVinetasCloudLiveTests` target: live acceptance checks (listed, every ratio, reference limit, error classification) for the 2.6 and Flash Lite models. They make paid vendor calls, run only when `VINETAS_LIVE_CLOUD_TESTS=1` (the target sets it), read keys only through `ChainedAPIKeyStore.default`, are skipped by `make test` and `make test-ios`, and are never run in CI. Results go to `docs/cloud-model-acceptance.md`.
+
+### Fixed
+
+- A provider whose key the vendor rejected no longer offers any models, and a vendor listing that was already in flight when a key changed or was rejected can no longer undo that invalidation when it finishes.
 
 ### Changed
 

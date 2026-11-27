@@ -199,6 +199,14 @@ let package = Package(
       ]
     ),
 
+    // Live cloud-model acceptance tests (requirements §8.2 B). Skipped unless
+    // VINETAS_LIVE_CLOUD_TESTS=1; makes paid vendor calls. Run only through
+    // `make test-cloud-models`; never from CI.
+    .testTarget(
+      name: "SwiftVinetasCloudLiveTests",
+      dependencies: ["SwiftVinetas"]
+    ),
+
     // Vocabulary unit tests (no GPU or MLX required — safe for CI)
     .testTarget(
       name: "VinetasVocabularyTests",
