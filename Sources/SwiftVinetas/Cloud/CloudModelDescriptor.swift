@@ -21,6 +21,10 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
   /// `flux-2-pro`, `core`).
   public let vendorModelID: String
 
+  /// Other vendor IDs that mean this model, such as a dated snapshot. Matched
+  /// exactly, never by prefix (R-3).
+  public let vendorAliases: [String]
+
   public let defaultSteps: Int
   public let defaultGuidance: Float
   public let supportedAspectRatios: [AspectRatio]
@@ -66,12 +70,14 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     supportsSeed: Bool,
     supportsNegativePrompt: Bool,
     pricingHint: String,
-    maxReferenceImages: Int = 0
+    maxReferenceImages: Int = 0,
+    vendorAliases: [String] = []
   ) {
     self.id = id
     self.displayName = displayName
     self.provider = provider
     self.vendorModelID = vendorModelID
+    self.vendorAliases = vendorAliases
     self.defaultSteps = defaultSteps
     self.defaultGuidance = defaultGuidance
     self.supportedAspectRatios = supportedAspectRatios
@@ -81,6 +87,12 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     self.supportsNegativePrompt = supportsNegativePrompt
     self.pricingHint = pricingHint
     self.maxReferenceImages = maxReferenceImages
+  }
+
+  /// Whether `vendorID`, as a vendor lists it, is this model: an exact match on
+  /// ``vendorModelID`` or one of ``vendorAliases``.
+  public func matches(vendorID: String) -> Bool {
+    vendorID == vendorModelID || vendorAliases.contains(vendorID)
   }
 
   // MARK: - Catalog
@@ -170,7 +182,8 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     supportsSeed: false,
     supportsNegativePrompt: false,
     pricingHint: "~$0.03–0.25/image",
-    maxReferenceImages: openAIReferenceLimit
+    maxReferenceImages: openAIReferenceLimit,
+    vendorAliases: ["gpt-image-2.5-flare-2026-09-08"]
   )
 
   /// OpenAI `gpt-image-2.5-sunburst`, the slower premium sibling.
@@ -187,7 +200,8 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     supportsSeed: false,
     supportsNegativePrompt: false,
     pricingHint: "~$0.03–0.25/image",
-    maxReferenceImages: openAIReferenceLimit
+    maxReferenceImages: openAIReferenceLimit,
+    vendorAliases: ["gpt-image-2.5-sunburst-2026-09-08"]
   )
 
   /// Google's image models take up to 10 object references (Nano Banana 2.1,

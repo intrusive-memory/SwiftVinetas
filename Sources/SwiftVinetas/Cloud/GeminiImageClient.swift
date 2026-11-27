@@ -20,6 +20,9 @@ struct GeminiImageClient: CloudProviderClient {
   /// Overridable for tests; production uses the public endpoint.
   var endpoint = URL(string: "https://generativelanguage.googleapis.com/v1beta/interactions")!
 
+  /// The model listing endpoint. Overridable for tests.
+  var modelsEndpoint = URL(string: "https://generativelanguage.googleapis.com/v1beta/models")!
+
   /// The vendor's aspect-ratio presets.
   static let aspectRatios: [(label: String, ratio: Double)] = [
     ("1:1", 1.0), ("3:2", 1.5), ("2:3", 2.0 / 3.0),
@@ -129,5 +132,32 @@ struct GeminiImageClient: CloudProviderClient {
     if longest <= 1280 { return "1K" }
     if longest <= 2560 { return "2K" }
     return "4K"
+  }
+
+  /// `GET /v1beta/models?pageSize=1000`, following `nextPageToken` (at most
+  /// ``CloudListing/maxPages`` pages). `models/` is stripped from each name.
+  func listAvailableModels(apiKey: String, session: URLSession) async throws -> CloudVendorListing {
+    var ids = Set<String>()
+    var pageToken: String?
+    for _ in 0..<CloudListing.maxPages {
+      var components = URLComponents(url: modelsEndpoint, resolvingAgainstBaseURL: false)!
+      var query = [URLQueryItem(name: "pageSize", value: "1000")]
+      if let pageToken { query.append(URLQueryItem(name: "pageToken", value: pageToken)) }
+      components.queryItems = query
+      var request = URLRequest(url: components.url!)
+      request.httpMethod = "GET"
+      request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
+      let (data, _) = try await CloudHTTP.perform(
+        request, session: session, provider: provider, kind: .authenticated)
+      let object = try CloudListing.json(data, provider: provider)
+      for model in (object["models"] as? [[String: Any]]) ?? [] {
+        guard var name = model["name"] as? String else { continue }
+        if name.hasPrefix("models/") { name.removeFirst("models/".count) }
+        ids.insert(name)
+      }
+      guard let next = object["nextPageToken"] as? String, !next.isEmpty else { break }
+      pageToken = next
+    }
+    return CloudVendorListing(modelIDs: ids)
   }
 }

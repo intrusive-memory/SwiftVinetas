@@ -117,4 +117,15 @@ struct BFLImageClient: CloudProviderClient {
     }
     throw CloudEngineError.timedOut(provider: provider)
   }
+
+  /// BFL has no model listing (R-9): `GET /v1/credits` proves the key works.
+  func listAvailableModels(apiKey: String, session: URLSession) async throws -> CloudVendorListing {
+    var request = URLRequest(url: baseURL.appendingPathComponent("credits"))
+    request.httpMethod = "GET"
+    request.setValue(apiKey, forHTTPHeaderField: "x-key")
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+    _ = try await CloudHTTP.perform(
+      request, session: session, provider: provider, kind: .authenticated)
+    return .keyVerifiedOnly
+  }
 }

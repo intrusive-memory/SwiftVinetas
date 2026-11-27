@@ -13,6 +13,9 @@ struct StabilityImageClient: CloudProviderClient {
   /// Overridable for tests.
   var baseURL = URL(string: "https://api.stability.ai/v2beta/stable-image/generate")!
 
+  /// The balance endpoint used as a key check. Overridable for tests.
+  var balanceEndpoint = URL(string: "https://api.stability.ai/v1/user/balance")!
+
   /// The vendor's aspect-ratio presets.
   static let aspectRatios: [(label: String, ratio: Double)] = [
     ("1:1", 1.0), ("16:9", 16.0 / 9.0), ("21:9", 21.0 / 9.0),
@@ -65,5 +68,17 @@ struct StabilityImageClient: CloudProviderClient {
   /// Nearest vendor preset for the requested dimensions.
   static func aspectRatio(width: Int, height: Int) -> String {
     CloudDimensions.nearestRatio(width: width, height: height, candidates: aspectRatios)
+  }
+
+  /// Stability has no model listing (R-9): `GET /v1/user/balance` proves the
+  /// key works.
+  func listAvailableModels(apiKey: String, session: URLSession) async throws -> CloudVendorListing {
+    var request = URLRequest(url: balanceEndpoint)
+    request.httpMethod = "GET"
+    request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+    _ = try await CloudHTTP.perform(
+      request, session: session, provider: provider, kind: .authenticated)
+    return .keyVerifiedOnly
   }
 }

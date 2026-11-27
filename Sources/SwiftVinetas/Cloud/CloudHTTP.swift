@@ -24,6 +24,14 @@ protocol CloudProviderClient: Sendable {
     apiKey: String,
     session: URLSession
   ) async throws -> CloudImageOutput
+
+  /// Asks the vendor which models `apiKey` can use (requirements R-6, R-9,
+  /// R-9a). Sent as ``CloudRequestKind/authenticated``, so a rejected key is
+  /// ``CloudEngineError/keyRejected(provider:reason:)`` and a listing `404` is
+  /// never read as a model being gone. A vendor with no listing endpoint
+  /// returns ``CloudVendorListing/keyVerifiedOnly`` once its balance call
+  /// succeeds. The key is never included in a thrown error.
+  func listAvailableModels(apiKey: String, session: URLSession) async throws -> CloudVendorListing
 }
 
 enum CloudHTTP {
