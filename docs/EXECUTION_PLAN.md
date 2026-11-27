@@ -53,6 +53,10 @@ Human gates between layers (not sorties):
 - **G-2, after S6 and S10–S12 and G-2a:** merge the second discovery PR into `development`, then release our next minor release of SwiftVinetas (`/ship-swift-library minor`). **Held** until S10–S12 land, so 0.28.0 ships smart expiry and the rejected-key rule.
 - **G-3, after S8 and S13 (S14 merged):** the Vinetas development → main PR (TestFlight), then requirements § 8 step 3: the real-key smoke test including a rejected key and AC-9, privacy PR vinetas.github.io#21 merged and live, the App Store description in both metadata files. Then tag `1.2.0-rc7`.
 
+### Tracking
+
+Progress is tracked in GitHub, not in this file: **intrusive-memory/Vinetas#186** (tracking issue), with one sub-issue per open sortie and gate across all three repos, linked by blocked-by dependencies. Gates: G-2a SwiftVinetas#108, G-2 SwiftVinetas#109, G-3 Vinetas#185, privacy page vinetas.github.io#22. A sortie agent works only in its own repo and closes its issue through its PR.
+
 ### Amendment, 2026-11-27
 
 Requirements amended after WU-A finished (R-7a smart expiry, R-8a rejected key, V-4a
@@ -205,6 +209,8 @@ S1 ends with a PR from it into `development` (G-1). After G-1's release, merge `
 
 ### Sortie 10: Smart cache expiry (R-7a)
 
+**Issue**: intrusive-memory/SwiftVinetas#105
+
 **Priority**: 10 — first of the amendment; changes the snapshot file, which S11 and WU-B read. Builds: yes. Model: opus (file format change shared across processes and versions).
 
 **Entry criteria**:
@@ -233,6 +239,8 @@ S1 ends with a PR from it into `development` (G-1). After G-1's release, merge `
 
 ### Sortie 11: A rejected key offers no models (R-8a)
 
+**Issue**: intrusive-memory/SwiftVinetas#106
+
 **Priority**: 11 — WU-B's greyed row (S13) reads this. Builds: yes. Model: sonnet.
 
 **Entry criteria**:
@@ -254,6 +262,8 @@ S1 ends with a PR from it into `development` (G-1). After G-1's release, merge `
 - [ ] The race test is deterministic (uses a continuation or semaphore in the stub, no sleeps).
 
 ### Sortie 12: New-model acceptance tests (requirements § 8.2 A and B)
+
+**Issue**: intrusive-memory/SwiftVinetas#107
 
 **Priority**: 12 — closes the amendment's WU-A work; G-2a and G-2 follow. Builds: yes. Model: sonnet.
 
@@ -309,6 +319,8 @@ on `release/1.2.0`; switch only after confirming it is clean.
 
 ### Sortie 7: Registry and refresh triggers (V-1, V-2, V-3 without the button)
 
+**Issue**: intrusive-memory/Vinetas#181
+
 **Priority**: 7 — after G-2. Builds: yes (Xcode MCP).
 
 **Entry criteria**:
@@ -328,6 +340,8 @@ on `release/1.2.0`; switch only after confirming it is clean.
 - [ ] `grep -n 'availableCloudModelIDs' Vinetas/Cloud/CloudProviderRegistry.swift` finds the property.
 
 ### Sortie 8: Studio pickers, fallback and notice (V-5, V-6, V-7)
+
+**Issue**: intrusive-memory/Vinetas#182
 
 **Priority**: 8 — last; gate G-3 follows. Builds: yes (Xcode MCP).
 
@@ -352,6 +366,8 @@ on `release/1.2.0`; switch only after confirming it is clean.
 
 ### Sortie 13: Greyed-out rejected key in Settings (V-4a, R-8a)
 
+**Issue**: intrusive-memory/Vinetas#183
+
 **Priority**: 13 — after S8, on the same branch; G-3 follows. Builds: yes (Xcode MCP).
 
 **Entry criteria**:
@@ -371,6 +387,8 @@ on `release/1.2.0`; switch only after confirming it is clean.
 - [ ] A ready PR into `development` is open, with auto-merge on.
 
 ### Sortie 14: App Store description says the key is checked (R-22)
+
+**Issue**: intrusive-memory/Vinetas#184
 
 **Priority**: runs any time, in parallel with WU-A — no build, metadata only. Model: haiku.
 

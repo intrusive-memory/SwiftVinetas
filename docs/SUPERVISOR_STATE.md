@@ -7,6 +7,7 @@ type: supervisor-state
 > **Mission**: a definable, testable scope of work. **Sortie**: one agent's atomic task within it.
 
 ## Mission Metadata
+- Tracking issue: intrusive-memory/Vinetas#186 (source of truth for progress; sub-issues + blocked-by across SwiftVinetas, Vinetas, vinetas.github.io)
 - Operation: OPERATION ROLL CALL
 - Plan: docs/EXECUTION_PLAN.md
 - Starting point commit: 8893496005989fcfdc1108595482a8ccbb7016f4
@@ -84,3 +85,4 @@ type: supervisor-state
 | 2026-11-27 | WU-A | G-2 | Waiting on human: minor release 0.28.0 | human gate |
 | 2026-11-27 | all | — | Requirements amended (R-7a, R-8a, V-4a, R-22 text, §8.2). Plan gains S10–S14 and gate G-2a; G-2 (0.28.0) held until S10–S12 merge | user: smart expiry, greyed rejected keys, App Store text, acceptance criteria |
 | 2026-11-27 | WU-A | — | origin/development (764b8dc) fast-forwarded into mission branch | prep for S10 |
+| 2026-11-27 | all | — | Tracking issue Vinetas#186 created; sub-issues SwiftVinetas#105–109, Vinetas#181–185, vinetas.github.io#22 with blocked-by links | user: track in GitHub |
