@@ -31,16 +31,17 @@ type: supervisor-state
 ## Work Units
 ### WU-A SwiftVinetas
 - Work unit state: RUNNING
-- Current sortie: 1 of 6
+- Current sortie: 2 of 6
 - Sortie state: DISPATCHED
+- Model: opus (public API + classifier across 4 vendors)
 - Sortie type: code
 - Model: sonnet
 - Attempt: 1 of 3
 
 ### WU-C Privacy page
-- Work unit state: RUNNING
+- Work unit state: COMPLETED (PR vinetas.github.io#21 open; human merges)
 - Current sortie: 9 (1 of 1)
-- Sortie state: DISPATCHED
+- Sortie state: COMPLETED
 - Sortie type: code (docs)
 - Model: haiku
 - Attempt: 1 of 3
@@ -53,7 +54,7 @@ type: supervisor-state
 |---|---|---|---|---|---|---|---|---|---|---|
 
 ## Watchdog
-- Timer task ID: (pending)
+- Timer task ID: byhz5bk8o (armed 2026-11-26)
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -63,3 +64,10 @@ type: supervisor-state
 | 2026-11-26 | WU-A | — | Plan amended pre-start: WU-A uses mission branch instead of feature branches | skill convention; G-1 PR goes from the mission branch |
 | 2026-11-26 | WU-A | 1 | Model: sonnet (score ~9) | small code change + vendor-doc research |
 | 2026-11-26 | WU-C | 9 | Model: haiku (score ~3) | one-sentence doc edit |
+| 2026-11-26 | WU-C | 9 | COMPLETED; supervisor fixed contradiction with preceding sentence and bumped date (6a828ea) | agent's sentence conflicted with 'nothing is sent until … choose a model' |
+| 2026-11-26 | WU-A | 1 | PARTIAL: PR #100 opened, but flash-lite (1K-only) would be sent 2K/4K by GeminiImageClient.imageSize; auto-merge disabled; continuation sent | supervisor review |
+| 2026-11-26 | WU-A | 1 | COMPLETED (28e682d); auto-merge re-enabled on #100. Judgment criterion checked by supervisor review instead of a verifier: assumed values are labeled as such, per the brief | small diff already reviewed line by line |
+| 2026-11-26 | WU-A | 2 | Held at G-1: needs #100 merged + patch release | human gate |
+| 2026-11-27 | WU-A | 1 | PR #100 merged into development (16e78a5). G-1 now waits on human: merge #99 to main + patch release | human gate |
+| 2026-11-27 | WU-A | G-1 | DONE: v0.27.2 released (#99 merged by supervisor on user's explicit 'ship the patch release'); release.yml success; #102 dev sync merged; draft #103 opened | human gate |
+| 2026-11-27 | WU-A | 2 | origin/development merged into mission branch; dispatched on sonnet→ chose opus | new public error cases are foundation for S3–S8 |
