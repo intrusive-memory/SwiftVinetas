@@ -43,14 +43,19 @@ enum CloudHTTP {
     return URLSession(configuration: config)
   }
 
-  /// Performs `request`, returning the body and response, and maps non-2xx
-  /// statuses to ``CloudEngineError/httpStatus(provider:status:message:)``.
-  /// Rate-limit and transient-unavailable statuses are retried per
-  /// `retryDelays` before the error surfaces.
+  /// Performs `request`, returning the body and response.
+  ///
+  /// A non-2xx status is first offered to ``CloudErrorClassifier`` for
+  /// `kind`; a classified ``CloudEngineError/modelUnavailable(provider:modelID:reason:)``
+  /// or ``CloudEngineError/keyRejected(provider:reason:)`` is thrown at once,
+  /// never retried. Otherwise rate-limit and transient-unavailable statuses
+  /// are retried per `retryDelays`, and anything left surfaces as
+  /// ``CloudEngineError/httpStatus(provider:status:message:)``.
   static func perform(
     _ request: URLRequest,
     session: URLSession,
     provider: CloudProvider,
+    kind: CloudRequestKind = .unclassified,
     retryDelays: [TimeInterval] = defaultRetryDelays
   ) async throws -> (Data, HTTPURLResponse) {
     var attempt = 0
@@ -62,6 +67,11 @@ enum CloudHTTP {
       }
       if (200..<300).contains(http.statusCode) {
         return (data, http)
+      }
+      if let classified = CloudErrorClassifier.classify(
+        status: http.statusCode, body: data, provider: provider, kind: kind)
+      {
+        throw classified
       }
       if isRetryable(http.statusCode), attempt < retryDelays.count {
         let delay = retryAfter(http) ?? retryDelays[attempt]

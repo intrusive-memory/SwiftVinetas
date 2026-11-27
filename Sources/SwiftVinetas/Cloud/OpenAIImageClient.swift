@@ -80,7 +80,8 @@ struct OpenAIImageClient: CloudProviderClient {
     urlRequest.httpMethod = "POST"
     urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
-    let (data, _) = try await CloudHTTP.perform(urlRequest, session: session, provider: provider)
+    let (data, _) = try await CloudHTTP.perform(
+      urlRequest, session: session, provider: provider, kind: .generation(modelID: model.id))
 
     guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
       let items = object["data"] as? [[String: Any]],

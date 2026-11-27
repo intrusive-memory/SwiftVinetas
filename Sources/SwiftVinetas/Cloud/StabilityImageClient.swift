@@ -49,7 +49,7 @@ struct StabilityImageClient: CloudProviderClient {
     urlRequest.httpBody = CloudHTTP.multipartBody(fields: fields, boundary: boundary)
 
     let (data, response) = try await CloudHTTP.perform(
-      urlRequest, session: session, provider: provider)
+      urlRequest, session: session, provider: provider, kind: .generation(modelID: model.id))
 
     if let finish = response.value(forHTTPHeaderField: "finish-reason"),
       finish == "CONTENT_FILTERED"

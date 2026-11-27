@@ -213,18 +213,21 @@ func cloudKeyStatus(
 /// Process exit codes for cloud failures, so an agent driving the CLI can
 /// branch without parsing stderr. Values follow `sysexits(3)`.
 public enum CLIExitCode {
-  /// No API key resolved for the vendor (`EX_CONFIG`).
+  /// No API key resolved for the vendor, or the vendor rejected the key
+  /// (`EX_CONFIG`).
   public static let missingAPIKey: Int32 = 78
   /// The vendor's safety filter declined the prompt or output (`EX_DATAERR`).
   public static let moderated: Int32 = 65
-  /// The vendor returned an error, timed out, or sent something undecodable
-  /// (`EX_UNAVAILABLE`).
+  /// The vendor returned an error, no longer offers the model, timed out, or
+  /// sent something undecodable (`EX_UNAVAILABLE`).
   public static let vendorError: Int32 = 69
 
   static func code(for error: CloudEngineError) -> Int32 {
     switch error {
     case .missingAPIKey: return missingAPIKey
+    case .keyRejected: return missingAPIKey  // 78, EX_CONFIG: fix the key, like a missing one
     case .moderated: return moderated
+    case .modelUnavailable: return vendorError
     case .httpStatus, .invalidResponse, .timedOut, .imageDecodingFailed: return vendorError
     case .noModelLoaded, .unsupportedModel, .unsupportedFeature:
       return ExitCode.validationFailure.rawValue
