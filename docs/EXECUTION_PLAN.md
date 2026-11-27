@@ -1,6 +1,10 @@
 ---
 type: execution-plan
 state: ready
+feature_name: OPERATION ROLL CALL
+starting_point_commit: 8893496005989fcfdc1108595482a8ccbb7016f4
+mission_branch: mission/roll-call/01
+iteration: 1
 requirements_file: REQUIREMENTS-CLOUD-MODEL-DISCOVERY.md
 recon_report: RECON_REPORT.md
 ---
@@ -49,8 +53,8 @@ Human gates between layers (not sorties):
 
 ## WU-A — SwiftVinetas
 
-Branch for S1: `feature/cloud-model-table-refresh` off `development`.
-Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
+All WU-A sorties commit on the mission branch `mission/roll-call/01` (off `development`; it also carries these mission docs).
+S1 ends with a PR from it into `development` (G-1). After G-1's release, merge `origin/development` into the mission branch, then S2–S6 continue on it; S6 opens the second PR.
 
 ### Sortie 1: Refresh the built-in cloud model table (D-6)
 
@@ -66,6 +70,7 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 3. Add the matching `ModelSummary.cloud` entries and update the parity test's count.
 4. Update any other test or doc that hard-codes the cloud model count or list (grep `count == 9`, `gpt-image-2.5`, `gemini-3.1-flash-image` in `Tests/` and `docs/`).
 5. Add a CHANGELOG entry under the unreleased heading.
+6. Push `mission/roll-call/01` and open a ready PR into `development` with `/create-pull-request`, then enable auto-merge (`gh pr merge <n> --auto --merge`). This is G-1's PR.
 
 **Exit criteria**:
 - [ ] `make build` exits 0.
@@ -73,13 +78,14 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 - [ ] `make lint-check` exits 0.
 - [ ] `grep -c 'vendorModelID: "gpt-image-2.6-flare"\|vendorModelID: "gpt-image-2.6-sunburst"\|vendorModelID: "gemini-3.1-flash-lite-image"' Sources/SwiftVinetas/Cloud/CloudModelDescriptor.swift` prints 3.
 - [ ] [judgment] Each new descriptor's capability flags are backed by a cited vendor doc URL in its comment; none are copied from a sibling model without a source.
+- [ ] `gh pr view --json baseRefName,isDraft,autoMergeRequest` shows `development`, `false`, and a non-null auto-merge request.
 
 ### Sortie 2: Classify vendor errors (R-10, R-10a, R-11, key rejection)
 
 **Priority**: 2 — defines the public error cases S3–S8 depend on. Builds: yes.
 
 **Entry criteria**:
-- [ ] G-1 done: S1 merged and released; `feature/cloud-model-discovery` cut from `development`.
+- [ ] G-1 done: S1 merged and released; `origin/development` merged into `mission/roll-call/01`.
 - [x] OQ-2 is answered.
 - [ ] Recon A-07, A-08, A-16 hold: `CloudHTTP.perform` (`CloudHTTP.swift:63–88`), the 9 `CloudEngineError` cases, and the two exhaustive switches (`CloudEngineError.swift:69`, `Sources/VinetasCLICore/CLIModel.swift:225`).
 
@@ -178,7 +184,7 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 2. Test: a stubbed generation returning OpenAI's `400 param: "model"` removes the model from `availableModels()` and yields one update.
 3. Test (R-18): across every listing and generation stub, the key appears only in the auth header of a request to its own vendor's host.
 4. Document the API in `AGENTS.md` (cloud section) and the CHANGELOG.
-5. Open a ready PR from `feature/cloud-model-discovery` into `development` with `/create-pull-request`, and enable auto-merge.
+5. Open a ready PR from `mission/roll-call/01` into `development` with `/create-pull-request`, and enable auto-merge.
 
 **Exit criteria**:
 - [ ] `make build`, `make test-unit` and `make lint-check` exit 0.
