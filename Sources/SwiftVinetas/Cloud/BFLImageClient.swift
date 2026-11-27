@@ -54,7 +54,8 @@ struct BFLImageClient: CloudProviderClient {
     submit.setValue("application/json", forHTTPHeaderField: "Accept")
     submit.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-    let (submitData, _) = try await CloudHTTP.perform(submit, session: session, provider: provider)
+    let (submitData, _) = try await CloudHTTP.perform(
+      submit, session: session, provider: provider, kind: .generation(modelID: model.id))
     guard let submitObject = try? JSONSerialization.jsonObject(with: submitData) as? [String: Any],
       let pollingString = submitObject["polling_url"] as? String,
       let pollingURL = URL(string: pollingString)
@@ -81,7 +82,8 @@ struct BFLImageClient: CloudProviderClient {
       var pollRequest = URLRequest(url: pollingURL)
       pollRequest.setValue(apiKey, forHTTPHeaderField: "x-key")
       pollRequest.setValue("application/json", forHTTPHeaderField: "Accept")
-      let (data, _) = try await CloudHTTP.perform(pollRequest, session: session, provider: provider)
+      let (data, _) = try await CloudHTTP.perform(
+        pollRequest, session: session, provider: provider, kind: .authenticated)
 
       guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
         let status = object["status"] as? String
@@ -114,5 +116,16 @@ struct BFLImageClient: CloudProviderClient {
       }
     }
     throw CloudEngineError.timedOut(provider: provider)
+  }
+
+  /// BFL has no model listing (R-9): `GET /v1/credits` proves the key works.
+  func listAvailableModels(apiKey: String, session: URLSession) async throws -> CloudVendorListing {
+    var request = URLRequest(url: baseURL.appendingPathComponent("credits"))
+    request.httpMethod = "GET"
+    request.setValue(apiKey, forHTTPHeaderField: "x-key")
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+    _ = try await CloudHTTP.perform(
+      request, session: session, provider: provider, kind: .authenticated)
+    return .keyVerifiedOnly
   }
 }

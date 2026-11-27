@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `CloudEngineError.modelUnavailable(provider:modelID:reason:)` and `.keyRejected(provider:reason:)`: vendor responses that mean a model is gone or the key is refused are classified per vendor, never retried, and thrown unwrapped. The vendor's message is kept for `modelUnavailable` only.
+- Vendor model listings: each adapter can ask its vendor which models a key can use (OpenAI and Google list models; Black Forest Labs and Stability AI check the key through their credit endpoints).
+- `CloudModelAvailability`, reachable as `VinetasClient.cloudAvailability`: per-provider `CloudAvailabilitySnapshot`s with `snapshot(for:)`, `refresh(_:force:)`, `availableModels()`, `isAvailable(_:)` and an `updates` stream. Snapshots are cached for 24 hours, invalidated by a key change, kept on disk without any key material, bounded to 40 seconds per check, and backed off for 5 minutes after a failure.
+- A generation that fails with `modelUnavailable` removes the model from the provider's snapshot, and one that fails with `keyRejected` marks the snapshot `.keyRejected`; each publishes one update and the original error is still thrown. `CloudImageEngine.setCloudErrorHandler(_:)` exposes the hook.
+
+### Changed
+
+- `vinetas` exit codes: a rejected API key exits 78 (`EX_CONFIG`), like a missing key; a model the vendor no longer offers, or the key can't use, exits 69 (`EX_UNAVAILABLE`).
+
 ## [0.27.2] - 2026-11-26
 
 ### Added

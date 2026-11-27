@@ -21,6 +21,9 @@ struct OpenAIImageClient: CloudProviderClient {
   /// The reference-image endpoint. Overridable for tests.
   var editsEndpoint = URL(string: "https://api.openai.com/v1/images/edits")!
 
+  /// The model listing endpoint. Overridable for tests.
+  var modelsEndpoint = URL(string: "https://api.openai.com/v1/models")!
+
   /// Output quality hint. `auto` lets the vendor pick; exposed so a future
   /// setting can trade cost for fidelity.
   var quality = "auto"
@@ -80,7 +83,8 @@ struct OpenAIImageClient: CloudProviderClient {
     urlRequest.httpMethod = "POST"
     urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
-    let (data, _) = try await CloudHTTP.perform(urlRequest, session: session, provider: provider)
+    let (data, _) = try await CloudHTTP.perform(
+      urlRequest, session: session, provider: provider, kind: .generation(modelID: model.id))
 
     guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
       let items = object["data"] as? [[String: Any]],
@@ -115,5 +119,29 @@ struct OpenAIImageClient: CloudProviderClient {
       pixels >= minPixels, pixels <= maxPixels
     else { return "auto" }
     return "\(dims.width)x\(dims.height)"
+  }
+
+  /// One `GET /v1/models`: `data[].id`, plus `data[].shutdown_date`
+  /// (`"YYYY-MM-DD"` or `null`) for models with a retirement date.
+  func listAvailableModels(apiKey: String, session: URLSession) async throws -> CloudVendorListing {
+    var request = URLRequest(url: modelsEndpoint)
+    request.httpMethod = "GET"
+    request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+    let (data, _) = try await CloudHTTP.perform(
+      request, session: session, provider: provider, kind: .authenticated)
+    let object = try CloudListing.json(data, provider: provider)
+    guard let items = object["data"] as? [[String: Any]] else {
+      throw CloudEngineError.invalidResponse(provider: provider, detail: "listing has no data")
+    }
+    var ids = Set<String>()
+    var shutdowns: [String: Date] = [:]
+    for item in items {
+      guard let id = item["id"] as? String else { continue }
+      ids.insert(id)
+      if let text = item["shutdown_date"] as? String, let date = CloudListing.parseDay(text) {
+        shutdowns[id] = date
+      }
+    }
+    return CloudVendorListing(modelIDs: ids, shutdownDates: shutdowns)
   }
 }

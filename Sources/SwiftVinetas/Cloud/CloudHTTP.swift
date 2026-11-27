@@ -24,6 +24,14 @@ protocol CloudProviderClient: Sendable {
     apiKey: String,
     session: URLSession
   ) async throws -> CloudImageOutput
+
+  /// Asks the vendor which models `apiKey` can use (requirements R-6, R-9,
+  /// R-9a). Sent as ``CloudRequestKind/authenticated``, so a rejected key is
+  /// ``CloudEngineError/keyRejected(provider:reason:)`` and a listing `404` is
+  /// never read as a model being gone. A vendor with no listing endpoint
+  /// returns ``CloudVendorListing/keyVerifiedOnly`` once its balance call
+  /// succeeds. The key is never included in a thrown error.
+  func listAvailableModels(apiKey: String, session: URLSession) async throws -> CloudVendorListing
 }
 
 enum CloudHTTP {
@@ -43,14 +51,37 @@ enum CloudHTTP {
     return URLSession(configuration: config)
   }
 
-  /// Performs `request`, returning the body and response, and maps non-2xx
-  /// statuses to ``CloudEngineError/httpStatus(provider:status:message:)``.
-  /// Rate-limit and transient-unavailable statuses are retried per
-  /// `retryDelays` before the error surfaces.
+  /// A session for the short availability checks (`GET` listings and balance
+  /// calls), kept apart from ``makeSession()`` on purpose: it fails at once
+  /// when offline instead of waiting for connectivity, gives up on a request
+  /// after 15 s idle and 30 s total, and keeps no cache, cookies or
+  /// credentials.
+  static func makeListingSession() -> URLSession {
+    let config = URLSessionConfiguration.ephemeral
+    config.waitsForConnectivity = false
+    config.timeoutIntervalForRequest = 15
+    config.timeoutIntervalForResource = 30
+    config.requestCachePolicy = .reloadIgnoringLocalCacheData
+    config.urlCache = nil
+    config.httpCookieStorage = nil
+    config.httpShouldSetCookies = false
+    config.urlCredentialStorage = nil
+    return URLSession(configuration: config)
+  }
+
+  /// Performs `request`, returning the body and response.
+  ///
+  /// A non-2xx status is first offered to ``CloudErrorClassifier`` for
+  /// `kind`; a classified ``CloudEngineError/modelUnavailable(provider:modelID:reason:)``
+  /// or ``CloudEngineError/keyRejected(provider:reason:)`` is thrown at once,
+  /// never retried. Otherwise rate-limit and transient-unavailable statuses
+  /// are retried per `retryDelays`, and anything left surfaces as
+  /// ``CloudEngineError/httpStatus(provider:status:message:)``.
   static func perform(
     _ request: URLRequest,
     session: URLSession,
     provider: CloudProvider,
+    kind: CloudRequestKind = .unclassified,
     retryDelays: [TimeInterval] = defaultRetryDelays
   ) async throws -> (Data, HTTPURLResponse) {
     var attempt = 0
@@ -62,6 +93,11 @@ enum CloudHTTP {
       }
       if (200..<300).contains(http.statusCode) {
         return (data, http)
+      }
+      if let classified = CloudErrorClassifier.classify(
+        status: http.statusCode, body: data, provider: provider, kind: kind)
+      {
+        throw classified
       }
       if isRetryable(http.statusCode), attempt < retryDelays.count {
         let delay = retryAfter(http) ?? retryDelays[attempt]

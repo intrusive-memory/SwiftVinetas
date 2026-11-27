@@ -202,6 +202,11 @@ struct CloudCLITests {
     #expect(CLIExitCode.code(for: .timedOut(provider: .blackForestLabs)) == 69)
     #expect(CLIExitCode.code(for: .invalidResponse(provider: .google, detail: "x")) == 69)
     #expect(CLIExitCode.code(for: .imageDecodingFailed(provider: .stabilityAI)) == 69)
+    #expect(
+      CLIExitCode.code(for: .modelUnavailable(provider: .openAI, modelID: "x", reason: nil)) == 69)
+    for reason in CloudEngineError.KeyRejectionReason.allCases {
+      #expect(CLIExitCode.code(for: .keyRejected(provider: .google, reason: reason)) == 78)
+    }
     #expect(CLIExitCode.code(for: .noModelLoaded) == ExitCode.validationFailure.rawValue)
   }
 

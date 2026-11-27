@@ -26,6 +26,12 @@ public actor CloudImageEngine: ImageGenerationEngine {
   /// The model selected by the last successful `loadModel`.
   private var loadedModel: CloudModelDescriptor?
 
+  /// Told about every ``CloudEngineError/modelUnavailable(provider:modelID:reason:)``
+  /// and ``CloudEngineError/keyRejected(provider:reason:)`` a generation throws,
+  /// before the error reaches the caller. ``VinetasClient`` points it at
+  /// ``VinetasClient/cloudAvailability``. The error is still thrown unchanged.
+  private var onCloudError: (@Sendable (CloudEngineError) async -> Void)?
+
   /// Creates an engine for `provider` with the production vendor adapter.
   ///
   /// - Parameters:
@@ -46,8 +52,10 @@ public actor CloudImageEngine: ImageGenerationEngine {
     provider: CloudProvider,
     keyStore: any CloudAPIKeyStoring,
     client: (any CloudProviderClient)?,
-    session: URLSession? = nil
+    session: URLSession? = nil,
+    onCloudError: (@Sendable (CloudEngineError) async -> Void)? = nil
   ) {
+    self.onCloudError = onCloudError
     self.provider = provider
     self.keyStore = keyStore
     self.client = client ?? Self.defaultClient(for: provider)
@@ -64,6 +72,13 @@ public actor CloudImageEngine: ImageGenerationEngine {
   }
 
   // MARK: - Identity & catalog
+
+  /// Sets (or clears) the hook that hears about model-gone and key-rejected
+  /// failures. The hook is held strongly, so don't capture something that
+  /// owns this engine.
+  public func setCloudErrorHandler(_ handler: (@Sendable (CloudEngineError) async -> Void)?) {
+    onCloudError = handler
+  }
 
   public nonisolated var engineID: String { provider.engineID }
 
@@ -133,8 +148,17 @@ public actor CloudImageEngine: ImageGenerationEngine {
     }
 
     let start = Date()
-    let output = try await client.generate(
-      vendorRequest, model: model, apiKey: apiKey, session: session)
+    let output: CloudImageOutput
+    do {
+      output = try await client.generate(
+        vendorRequest, model: model, apiKey: apiKey, session: session)
+    } catch let error as CloudEngineError {
+      switch error {
+      case .modelUnavailable, .keyRejected: await onCloudError?(error)
+      default: break
+      }
+      throw error
+    }
     let duration = Date().timeIntervalSince(start)
 
     return GenerationResult(
