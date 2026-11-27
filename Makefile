@@ -40,6 +40,7 @@ DESTINATION_IOS = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'
 SCHEME_LIB = SwiftVinetas
 SCHEME_CLI = vinetas
 SCHEME_PKG = SwiftVinetas-Package
+CLOUD_KEYCHAIN_SERVICE = io.intrusive-memory.Vinetas.cloudAPIKeys
 BINDIR = ./bin
 
 # Directory where WeightLoader looks for pre-hardlinked PixArt safetensors.
@@ -235,8 +236,18 @@ test-integration: link-test-models ## Run integration tests only (model download
 test-cloud-models: ## LIVE cloud-model acceptance (AC-4..7): calls OpenAI/Google with YOUR keys, costs ~$1; writes docs/cloud-model-acceptance.md. Local only, never CI
 	@echo "test-cloud-models: live vendor calls, billed to the keys in your environment or keychain"
 	@set -e; \
-	for v in OPENAI_API_KEY GEMINI_API_KEY GOOGLE_API_KEY; do \
-		if [ -n "$${!v}" ]; then export "TEST_RUNNER_$$v=$${!v}"; fi; \
+	if [ -z "$$GEMINI_API_KEY" ] && [ -n "$$GOOGLE_API_KEY" ]; then GEMINI_API_KEY="$$GOOGLE_API_KEY"; fi; \
+	for pair in openai:OPENAI_API_KEY google:GEMINI_API_KEY; do \
+		account="$${pair%%:*}"; var="$${pair##*:}"; \
+		if [ -z "$${!var}" ]; then \
+			key="$$(security find-generic-password -s $(CLOUD_KEYCHAIN_SERVICE) -a "$$account" -w 2>/dev/null || true)"; \
+			if [ -z "$$key" ]; then \
+				echo "test-cloud-models: FAILED: no $$var in the environment and no readable keychain item (service $(CLOUD_KEYCHAIN_SERVICE), account $$account)" >&2; \
+				exit 1; \
+			fi; \
+			printf -v "$$var" '%s' "$$key"; key=""; \
+		fi; \
+		export "TEST_RUNNER_$$var=$${!var}"; \
 	done; \
 	TEST_RUNNER_VINETAS_LIVE_CLOUD_TESTS=1 xcodebuild test \
 		-scheme $(SCHEME_PKG) \

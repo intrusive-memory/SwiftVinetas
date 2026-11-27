@@ -20,6 +20,12 @@ private let liveModels: [CloudModelDescriptor] = CloudModelDescriptor.all.filter
     .contains($0.vendorModelID)
 }
 
+/// Existing models that gained the 4:1 strip in #116. Only that ratio is new for them.
+private let stripModels: [CloudModelDescriptor] = CloudModelDescriptor.all.filter {
+  ["gemini-nano-banana-2.1", "gemini-3.1-flash-image"].contains($0.vendorModelID)
+    && $0.supportedAspectRatios.contains(.strip)
+}
+
 // MARK: - Results
 
 private struct ResultRow: Sendable {
@@ -89,17 +95,22 @@ private func liveClient(for provider: CloudProvider) -> any CloudProviderClient 
   CloudImageEngine.defaultClient(for: provider)
 }
 
-/// The key from the production chain, or `nil` (the check is recorded as skipped).
+/// The key from the production chain (environment, then keychain), or `nil`.
+/// A missing key fails the check: the live suite only runs on purpose, so a
+/// key it can't read is a broken setup, not a reason to skip.
 private func liveKey(for model: CloudModelDescriptor) -> String? {
   ChainedAPIKeyStore.default.apiKey(for: model.provider)
 }
 
 private func recordNoKey(_ model: CloudModelDescriptor, check: String) async {
+  let message =
+    "FAILED: no \(model.provider.environmentVariable) in the environment and no "
+    + "keychain item for \(model.provider.rawValue) in \(KeychainAPIKeyStore.defaultService)"
   await ResultRecorder.shared.add(
     ResultRow(
       model: model.vendorModelID, check: check, passed: false, dimensions: "-",
-      referenceLimit: "-", cost: "none",
-      note: "SKIPPED: no \(model.provider.environmentVariable) or keychain key"))
+      referenceLimit: "-", cost: "none", note: message))
+  Issue.record(Comment(rawValue: "\(model.vendorModelID) \(check): \(message)"))
 }
 
 private func liveEngine(for model: CloudModelDescriptor) -> CloudImageEngine {
@@ -244,6 +255,39 @@ struct CloudModelLiveTests {
           referenceLimit: "-", cost: "billed (\(model.pricingHint))", note: note))
       #expect(passed, "\(model.vendorModelID) \(ratio.rawValue): \(note)")
     }
+  }
+
+  // AC-5, strip. Billed: one 4:1 generation per Google model that gained the strip in #116.
+  @Test("AC-5 4:1 strip generates where newly offered", arguments: stripModels)
+  func stripGenerates(model: CloudModelDescriptor) async throws {
+    let check = "AC-5 ratio strip"
+    guard liveKey(for: model) != nil else { return await recordNoKey(model, check: check) }
+    let engine = liveEngine(for: model)
+    try await engine.loadModel(model, progress: { _ in })
+    let expected = googleOneKSizes["4:1"]
+    var passed = false
+    var dims = "-"
+    var note = ""
+    do {
+      let result = try await engine.generate(
+        request: request(width: 1024, height: 256), stepProgress: nil)
+      dims = "\(result.image.width)x\(result.image.height)"
+      if let expected {
+        passed =
+          abs(result.image.width - expected.width) <= 1
+          && abs(result.image.height - expected.height) <= 1
+        note = passed ? "" : "expected \(expected.width)x\(expected.height)"
+      } else {
+        note = "no documented 4:1 size"
+      }
+    } catch {
+      note = "error: \(error)"
+    }
+    await ResultRecorder.shared.add(
+      ResultRow(
+        model: model.vendorModelID, check: check, passed: passed, dimensions: dims,
+        referenceLimit: "-", cost: "billed (\(model.pricingHint))", note: note))
+    #expect(passed, "\(model.vendorModelID) strip: \(note)")
   }
 
   // AC-6. Billed: 1 reference, maxReferenceImages references, then max + 1 sent directly.
