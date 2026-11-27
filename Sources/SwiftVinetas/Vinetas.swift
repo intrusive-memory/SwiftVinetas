@@ -143,13 +143,19 @@ public final class VinetasClient: Sendable {
     let deviceArch = DeviceCapability.current.chipGeneration.rawValue
     let localEngines: [any ImageGenerationEngine] = [PixArtEngine(), Flux2Engine()]
     let cloudKeyStore = ChainedAPIKeyStore.default
+    let availability = CloudModelAvailability(
+      keyStore: cloudKeyStore, session: CloudHTTP.makeListingSession())
+    // Generation failures that say a model is gone or a key is rejected update
+    // the availability snapshot (R-10). The engines hold the service, never the
+    // reverse, so there is no retain cycle.
     let cloudEngines: [any ImageGenerationEngine] = CloudProvider.allCases.map {
-      CloudImageEngine(provider: $0, keyStore: cloudKeyStore)
+      CloudImageEngine(
+        provider: $0, keyStore: cloudKeyStore, client: nil,
+        onCloudError: { await availability.handle($0) })
     }
     let engines = localEngines + cloudEngines
     self.router = EngineRouter(engines: engines)
-    self.cloudAvailability = CloudModelAvailability(
-      keyStore: cloudKeyStore, session: CloudHTTP.makeListingSession())
+    self.cloudAvailability = availability
 
     // Emit telemetry events for client init + engine registration. The reporter
     // is nil here (setTelemetry has not yet been called) so these capture calls

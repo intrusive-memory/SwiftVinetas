@@ -225,6 +225,65 @@ public actor CloudModelAvailability {
     return snapshot.isModelAvailable(modelID, now: now())
   }
 
+  // MARK: - Generation-time invalidation (R-10)
+
+  /// Applies a failure a generation reported, so the picker stops offering a
+  /// model that is gone without waiting for the next check. Only
+  /// ``CloudEngineError/modelUnavailable(provider:modelID:reason:)`` and
+  /// ``CloudEngineError/keyRejected(provider:reason:)`` have an effect.
+  /// ``VinetasClient`` wires this to its cloud engines.
+  func handle(_ error: CloudEngineError) {
+    switch error {
+    case .modelUnavailable(let provider, let modelID, _):
+      markUnavailable(provider: provider, modelID: modelID)
+    case .keyRejected(let provider, let reason):
+      markKeyRejected(provider: provider, reason: reason)
+    default:
+      break
+    }
+  }
+
+  /// Removes the model with Vinetas ID `modelID` from `provider`'s snapshot,
+  /// keeping its status and `checkedAt`, persists it and publishes one update.
+  /// Does nothing when the snapshot already lacks the model, or says no
+  /// models are usable (`.noKey`, `.keyRejected`).
+  ///
+  /// With no snapshot yet for the provider, one is made from the D-2
+  /// baseline (every known model, not checked) minus this model; like any
+  /// not-checked snapshot it stays in memory only.
+  func markUnavailable(provider: CloudProvider, modelID: String) {
+    var snapshot =
+      cached(provider)
+      ?? .notChecked(provider: provider, keyFingerprint: currentFingerprint(provider))
+    switch snapshot.status {
+    case .noKey, .keyRejected: return
+    case .available, .unreachable, .unsupported: break
+    }
+    guard snapshot.modelIDs.contains(modelID) else { return }
+    snapshot.modelIDs.remove(modelID)
+    save(snapshot, persist: snapshot.isChecked)
+  }
+
+  /// Marks `provider`'s snapshot ``CloudAvailabilitySnapshot/Status/keyRejected(reason:)``
+  /// with no models for the current key, persists it and publishes one update.
+  /// Does nothing when it already says so for this key.
+  func markKeyRejected(provider: CloudProvider, reason: CloudEngineError.KeyRejectionReason) {
+    let fingerprint = currentFingerprint(provider)
+    if let existing = cached(provider), existing.status == .keyRejected(reason: reason),
+      existing.keyFingerprint == fingerprint
+    {
+      return
+    }
+    let snapshot = CloudAvailabilitySnapshot(
+      provider: provider, status: .keyRejected(reason: reason), checkedAt: now(),
+      keyFingerprint: fingerprint)
+    save(snapshot, persist: true)
+  }
+
+  private func currentFingerprint(_ provider: CloudProvider) -> String? {
+    keyStore.apiKey(for: provider).flatMap { try? store.fingerprint(apiKey: $0) }
+  }
+
   // MARK: - Check
 
   private func check(
