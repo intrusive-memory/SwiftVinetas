@@ -84,6 +84,15 @@ public actor CloudModelAvailability {
   }
   private var inFlight: [CloudProvider: InFlight] = [:]
 
+  /// Per provider, how many generation-time invalidations (R-10) have been
+  /// applied. A check records it when it starts and discards its result if it
+  /// changed, so a listing that began before an invalidation can't overwrite it.
+  private var invalidations: [CloudProvider: Int] = [:]
+
+  /// Providers whose last check was discarded for the reason above. Their
+  /// cache is stale, so the next trigger checks again.
+  private var needsRecheck: Set<CloudProvider> = []
+
   /// How many callers joined a check already running, per provider. Tests
   /// read it to know a second caller is waiting before letting the first
   /// check finish.
@@ -193,7 +202,11 @@ public actor CloudModelAvailability {
       if since >= 0, since < Self.failureBackoff { return previous }
     }
 
-    let task = Task { await self.check(provider, apiKey: key, keyFingerprint: fingerprint) }
+    let generation = invalidations[provider, default: 0]
+    let task = Task {
+      await self.check(
+        provider, apiKey: key, keyFingerprint: fingerprint, invalidationCount: generation)
+    }
     inFlight[provider] = InFlight(task: task, keyFingerprint: fingerprint)
     return await task.value
   }
@@ -259,6 +272,7 @@ public actor CloudModelAvailability {
   /// baseline (every known model, not checked) minus this model; like any
   /// not-checked snapshot it stays in memory only.
   func markUnavailable(provider: CloudProvider, modelID: String) {
+    invalidations[provider, default: 0] += 1
     var snapshot =
       cached(provider)
       ?? .notChecked(provider: provider, keyFingerprint: currentFingerprint(provider))
@@ -279,6 +293,7 @@ public actor CloudModelAvailability {
   /// with no models for the current key, persists it and publishes one update.
   /// Does nothing when it already says so for this key.
   func markKeyRejected(provider: CloudProvider, reason: CloudEngineError.KeyRejectionReason) {
+    invalidations[provider, default: 0] += 1
     let fingerprint = currentFingerprint(provider)
     if let existing = cached(provider), existing.status == .keyRejected(reason: reason),
       existing.keyFingerprint == fingerprint
@@ -298,7 +313,8 @@ public actor CloudModelAvailability {
   // MARK: - Check
 
   private func check(
-    _ provider: CloudProvider, apiKey: String, keyFingerprint: String?
+    _ provider: CloudProvider, apiKey: String, keyFingerprint: String?,
+    invalidationCount: Int
   ) async -> CloudAvailabilitySnapshot {
     let result: CloudAvailabilitySnapshot
     let client = clientFor(provider)
@@ -328,6 +344,15 @@ public actor CloudModelAvailability {
       result = Self.unreachable(
         provider: provider, previous: cached(provider), keyFingerprint: keyFingerprint)
     }
+    if invalidations[provider, default: 0] != invalidationCount {
+      // A generation reported a failure while this listing ran. Its answer may
+      // predate that failure, so keep what the invalidation wrote and check
+      // again on the next trigger.
+      needsRecheck.insert(provider)
+      inFlight[provider] = nil
+      return cached(provider) ?? result
+    }
+    needsRecheck.remove(provider)
     if result.status == .unreachable {
       lastFailure[provider] = (now(), keyFingerprint)
     } else {
@@ -390,12 +415,14 @@ public actor CloudModelAvailability {
     guard !readFromDisk.contains(provider) else { return nil }
     readFromDisk.insert(provider)
     let snapshot = store.read(provider)?.remappedForCurrentCatalog()
+      .enforcingRejectedKeyHasNoModels()
     snapshots[provider] = snapshot
     return snapshot
   }
 
   private func isFresh(_ snapshot: CloudAvailabilitySnapshot, keyFingerprint: String?) -> Bool {
-    guard snapshot.isChecked, let keyFingerprint, snapshot.keyFingerprint == keyFingerprint
+    guard !needsRecheck.contains(snapshot.provider), snapshot.isChecked, let keyFingerprint,
+      snapshot.keyFingerprint == keyFingerprint
     else { return false }
     switch snapshot.status {
     case .noKey, .unreachable: return false
@@ -412,6 +439,7 @@ public actor CloudModelAvailability {
   }
 
   private func save(_ snapshot: CloudAvailabilitySnapshot, persist: Bool) {
+    let snapshot = snapshot.enforcingRejectedKeyHasNoModels()
     snapshots[snapshot.provider] = snapshot
     readFromDisk.insert(snapshot.provider)
     if persist {
@@ -424,6 +452,18 @@ public actor CloudModelAvailability {
 // MARK: - Not checked (D-2)
 
 extension CloudAvailabilitySnapshot {
+
+  /// R-8a: a `.keyRejected` snapshot offers no models, whatever wrote it. Empties
+  /// every model field so no re-map can bring models back.
+  func enforcingRejectedKeyHasNoModels() -> CloudAvailabilitySnapshot {
+    guard case .keyRejected = status else { return self }
+    var copy = self
+    copy.modelIDs = []
+    copy.shutdownDates = [:]
+    copy.vendorModelIDs = []
+    copy.vendorShutdownDates = [:]
+    return copy
+  }
 
   /// Whether a vendor check produced this snapshot. `false` for the D-2
   /// fallback: no earlier snapshot and the vendor unreachable, so every known

@@ -490,6 +490,172 @@ struct CloudModelAvailabilityTests {
   }
 }
 
+// MARK: - A rejected key offers no models (R-8a)
+
+@Suite("Cloud availability rejected key")
+struct CloudAvailabilityRejectedKeyTests {
+
+  @Test("A .keyRejected check after an .available snapshot leaves no available models")
+  func rejectedCheckReplacesGoodSnapshot() async {
+    let outcome = Outcome()
+    let client = FakeListingClient(.openAI) {
+      if let error = outcome.currentError { throw error }
+      return fullListing(.openAI)
+    }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+
+    let good = await harness.service.refresh(.openAI)
+    #expect(good.status == .available)
+    #expect(!good.modelIDs.isEmpty)
+
+    outcome.fail(with: CloudEngineError.keyRejected(provider: .openAI, reason: .expired))
+    let rejected = await harness.service.refresh(.openAI, force: true)
+    #expect(rejected.status == .keyRejected(reason: .expired))
+    #expect(rejected.modelIDs.isEmpty)
+    #expect(rejected.shutdownDates.isEmpty)
+    #expect(rejected.vendorModelIDs.isEmpty)
+    #expect(await harness.service.availableModels().isEmpty)
+    #expect(await harness.service.isAvailable(CloudProvider.openAI.models[0].id) == false)
+
+    // A failed retry doesn't bring the models back either.
+    outcome.fail(with: URLError(.notConnectedToInternet))
+    let retry = await harness.service.refresh(.openAI, force: true)
+    #expect(retry.status == .keyRejected(reason: .expired))
+    #expect(retry.modelIDs.isEmpty)
+  }
+
+  @Test("A key-rejected snapshot read from disk with models is emptied")
+  func diskSnapshotWithModelsIsEmptied() async throws {
+    let harness = Harness(clients: [.openAI: FakeListingClient(.openAI) { fullListing(.openAI) }])
+    defer { harness.cleanUp() }
+    let key = harness.keys.apiKey(for: .openAI)!
+    let fingerprint = try harness.store.fingerprint(apiKey: key)
+    let bad = CloudAvailabilitySnapshot(
+      provider: .openAI, status: .keyRejected(reason: .invalid),
+      modelIDs: Set(CloudProvider.openAI.models.map(\.id)),
+      checkedAt: harness.clock.now, keyFingerprint: fingerprint,
+      vendorModelIDs: Set(CloudProvider.openAI.models.map(\.vendorModelID)))
+    try harness.store.write(bad)
+
+    let read = await harness.service.snapshot(for: .openAI)
+    #expect(read?.modelIDs.isEmpty == true)
+    #expect(read?.vendorModelIDs.isEmpty == true)
+    #expect(await harness.service.availableModels().isEmpty)
+  }
+
+  @Test(
+    "A generation-time keyRejected (Google API_KEY_INVALID) empties the provider with one update")
+  func generationTimeKeyRejected() async {
+    let harness = Harness(
+      keys: [.google: "availability-test-key-not-real"],
+      clients: [.google: FakeListingClient(.google) { fullListing(.google) }])
+    defer { harness.cleanUp() }
+    await harness.service.refresh(.google)
+    #expect(await harness.service.snapshot(for: .google)?.modelIDs.isEmpty == false)
+
+    let updates = harness.service.updates
+    await harness.service.handle(.keyRejected(provider: .google, reason: .invalid))
+    var iterator = updates.makeAsyncIterator()
+    let update = await iterator.next()
+    #expect(update?.status == .keyRejected(reason: .invalid))
+    #expect(update?.modelIDs.isEmpty == true)
+
+    let snapshot = await harness.service.snapshot(for: .google)
+    #expect(snapshot?.status == .keyRejected(reason: .invalid))
+    #expect(snapshot?.vendorModelIDs.isEmpty == true)
+    #expect(await harness.service.availableModels().isEmpty)
+    #expect(harness.store.read(.google)?.status == .keyRejected(reason: .invalid))
+
+    // The same rejection again changes nothing and yields nothing.
+    await harness.service.handle(.keyRejected(provider: .google, reason: .invalid))
+  }
+
+  @Test("A listing in flight during a keyRejected invalidation can't overwrite it")
+  func inFlightListingDoesNotOverwriteKeyRejected() async {
+    let gate = Gate()
+    let (entered, enteredContinuation) = AsyncStream.makeStream(of: Void.self)
+    let client = FakeListingClient(.openAI) {
+      enteredContinuation.yield()
+      await gate.wait()
+      return fullListing(.openAI)
+    }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+    let service = harness.service
+
+    let check = Task { await service.refresh(.openAI, force: true) }
+    var iterator = entered.makeAsyncIterator()
+    _ = await iterator.next()  // the listing is blocked
+
+    await service.handle(.keyRejected(provider: .openAI, reason: .expired))
+    await gate.open()
+    let returned = await check.value
+
+    #expect(returned.status == .keyRejected(reason: .expired))
+    let snapshot = await service.snapshot(for: .openAI)
+    #expect(snapshot?.status == .keyRejected(reason: .expired))
+    #expect(snapshot?.modelIDs.isEmpty == true)
+    #expect(harness.store.read(.openAI)?.status == .keyRejected(reason: .expired))
+
+    // The next trigger checks again instead of trusting the discarded answer.
+    await service.refresh(.openAI)
+    #expect(client.requests == 2)
+  }
+
+  @Test("A listing in flight during a modelUnavailable invalidation can't bring the model back")
+  func inFlightListingDoesNotOverwriteModelUnavailable() async {
+    let gate = Gate()
+    let (entered, enteredContinuation) = AsyncStream.makeStream(of: Void.self)
+    let client = FakeListingClient(.openAI) {
+      enteredContinuation.yield()
+      await gate.wait()
+      return fullListing(.openAI)
+    }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+    let service = harness.service
+    let model = CloudProvider.openAI.models[0]
+
+    let check = Task { await service.refresh(.openAI, force: true) }
+    var iterator = entered.makeAsyncIterator()
+    _ = await iterator.next()
+
+    await service.handle(
+      .modelUnavailable(provider: .openAI, modelID: model.id, reason: nil))
+    await gate.open()
+    _ = await check.value
+
+    let snapshot = await service.snapshot(for: .openAI)
+    #expect(snapshot?.modelIDs.contains(model.id) == false)
+  }
+
+  @Test("Saving a new key clears .keyRejected on the next refresh")
+  func newKeyClearsKeyRejected() async throws {
+    let outcome = Outcome()
+    outcome.fail(with: CloudEngineError.keyRejected(provider: .openAI, reason: .invalid))
+    let client = FakeListingClient(.openAI) {
+      if let error = outcome.currentError { throw error }
+      return fullListing(.openAI)
+    }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+
+    let rejected = await harness.service.refresh(.openAI)
+    #expect(rejected.status == .keyRejected(reason: .invalid))
+    // Same key, still fresh: no new request.
+    await harness.service.refresh(.openAI)
+    #expect(client.requests == 1)
+
+    outcome.succeed()
+    try harness.keys.setAPIKey("a-different-key-not-real", for: .openAI)
+    let fixed = await harness.service.refresh(.openAI)
+    #expect(fixed.status == .available)
+    #expect(!fixed.modelIDs.isEmpty)
+    #expect(client.requests == 2)
+  }
+}
+
 // MARK: - Through the real adapter
 
 private final class AvailabilityStubURLProtocol: URLProtocol, @unchecked Sendable {
