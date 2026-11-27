@@ -51,6 +51,24 @@ enum CloudHTTP {
     return URLSession(configuration: config)
   }
 
+  /// A session for the short availability checks (`GET` listings and balance
+  /// calls), kept apart from ``makeSession()`` on purpose: it fails at once
+  /// when offline instead of waiting for connectivity, gives up on a request
+  /// after 15 s idle and 30 s total, and keeps no cache, cookies or
+  /// credentials.
+  static func makeListingSession() -> URLSession {
+    let config = URLSessionConfiguration.ephemeral
+    config.waitsForConnectivity = false
+    config.timeoutIntervalForRequest = 15
+    config.timeoutIntervalForResource = 30
+    config.requestCachePolicy = .reloadIgnoringLocalCacheData
+    config.urlCache = nil
+    config.httpCookieStorage = nil
+    config.httpShouldSetCookies = false
+    config.urlCredentialStorage = nil
+    return URLSession(configuration: config)
+  }
+
   /// Performs `request`, returning the body and response.
   ///
   /// A non-2xx status is first offered to ``CloudErrorClassifier`` for

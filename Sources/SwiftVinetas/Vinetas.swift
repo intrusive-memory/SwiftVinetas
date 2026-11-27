@@ -45,9 +45,12 @@ public final class VinetasClient: Sendable {
   public let router: EngineRouter
 
   /// Which cloud models the configured API keys can use. The default client
-  /// builds it with the same key store and `URLSession` as its cloud engines
-  /// and the default snapshot directory. Creating it makes no network call;
-  /// checks run on ``CloudModelAvailability/refresh(_:force:)``.
+  /// builds it with the same key store as its cloud engines and the default
+  /// snapshot directory. It deliberately does *not* share the engines'
+  /// `URLSession`: that one waits for connectivity with long timeouts, which
+  /// would make an offline check hang, so the service gets its own short-timeout
+  /// listing session. Creating it makes no network call; checks run on
+  /// ``CloudModelAvailability/refresh(_:force:)``.
   public let cloudAvailability: CloudModelAvailability
 
   /// The current SwiftVinetas library version.
@@ -140,14 +143,13 @@ public final class VinetasClient: Sendable {
     let deviceArch = DeviceCapability.current.chipGeneration.rawValue
     let localEngines: [any ImageGenerationEngine] = [PixArtEngine(), Flux2Engine()]
     let cloudKeyStore = ChainedAPIKeyStore.default
-    let cloudSession = CloudHTTP.makeSession()
     let cloudEngines: [any ImageGenerationEngine] = CloudProvider.allCases.map {
-      CloudImageEngine(provider: $0, keyStore: cloudKeyStore, session: cloudSession)
+      CloudImageEngine(provider: $0, keyStore: cloudKeyStore)
     }
     let engines = localEngines + cloudEngines
     self.router = EngineRouter(engines: engines)
     self.cloudAvailability = CloudModelAvailability(
-      keyStore: cloudKeyStore, session: cloudSession)
+      keyStore: cloudKeyStore, session: CloudHTTP.makeListingSession())
 
     // Emit telemetry events for client init + engine registration. The reporter
     // is nil here (setTelemetry has not yet been called) so these capture calls

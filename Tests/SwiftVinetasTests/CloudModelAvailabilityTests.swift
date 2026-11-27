@@ -95,12 +95,14 @@ private struct Harness {
 
   init(
     keys: [CloudProvider: String] = [.openAI: "availability-test-key-not-real"],
-    clients: [CloudProvider: FakeListingClient]
+    clients: [CloudProvider: FakeListingClient],
+    deadline: Duration = CloudModelAvailability.checkDeadline
   ) {
     self.keys = InMemoryAPIKeyStore(keys: keys)
     self.clients = clients
     self.service = Self.makeService(
-      keys: self.keys, clients: clients, directory: directory, clock: clock)
+      keys: self.keys, clients: clients, directory: directory, clock: clock,
+      deadline: deadline)
   }
 
   /// A second service on the same directory, as after a relaunch.
@@ -110,7 +112,8 @@ private struct Harness {
 
   private static func makeService(
     keys: InMemoryAPIKeyStore, clients: [CloudProvider: FakeListingClient],
-    directory: URL, clock: FakeClock
+    directory: URL, clock: FakeClock,
+    deadline: Duration = CloudModelAvailability.checkDeadline
   ) -> CloudModelAvailability {
     CloudModelAvailability(
       keyStore: keys,
@@ -123,7 +126,8 @@ private struct Harness {
             throw URLError(.notConnectedToInternet)
           }
       },
-      now: { clock.now })
+      now: { clock.now },
+      deadline: deadline)
   }
 
   func cleanUp() { try? FileManager.default.removeItem(at: directory) }
@@ -236,12 +240,86 @@ struct CloudModelAvailabilityTests {
     #expect(await harness.service.isAvailable(CloudProvider.openAI.models[1].id) == false)
     #expect(harness.store.read(.openAI)?.status == .unreachable)
 
-    // A 5xx keeps it too, and an unreachable snapshot is retried on the next refresh.
+    #expect(client.requests == 2)  // the isAvailable calls fall inside the back-off
+
+    // A 5xx keeps it too.
+    harness.clock.advance(CloudModelAvailability.failureBackoff)
     outcome.fail(
       with: CloudEngineError.httpStatus(provider: .openAI, status: 500, message: nil))
     let again = await harness.service.refresh(.openAI)
     #expect(again == failed)
-    #expect(client.requests == 5)  // good, timeout, two isAvailable retries, 500
+    #expect(client.requests == 3)
+  }
+
+  @Test("After a failed check the vendor is left alone for 5 minutes unless forced or the key changed")
+  func failureBacksOff() async throws {
+    let outcome = Outcome()
+    outcome.fail(with: URLError(.notConnectedToInternet))
+    let client = FakeListingClient(.openAI) {
+      if let error = outcome.currentError { throw error }
+      return fullListing(.openAI)
+    }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+
+    let failed = await harness.service.refresh(.openAI)
+    #expect(failed.status == .unreachable)
+    #expect(client.requests == 1)
+
+    // Straight away, and just inside the window: no request.
+    #expect(await harness.service.refresh(.openAI) == failed)
+    harness.clock.advance(CloudModelAvailability.failureBackoff - 1)
+    _ = await harness.service.availableModels()
+    #expect(client.requests == 1)
+
+    // After the window: one request.
+    harness.clock.advance(1)
+    await harness.service.refresh(.openAI)
+    #expect(client.requests == 2)
+
+    // `force` bypasses the window.
+    await harness.service.refresh(.openAI, force: true)
+    #expect(client.requests == 3)
+
+    // So does a new key.
+    try harness.keys.setAPIKey("another-test-key-not-real", for: .openAI)
+    await harness.service.refresh(.openAI)
+    #expect(client.requests == 4)
+
+    // A success clears the back-off: the next failure starts a new window.
+    outcome.succeed()
+    #expect(await harness.service.refresh(.openAI, force: true).status == .available)
+    #expect(client.requests == 5)
+  }
+
+  @Test("A check that never answers is cut off at the deadline and counts as unreachable")
+  func checkDeadlineCutsOffAHungVendor() async {
+    // The fake sleeps far past the deadline but, like URLSession, stops when
+    // cancelled. The assertion is on the outcome, not on elapsed time.
+    let client = FakeListingClient(.openAI) {
+      try await Task.sleep(for: .seconds(3600))
+      return fullListing(.openAI)
+    }
+    let harness = Harness(clients: [.openAI: client], deadline: .milliseconds(50))
+    defer { harness.cleanUp() }
+
+    let snapshot = await harness.service.refresh(.openAI)
+    #expect(snapshot.status == .unreachable)
+    #expect(snapshot.isChecked == false)
+    #expect(client.requests == 1)
+  }
+
+  @Test("The listing session fails fast offline and keeps no cache, cookies or credentials")
+  func listingSessionIsShortAndClean() {
+    let config = CloudHTTP.makeListingSession().configuration
+    #expect(config.waitsForConnectivity == false)
+    #expect(config.timeoutIntervalForRequest == 15)
+    #expect(config.timeoutIntervalForResource == 30)
+    #expect(config.urlCache == nil)
+    #expect(config.httpCookieStorage == nil)
+    #expect(config.httpShouldSetCookies == false)
+    #expect(config.urlCredentialStorage == nil)
+    #expect(CloudModelAvailability.checkDeadline <= .seconds(45))
   }
 
   @Test("First run with the vendor unreachable: every known model, not checked (D-2)")

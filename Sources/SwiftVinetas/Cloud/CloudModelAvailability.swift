@@ -14,7 +14,14 @@ import os.lock
 /// ``CloudAvailabilitySnapshot/checkedAt``). It is stale at once when the
 /// current key's fingerprint differs from the snapshot's, or a key was added
 /// or removed. An ``CloudAvailabilitySnapshot/Status/unreachable`` snapshot is
-/// never fresh, so the next ``refresh(_:force:)`` tries the vendor again.
+/// never fresh, but after a failed check the vendor is not asked again for
+/// ``failureBackoff`` (5 minutes) unless `force` is set or the key changed, so
+/// an outage doesn't turn every query into a request.
+///
+/// **Bounded checks.** Checks use their own listing session
+/// (``CloudHTTP/makeListingSession()``: no waiting for connectivity, 15 s per
+/// request, 30 s per resource), and each check, retries and pages included, is
+/// cut off after ``checkDeadline`` (40 s) and treated as unreachable.
 ///
 /// **No key** (R-19): the snapshot is ``CloudAvailabilitySnapshot/Status/noKey``
 /// with no models, and no request is made.
@@ -40,6 +47,13 @@ public actor CloudModelAvailability {
   /// How long a successful check stays fresh (D-3).
   public static let freshness: TimeInterval = 24 * 60 * 60
 
+  /// How long after a failed check the vendor is left alone, unless `force`
+  /// is set or the key changed.
+  public static let failureBackoff: TimeInterval = 5 * 60
+
+  /// The most time one check may take, retries and pages included.
+  public static let checkDeadline: Duration = .seconds(40)
+
   /// Where API keys resolve from.
   public nonisolated let keyStore: any CloudAPIKeyStoring
 
@@ -48,10 +62,14 @@ public actor CloudModelAvailability {
   private var resolvedStore: CloudAvailabilityStore?
   private let clientFor: @Sendable (CloudProvider) -> any CloudProviderClient
   private let now: @Sendable () -> Date
+  private let deadline: Duration
   private let broadcaster = AvailabilityBroadcaster()
 
   private var snapshots: [CloudProvider: CloudAvailabilitySnapshot] = [:]
   private var readFromDisk: Set<CloudProvider> = []
+
+  /// When the last check failed, per provider, and for which key.
+  private var lastFailure: [CloudProvider: (at: Date, keyFingerprint: String?)] = [:]
 
   private struct InFlight {
     let task: Task<CloudAvailabilitySnapshot, Never>
@@ -69,8 +87,9 @@ public actor CloudModelAvailability {
   /// - Parameters:
   ///   - keyStore: Where API keys resolve from; the same store the cloud
   ///     engines use.
-  ///   - session: The `URLSession` for the vendor checks; `nil` builds the
-  ///     cloud engines' default session.
+  ///   - session: The `URLSession` for the vendor checks; `nil` builds
+  ///     ``CloudHTTP/makeListingSession()``. Don't pass the engines' generation
+  ///     session: it waits for connectivity, so an offline check would hang.
   ///   - storeDirectory: Where snapshots are kept; `nil` uses the App Group
   ///     container, else Caches (resolved on first use, not here).
   public init(
@@ -91,10 +110,12 @@ public actor CloudModelAvailability {
     session: URLSession?,
     store: CloudAvailabilityStore?,
     client: @escaping @Sendable (CloudProvider) -> any CloudProviderClient,
-    now: @escaping @Sendable () -> Date
+    now: @escaping @Sendable () -> Date,
+    deadline: Duration = CloudModelAvailability.checkDeadline
   ) {
     self.keyStore = keyStore
-    self.session = session ?? CloudHTTP.makeSession()
+    self.session = session ?? CloudHTTP.makeListingSession()
+    self.deadline = deadline
     if let store {
       self.makeStore = { store }
     } else {
@@ -122,9 +143,11 @@ public actor CloudModelAvailability {
 
   /// Checks `provider` when the cache is missing or stale, or when `force` is
   /// set, and returns the result. A fresh cache is returned without a request;
-  /// with no key the result is `.noKey` without a request. A call made while a
+  /// with no key the result is `.noKey` without a request. Within
+  /// ``failureBackoff`` of a failed check for the same key, the cached result
+  /// is returned without a request unless `force` is set. A call made while a
   /// check for the same provider and key is running waits for that check, even
-  /// with `force`.
+  /// with `force`. A check takes at most ``checkDeadline``.
   @discardableResult
   public func refresh(_ provider: CloudProvider, force: Bool = false) async
     -> CloudAvailabilitySnapshot
@@ -156,6 +179,12 @@ public actor CloudModelAvailability {
     if !force, let previous, isFresh(previous, keyFingerprint: fingerprint) {
       return previous
     }
+    if !force, let previous, let failure = lastFailure[provider],
+      failure.keyFingerprint == fingerprint
+    {
+      let since = now().timeIntervalSince(failure.at)
+      if since >= 0, since < Self.failureBackoff { return previous }
+    }
 
     let task = Task { await self.check(provider, apiKey: key, keyFingerprint: fingerprint) }
     inFlight[provider] = InFlight(task: task, keyFingerprint: fingerprint)
@@ -164,7 +193,9 @@ public actor CloudModelAvailability {
 
   /// The available cloud models of every provider, in ``CloudModelDescriptor/all``
   /// order. Each provider is refreshed first, respecting the cache, so this
-  /// makes a request only for a provider whose cache is missing or stale.
+  /// makes a request only for a provider whose cache is missing or stale, and
+  /// then may wait up to ``checkDeadline``. UIs should draw from
+  /// ``snapshot(for:)`` and ``updates`` instead of awaiting this.
   public func availableModels() async -> [CloudModelDescriptor] {
     var byProvider: [CloudProvider: CloudAvailabilitySnapshot] = [:]
     await withTaskGroup(of: CloudAvailabilitySnapshot.self) { group in
@@ -183,7 +214,9 @@ public actor CloudModelAvailability {
 
   /// Whether the cloud model with Vinetas ID `modelID` is available, after
   /// refreshing its provider (respecting the cache). `false` for an ID that
-  /// is not a known cloud model.
+  /// is not a known cloud model. When the cache is missing or stale this makes
+  /// a request and may wait up to ``checkDeadline``; UIs should draw from
+  /// ``snapshot(for:)`` and ``updates`` instead.
   public func isAvailable(_ modelID: String) async -> Bool {
     guard let model = CloudModelDescriptor.all.first(where: { $0.id == modelID }) else {
       return false
@@ -198,9 +231,12 @@ public actor CloudModelAvailability {
     _ provider: CloudProvider, apiKey: String, keyFingerprint: String?
   ) async -> CloudAvailabilitySnapshot {
     let result: CloudAvailabilitySnapshot
+    let client = clientFor(provider)
+    let session = session
     do {
-      let listing = try await clientFor(provider).listAvailableModels(
-        apiKey: apiKey, session: session)
+      let listing = try await Self.withDeadline(deadline, provider: provider) {
+        try await client.listAvailableModels(apiKey: apiKey, session: session)
+      }
       let mapped = CloudAvailabilitySnapshot.mapping(of: listing, provider: provider)
       result = CloudAvailabilitySnapshot(
         provider: provider,
@@ -219,9 +255,32 @@ public actor CloudModelAvailability {
       result = Self.unreachable(
         provider: provider, previous: cached(provider), keyFingerprint: keyFingerprint)
     }
+    if result.status == .unreachable {
+      lastFailure[provider] = (now(), keyFingerprint)
+    } else {
+      lastFailure[provider] = nil
+    }
     inFlight[provider] = nil
     save(result, persist: result.isChecked)
     return result
+  }
+
+  /// Runs `operation`, throwing ``CloudEngineError/timedOut(provider:)`` and
+  /// cancelling it if it hasn't finished within `deadline`.
+  static func withDeadline<T: Sendable>(
+    _ deadline: Duration, provider: CloudProvider,
+    _ operation: @escaping @Sendable () async throws -> T
+  ) async throws -> T {
+    try await withThrowingTaskGroup(of: T.self) { group in
+      group.addTask { try await operation() }
+      group.addTask {
+        try await Task.sleep(for: deadline)
+        throw CloudEngineError.timedOut(provider: provider)
+      }
+      defer { group.cancelAll() }
+      guard let first = try await group.next() else { throw CancellationError() }
+      return first
+    }
   }
 
   /// The R-8 / D-2 result of a failed check.
