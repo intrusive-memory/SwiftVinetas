@@ -1,6 +1,6 @@
 ---
 type: execution-plan
-state: draft
+state: ready
 requirements_file: REQUIREMENTS-CLOUD-MODEL-DISCOVERY.md
 recon_report: RECON_REPORT.md
 ---
@@ -54,13 +54,15 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 
 ### Sortie 1: Refresh the built-in cloud model table (D-6)
 
+**Priority**: 1 of 9 — blocks every WU-A sortie through G-1; vendor-facing. Builds: yes (runs `make`).
+
 **Entry criteria**:
 - [ ] First sortie — no prerequisites. Recon A-01 to A-03 confirm `CloudModelDescriptor` (`Sources/SwiftVinetas/Cloud/CloudModelDescriptor.swift`), `ModelSummary.cloud` (`Sources/VinetasVocabulary/ModelSummary.swift:451`) and the parity test (`Tests/SwiftVinetasTests/ModelSummaryRoundTripTests.swift:24`, asserts `count == 9`).
 - [x] OQ-1 is answered.
 
 **Tasks**:
 1. From the vendors' current API docs, record each new model's capabilities: sizes or aspect ratios, steps, guidance, seed, negative prompt, reference-image limit, pricing hint. Models: `gpt-image-2.6-flare`, `gpt-image-2.6-sunburst`, `gemini-3.1-flash-lite-image`. Put the sources in a comment above each descriptor.
-2. Add a `CloudModelDescriptor` constant for each, following the existing 2.5 and Gemini constants, and add it to `CloudProvider.models` in the order OQ-1 settles.
+2. Add a `CloudModelDescriptor` constant for each, following the existing 2.5 and Gemini constants, and add it to `CloudProvider.models`: `gpt-image-2.6-flare` and `gpt-image-2.6-sunburst` before their 2.5 counterparts, `gemini-3.1-flash-lite-image` right after `gemini-3.1-flash-image`. Don't change the default model (OQ-1).
 3. Add the matching `ModelSummary.cloud` entries and update the parity test's count.
 4. Update any other test or doc that hard-codes the cloud model count or list (grep `count == 9`, `gpt-image-2.5`, `gemini-3.1-flash-image` in `Tests/` and `docs/`).
 5. Add a CHANGELOG entry under the unreleased heading.
@@ -74,19 +76,21 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 
 ### Sortie 2: Classify vendor errors (R-10, R-10a, R-11, key rejection)
 
+**Priority**: 2 — defines the public error cases S3–S8 depend on. Builds: yes.
+
 **Entry criteria**:
 - [ ] G-1 done: S1 merged and released; `feature/cloud-model-discovery` cut from `development`.
 - [x] OQ-2 is answered.
 - [ ] Recon A-07, A-08, A-16 hold: `CloudHTTP.perform` (`CloudHTTP.swift:63–88`), the 9 `CloudEngineError` cases, and the two exhaustive switches (`CloudEngineError.swift:69`, `Sources/VinetasCLICore/CLIModel.swift:225`).
 
 **Tasks**:
-1. Add `CloudEngineError.modelUnavailable(provider:modelID:reason:)` and the key-rejection case OQ-2 settles, with plain-language descriptions that name the vendor's console (R-11).
+1. Add `CloudEngineError.modelUnavailable(provider:modelID:reason:)` and `CloudEngineError.keyRejected(provider:reason:)` with a public `KeyRejectionReason` enum (`expired`, `invalid`, `notPermitted`) (OQ-2), both with plain-language descriptions that name the vendor's console (R-11).
 2. Add an internal per-vendor classifier that `CloudHTTP.perform` calls on a non-2xx response before falling back to `httpStatus`:
    - OpenAI: `400` with `error.param == "model"`, or `404 model_not_found` → `modelUnavailable`; a `403` about organisation verification → `modelUnavailable` with that reason; `401` → key rejected, keeping `expired_secret_key` apart from `invalid_api_key`.
    - Google: `404` with `error.code == "not_found"` (flat body on `/interactions`) or `status == "NOT_FOUND"` → `modelUnavailable`; `400` with reason `API_KEY_INVALID` → key rejected.
    - BFL: `404` → `modelUnavailable`; `401`/`403` → key rejected.
    - Stability: `404` → `modelUnavailable`; `401` → key rejected; `403` unchanged (moderation).
-3. Update both exhaustive switches. CLI exit codes: `modelUnavailable` → 69; key rejected → per OQ-2.
+3. Update both exhaustive switches. CLI exit codes: `modelUnavailable` → 69; `keyRejected` → 78 (`EX_CONFIG`, the same as a missing key).
 4. Tests with `StubURLProtocol`, one per row above, using the response bodies recorded in requirements § 10.1. Include the negative case: OpenAI `400` with `param == "size"` stays `httpStatus`.
 
 **Exit criteria**:
@@ -94,8 +98,11 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 - [ ] `grep -n 'case modelUnavailable' Sources/SwiftVinetas/Cloud/CloudEngineError.swift` finds one line.
 - [ ] The new tests are in `Tests/SwiftVinetasTests/` and there are at least 9 of them (`grep -c '@Test' <file>` on the new suite).
 - [ ] `grep -rn 'API_KEY_INVALID' Sources/SwiftVinetas/Cloud` finds the Google classifier.
+- [ ] `grep -n 'case keyRejected' Sources/SwiftVinetas/Cloud/CloudEngineError.swift` finds one line, and `grep -n 'keyRejected' Sources/VinetasCLICore/CLIModel.swift` shows it mapped to 78.
 
 ### Sortie 3: Vendor listing calls (R-3, R-6, R-9, R-9a)
+
+**Priority**: 3 — external APIs; feeds S4–S5. Builds: yes.
 
 **Entry criteria**:
 - [ ] Sortie 2 exit criteria met.
@@ -119,6 +126,8 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 
 ### Sortie 4: Snapshot type and persistence (R-5, R-7 persistence, D-4)
 
+**Priority**: 4 — public types reused by S5–S8. Builds: yes.
+
 **Entry criteria**:
 - [ ] Sortie 3 exit criteria met.
 - [x] OQ-3 is answered.
@@ -127,9 +136,9 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 **Tasks**:
 1. Add public `CloudAvailabilitySnapshot` (`Codable`, `Sendable`, `Equatable`) with the R-5 fields: `provider`, `status` (`.available`, `.noKey`, `.keyRejected(reason:)`, `.unreachable`, `.unsupported`), `modelIDs` (our IDs), `checkedAt`, `keyFingerprint`, `shutdownDates` (our IDs).
 2. Add the key fingerprint: a salted SHA-256 prefix (CryptoKit), with a salt generated once and stored beside the snapshots. The key itself is never stored.
-3. Add an internal `CloudAvailabilityStore` that reads and writes one JSON file per provider in the location OQ-3 settles, with an injectable directory for tests.
+3. Add an internal `CloudAvailabilityStore` that reads and writes one JSON file per provider in `<App Group container>/vinetas-cloud-availability/` (App Group ID from SwiftAcervo, as `resolveIODirectory()` does at `VinetasCLICore.swift:976`); when the container is unavailable, `<Caches>/io.intrusive-memory.Vinetas/cloud-availability/` (OQ-3). The directory is injectable; tests always pass a temp directory.
 4. Add the derived rule from R-5a: a model whose shutdown date is today or earlier is unavailable, even if listed.
-5. Tests: encode/decode round trip; fingerprint stability and change; the store's read/write in a temp directory; the past-shutdown rule with an injected clock.
+5. Tests: encode/decode round trip; fingerprint stability and change; the store's read/write in a temp directory; the App Group → Caches fallback (an injected container lookup that returns nil); the past-shutdown rule with an injected clock.
 
 **Exit criteria**:
 - [ ] `make build`, `make test-unit` and `make lint-check` exit 0.
@@ -137,6 +146,8 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 - [ ] [judgment] No code path writes the key or any part of it except the salted hash prefix.
 
 ### Sortie 5: The availability service (R-4, R-7, R-8, R-19, R-21)
+
+**Priority**: 5 — concurrency (single-flight) is the riskiest code. Builds: yes. Model: opus.
 
 **Entry criteria**:
 - [ ] Sortie 4 exit criteria met.
@@ -157,6 +168,8 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 
 ### Sortie 6: Generation-time invalidation and release prep (R-10, R-18, R-22)
 
+**Priority**: 6 — closes WU-A; gate G-2 follows. Builds: yes.
+
 **Entry criteria**:
 - [ ] Sortie 5 exit criteria met.
 
@@ -170,13 +183,16 @@ Branch for S2–S6: `feature/cloud-model-discovery` off `development` after G-1.
 **Exit criteria**:
 - [ ] `make build`, `make test-unit` and `make lint-check` exit 0.
 - [ ] `gh pr view --json baseRefName,isDraft` shows `development` and `false`.
-- [ ] The PR's `CI gate` (or the repo's required checks) is passing or pending, not failing.
+- [ ] `gh pr checks` shows no failing check (passing or pending only).
+- [ ] `gh pr view --json autoMergeRequest` is non-null.
 
 ---
 
 ## WU-C — Privacy page (vinetas.github.io)
 
 ### Sortie 9: Say that Vinetas checks which models a key can use (R-22)
+
+**Priority**: runs in parallel with S1 — no build, docs only. Model: haiku.
 
 **Entry criteria**:
 - [ ] First sortie — no prerequisites. Recon A-43: `privacy.md:25,27,40` in `~/Projects/websites/vinetas.github.io` (`origin/main`).
@@ -199,6 +215,8 @@ on `release/1.2.0`; switch only after confirming it is clean.
 
 ### Sortie 7: Registry and refresh triggers (V-1, V-2, V-3 without the button)
 
+**Priority**: 7 — after G-2. Builds: yes (Xcode MCP).
+
 **Entry criteria**:
 - [ ] G-2 done: our next minor release of SwiftVinetas is tagged and published.
 - [ ] Recon A-20, A-28, A-30, A-31 hold: `CloudProviderRegistry` (`Vinetas/Cloud/CloudProviderRegistry.swift`, `@Observable @MainActor`); key save/remove in `SettingsCloudTab.swift:102,118`; SwiftVinetas requirement `upToNextMajorVersion` `0.27.1` (`project.pbxproj:1581–1585`).
@@ -217,6 +235,8 @@ on `release/1.2.0`; switch only after confirming it is clean.
 
 ### Sortie 8: Studio pickers, fallback and notice (V-5, V-6, V-7)
 
+**Priority**: 8 — last; gate G-3 follows. Builds: yes (Xcode MCP).
+
 **Entry criteria**:
 - [ ] Sortie 7 exit criteria met.
 - [ ] Recon A-22, A-23, A-24, A-25 hold: `GenerationViewModel.applyCloudProviders` (`GenerationViewModel.swift:204–213`) switches silently; `cloudModels` (`:158`) filters by `configuredCloudProviders`; `AppDefaults.resolveDefaultModel` (`AppDefaults.swift:120–139`); gallery lookups use `AvailableModel.byID`.
@@ -224,9 +244,9 @@ on `release/1.2.0`; switch only after confirming it is clean.
 **Tasks**:
 1. Change `applyCloudProviders` to take the registry's `availableCloudModelIDs` too. Update its call sites in both `GenerationStudioView.swift` files (`.task` and `.onChange`, macOS `:127,134`, iOS `:87,93`) to pass it and to react when it changes.
 2. Filter `GenerationViewModel.cloudModels` on the available IDs.
-3. When the selected cloud model is dropped, for a removed key or an unavailable model, switch to the first available model and show a one-line notice: "<model> isn't available for your key; switched to <model>." Use the same placement in both apps.
+3. When the selected cloud model is dropped, for a removed key or an unavailable model, switch to the first model in the filtered `cloudModels` list for the same provider, else the first available cloud model, else the default local model, and show a one-line notice: "<model> isn't available for your key; switched to <model>." Use the same placement in both apps.
 4. `AppDefaults.resolveDefaultModel` skips an unavailable cloud model.
-5. Confirm the gallery and record details still show a dropped model's name (V-6). No change is expected.
+5. Confirm the gallery and record details still show a dropped model's name (V-6): add one test that a record whose model ID is not in `availableCloudModelIDs` still resolves its display name through `AvailableModel.byID`.
 6. Tests: selection fallback with the notice for both causes; `resolveDefaultModel` skipping; extend `hiddenVendorSelectionFallsBackThroughApplyCloudProviders`.
 
 **Exit criteria**:
@@ -237,6 +257,17 @@ on `release/1.2.0`; switch only after confirming it is clean.
 - [ ] A ready PR into `development` is open, with auto-merge on.
 
 ---
+
+## Parallelism Structure
+
+**Critical path**: S1 → G-1 → S2 → S3 → S4 → S5 → S6 → G-2 → S7 → S8 → G-3 (8 sorties, 3 human gates).
+
+**Parallel groups**:
+- **Group 1**: S1 (WU-A, builds) and S9 (WU-C, no build) at the same time.
+- **Group 2**: S2 → S6 in sequence. They share files (`CloudHTTP.swift`, `CloudEngineError.swift`), so they can't run in parallel.
+- **Group 3**: S7 → S8 in sequence, after G-2.
+
+**Agent constraints**: at most one building sortie at a time (S9 is the only one without a build). The human gates, not agent count, limit how fast this goes.
 
 ## Local Dependency Map
 
@@ -288,6 +319,6 @@ on `release/1.2.0`; switch only after confirming it is clean.
 |--------|-------|
 | Work units | 3 |
 | Total sorties | 9 |
-| Open questions | 3 |
+| Open questions | 0 (OQ-1 to OQ-3 resolved 2026-11-26) |
 | Dependencies mapped | 3 |
 | Dependency structure | layers: WU-A and WU-C (layer 0) → G-2 → WU-B (layer 1) |
