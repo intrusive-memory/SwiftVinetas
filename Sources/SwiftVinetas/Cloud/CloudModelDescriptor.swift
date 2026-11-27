@@ -99,6 +99,62 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
   /// body well under its upload cap after downscaling.
   private static let openAIReferenceLimit = 10
 
+  /// OpenAI `gpt-image-2.6-flare`, the 2.6 successor to 2.5 Flare.
+  ///
+  /// Sources (fetched 2026-11-26):
+  /// - https://developers.openai.com/api/docs/models/gpt-image-2.6-flare: text and image input,
+  ///   image output; `v1/images/generations` and `v1/images/edits`; image output
+  ///   billed at $30 per 1M tokens (no per-image price is published).
+  /// - https://developers.openai.com/api/docs/guides/image-generation: sizes in
+  ///   multiples of 16, edges up to 3840, ratio between 1:3 and 3:1 (so the 4:1
+  ///   strip is out); no steps, guidance, seed or negative-prompt parameter is
+  ///   documented, so none are enabled.
+  /// - Reference-image limit: not documented for 2.6; assumed same as
+  ///   gpt-image-2.5-flare (`openAIReferenceLimit`).
+  public static let gptImage26Flare = CloudModelDescriptor(
+    id: "openai-gpt-image-2.6-flare",
+    displayName: "GPT Image 2.6 Flare",
+    provider: .openAI,
+    vendorModelID: "gpt-image-2.6-flare",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: widescreenRatios,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: false,
+    supportsNegativePrompt: false,
+    pricingHint: "$30/1M image output tokens",
+    maxReferenceImages: openAIReferenceLimit
+  )
+
+  /// OpenAI `gpt-image-2.6-sunburst`, the 2.6 successor to 2.5 Sunburst.
+  ///
+  /// Sources (fetched 2026-11-26):
+  /// - https://developers.openai.com/api/docs/models/gpt-image-2.6-sunburst: text and image input,
+  ///   image output; `v1/images/generations` and `v1/images/edits`; image output
+  ///   billed at $30 per 1M tokens (no per-image price is published).
+  /// - https://developers.openai.com/api/docs/guides/image-generation: sizes in
+  ///   multiples of 16, edges up to 3840, ratio between 1:3 and 3:1 (so the 4:1
+  ///   strip is out); no steps, guidance, seed or negative-prompt parameter is
+  ///   documented, so none are enabled.
+  /// - Reference-image limit: not documented for 2.6; assumed same as
+  ///   gpt-image-2.5-flare (`openAIReferenceLimit`).
+  public static let gptImage26Sunburst = CloudModelDescriptor(
+    id: "openai-gpt-image-2.6-sunburst",
+    displayName: "GPT Image 2.6 Sunburst",
+    provider: .openAI,
+    vendorModelID: "gpt-image-2.6-sunburst",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: widescreenRatios,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: false,
+    supportsNegativePrompt: false,
+    pricingHint: "$30/1M image output tokens",
+    maxReferenceImages: openAIReferenceLimit
+  )
+
   /// OpenAI `gpt-image-2.5-flare`, the vendor's default: explicit sizes in
   /// multiples of 16; no steps, guidance, seed, or negative prompt.
   public static let gptImage25Flare = CloudModelDescriptor(
@@ -170,6 +226,35 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     supportsSeed: false,
     supportsNegativePrompt: false,
     pricingHint: "~$0.07–0.15/image",
+    maxReferenceImages: 10
+  )
+
+  /// Google `gemini-3.1-flash-lite-image`, the lower-cost Flash tier.
+  ///
+  /// Sources (fetched 2026-11-26):
+  /// - https://aistudio.google.com/docs/models/gemini-3.1-flash-lite-image
+  ///   (formerly ai.google.dev/gemini-api/docs/models/...): 14 aspect ratios
+  ///   including 1:1, 3:2, 16:9, 9:16 and 21:9 (so every ratio in
+  ///   `widescreenRatios` is covered); 1K output only (no 2K/4K); a 1K image is
+  ///   1,120 tokens at $30 per 1M, about $0.0336 per image.
+  /// - https://aistudio.google.com/docs/image-generation: the model is "not
+  ///   optimized for multiple reference inputs"; seed and negative prompt are
+  ///   not documented, so neither is enabled.
+  /// - Reference-image limit: no maximum documented; assumed same as
+  ///   gemini-3.1-flash-image (10).
+  public static let gemini31FlashLiteImage = CloudModelDescriptor(
+    id: "google-gemini-3.1-flash-lite-image",
+    displayName: "Gemini 3.1 Flash Lite Image",
+    provider: .google,
+    vendorModelID: "gemini-3.1-flash-lite-image",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: widescreenRatios,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: false,
+    supportsNegativePrompt: false,
+    pricingHint: "~$0.034/image (1K)",
     maxReferenceImages: 10
   )
 

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Cloud models `gpt-image-2.6-flare` and `gpt-image-2.6-sunburst` (OpenAI, listed before their 2.5 counterparts) and `gemini-3.1-flash-lite-image` (Google, after `gemini-3.1-flash-image`), in `CloudModelDescriptor`, `CloudProvider.models` and `ModelSummary.cloud` (now twelve). The default model is unchanged.
+
 ## [0.27.1] - 2026-11-22
 
 ### Fixed

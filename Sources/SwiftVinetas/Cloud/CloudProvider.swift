@@ -106,8 +106,10 @@ public enum CloudProvider: String, CaseIterable, Sendable, Identifiable, Codable
   /// The models this provider exposes, in picker order.
   public var models: [CloudModelDescriptor] {
     switch self {
-    case .openAI: return [.gptImage25Flare, .gptImage25Sunburst]
-    case .google: return [.nanoBanana21, .gemini31FlashImage, .gemini3ProImage]
+    case .openAI:
+      return [.gptImage26Flare, .gptImage26Sunburst, .gptImage25Flare, .gptImage25Sunburst]
+    case .google:
+      return [.nanoBanana21, .gemini31FlashImage, .gemini31FlashLiteImage, .gemini3ProImage]
     case .blackForestLabs: return [.flux2Pro, .flux2Flex]
     case .stabilityAI: return [.stableImageCore, .stableImageUltra]
     }

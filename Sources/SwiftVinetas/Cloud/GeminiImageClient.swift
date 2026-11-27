@@ -60,7 +60,8 @@ struct GeminiImageClient: CloudProviderClient {
         "type": "image",
         "mime_type": "image/jpeg",
         "aspect_ratio": Self.aspectRatio(width: request.width, height: request.height),
-        "image_size": Self.imageSize(width: request.width, height: request.height),
+        "image_size": Self.imageSize(
+          width: request.width, height: request.height, vendorModelID: model.vendorModelID),
       ],
     ]
     urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -106,6 +107,17 @@ struct GeminiImageClient: CloudProviderClient {
   /// Nearest vendor preset for the requested dimensions.
   static func aspectRatio(width: Int, height: Int) -> String {
     CloudDimensions.nearestRatio(width: width, height: height, candidates: aspectRatios)
+  }
+
+  /// Models that accept only the `1K` tier; the vendor rejects `2K` and `4K`.
+  /// Source: https://aistudio.google.com/docs/models/gemini-3.1-flash-lite-image
+  static let oneKOnlyModels: Set<String> = ["gemini-3.1-flash-lite-image"]
+
+  /// Size tier for a specific model: always `1K` for a 1K-only model,
+  /// otherwise the tier from ``imageSize(width:height:)``.
+  static func imageSize(width: Int, height: Int, vendorModelID: String) -> String {
+    if oneKOnlyModels.contains(vendorModelID) { return "1K" }
+    return imageSize(width: width, height: height)
   }
 
   /// Size tier for the requested dimensions. `1K` is roughly a 1024-pixel
