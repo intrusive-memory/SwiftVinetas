@@ -31,9 +31,9 @@ type: supervisor-state
 ## Work Units
 ### WU-A SwiftVinetas
 - Work unit state: RUNNING
-- Current sortie: 2 of 6
+- Current sortie: 6 of 6
 - Sortie state: DISPATCHED
-- Model: opus (public API + classifier across 4 vendors)
+- Model: sonnet
 - Sortie type: code
 - Model: sonnet
 - Attempt: 1 of 3
@@ -71,3 +71,12 @@ type: supervisor-state
 | 2026-11-27 | WU-A | 1 | PR #100 merged into development (16e78a5). G-1 now waits on human: merge #99 to main + patch release | human gate |
 | 2026-11-27 | WU-A | G-1 | DONE: v0.27.2 released (#99 merged by supervisor on user's explicit 'ship the patch release'); release.yml success; #102 dev sync merged; draft #103 opened | human gate |
 | 2026-11-27 | WU-A | 2 | origin/development merged into mission branch; dispatched on sonnet→ chose opus | new public error cases are foundation for S3–S8 |
+| 2026-11-27 | WU-A | 2 | COMPLETED (ff6d986): 18 tests; build/test/lint green. Caveats: BFL/Stability/OpenAI-403/Google-403 stub bodies assumed (U-1..U-3); new enum cases break exhaustive switches downstream (Vinetas app has none) | mechanical checks re-run by supervisor |
+| 2026-11-27 | WU-A | 3 | Dispatched, sonnet (score ~10) | external APIs, well-specified |
+| 2026-11-27 | WU-A | 3 | COMPLETED (1c9a62d): 11 tests; supervisor re-ran make test-unit after agent format fix: 980 passed | agent had skipped post-format test run |
+| 2026-11-27 | WU-A | 4 | Dispatched, sonnet (score ~10); [judgment] criterion → verifier after | file I/O + crypto |
+| 2026-11-27 | WU-A | 4 | COMPLETED (a27ee9c): verifier PASS on all 3 judgment criteria | independent verifier, sonnet |
+| 2026-11-27 | WU-A | 5 | Dispatched, opus (score ~14: concurrency, foundation for S6-S8) | |
+| 2026-11-27 | WU-A | 5 | PARTIAL (5482b3e): offline hang (600s shared session) + outage retry storm; continuation sent to same agent | supervisor review of agent-flagged risks |
+| 2026-11-27 | WU-A | 5 | COMPLETED (aa26bcf, bbaffa4): listing session 15s/30s, 40s check deadline, 5-min failure backoff; 1009 tests pass | |
+| 2026-11-27 | WU-A | 6 | Dispatched, sonnet | integration + docs + PR |
