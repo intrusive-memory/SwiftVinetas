@@ -18,6 +18,13 @@ import os.lock
 /// ``failureBackoff`` (5 minutes) unless `force` is set or the key changed, so
 /// an outage doesn't turn every query into a request.
 ///
+/// **Smart expiry** (R-7a). A snapshot is also stale when its
+/// ``CloudAvailabilitySnapshot/catalogDigest`` differs from this build's (another
+/// SwiftVinetas version wrote it), or its `checkedAt` is before
+/// `CloudAvailabilityStore.minimumCheckedAt`. A snapshot read from disk with
+/// another digest is re-mapped from its raw vendor IDs through this build's
+/// model table, so until the re-check it shows the models this build knows.
+///
 /// **Bounded checks.** Checks use their own listing session
 /// (``CloudHTTP/makeListingSession()``: no waiting for connectivity, 15 s per
 /// request, 30 s per resource), and each check, retries and pages included, is
@@ -261,6 +268,10 @@ public actor CloudModelAvailability {
     }
     guard snapshot.modelIDs.contains(modelID) else { return }
     snapshot.modelIDs.remove(modelID)
+    // Drop its raw vendor IDs too, so a re-map (R-7a) doesn't bring it back.
+    if let model = provider.models.first(where: { $0.id == modelID }) {
+      snapshot.vendorModelIDs = snapshot.vendorModelIDs.filter { !model.matches(vendorID: $0) }
+    }
     save(snapshot, persist: snapshot.isChecked)
   }
 
@@ -303,7 +314,10 @@ public actor CloudModelAvailability {
         modelIDs: mapped.modelIDs,
         checkedAt: now(),
         keyFingerprint: keyFingerprint,
-        shutdownDates: mapped.shutdownDates)
+        shutdownDates: mapped.shutdownDates,
+        vendorModelIDs: listing.modelIDs ?? [],
+        vendorListsModels: listing.vendorListsModels,
+        vendorShutdownDates: listing.shutdownDates)
     } catch CloudEngineError.keyRejected(_, let reason) {
       result = CloudAvailabilitySnapshot(
         provider: provider, status: .keyRejected(reason: reason), checkedAt: now(),
@@ -375,7 +389,7 @@ public actor CloudModelAvailability {
     if let snapshot = snapshots[provider] { return snapshot }
     guard !readFromDisk.contains(provider) else { return nil }
     readFromDisk.insert(provider)
-    let snapshot = store.read(provider)
+    let snapshot = store.read(provider)?.remappedForCurrentCatalog()
     snapshots[provider] = snapshot
     return snapshot
   }
@@ -387,6 +401,11 @@ public actor CloudModelAvailability {
     case .noKey, .unreachable: return false
     case .available, .unsupported, .keyRejected: break
     }
+    // R-7a: written by a build with another model table, or before the
+    // release's forced-expiry date.
+    guard snapshot.catalogDigest == CloudAvailabilitySnapshot.catalogDigest(for: snapshot.provider),
+      snapshot.checkedAt >= store.minimumCheckedAt
+    else { return false }
     let age = now().timeIntervalSince(snapshot.checkedAt)
     // A `checkedAt` in the future (the clock moved back) counts as stale.
     return age >= 0 && age < Self.freshness
