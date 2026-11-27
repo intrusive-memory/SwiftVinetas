@@ -244,10 +244,13 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
 
   // MARK: - Cloud models
 
-  /// Ratios OpenAI and Google accept (1:3 … 3:1); the 4:1 strip is out of range.
+  /// Ratios OpenAI (1:3 … 3:1) and the Google models without 4:1 accept; the 4:1 strip is out.
   private static let widescreenRatios: [AspectRatio] = [
     .square, .wide, .ultrawide, .portrait, .panel,
   ]
+
+  /// The ratios plus the 4:1 strip, for the Google models that document 4:1.
+  private static let withStrip: [AspectRatio] = widescreenRatios + [.strip]
 
   /// Ratios Stability's presets accept; the 4:1 strip is unavailable.
   private static let noStrip: [AspectRatio] = [
@@ -348,7 +351,7 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     approximateDownloadSize: "Cloud",
     defaultSteps: 1,
     defaultGuidance: 1.0,
-    supportedAspectRatios: widescreenRatios,
+    supportedAspectRatios: withStrip,
     supportsSteps: false,
     supportsGuidance: false,
     supportsSeed: false,
@@ -369,7 +372,7 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     approximateDownloadSize: "Cloud",
     defaultSteps: 1,
     defaultGuidance: 1.0,
-    supportedAspectRatios: widescreenRatios,
+    supportedAspectRatios: withStrip,
     supportsSteps: false,
     supportsGuidance: false,
     supportsSeed: false,

@@ -101,10 +101,14 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
   /// dimensions can honour all of them.
   private static let allRatios: [AspectRatio] = AspectRatio.allCases
 
-  /// Ratios OpenAI and Google accept (1:3 … 3:1); the 4:1 strip is out of range.
+  /// Ratios OpenAI (1:3 … 3:1) and the Google models without 4:1 accept; the 4:1 strip is out.
   private static let widescreenRatios: [AspectRatio] = [
     .square, .wide, .ultrawide, .portrait, .panel,
   ]
+
+  /// Ratios plus the 4:1 strip, for the Google models that document 4:1
+  /// (1K = 2048×512). See `docs/CLOUD_MODEL_SIZES.md`.
+  private static let withStripRatios: [AspectRatio] = widescreenRatios + [.strip]
 
   /// OpenAI's edits endpoint takes repeated `image[]` parts. The vendor
   /// documents no hard limit for the 2.5 family; ten keeps the multipart
@@ -208,8 +212,8 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
   /// 3.1 Flash Image) or 6 (3 Pro Image), inline as base64 `image` blocks.
   ///
   /// Google `gemini-nano-banana-2.1`, the recommended default. Aspect-ratio
-  /// presets and a 1K/2K/4K size tier; no steps, guidance, seed, or
-  /// negative prompt.
+  /// presets, including 4:1 (1K = 2048×512), and a 1K/2K/4K size tier; no
+  /// steps, guidance, seed, or negative prompt. Source: `docs/CLOUD_MODEL_SIZES.md`.
   public static let nanoBanana21 = CloudModelDescriptor(
     id: "google-nano-banana-2.1",
     displayName: "Nano Banana 2.1",
@@ -217,7 +221,7 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     vendorModelID: "gemini-nano-banana-2.1",
     defaultSteps: 1,
     defaultGuidance: 1.0,
-    supportedAspectRatios: widescreenRatios,
+    supportedAspectRatios: withStripRatios,
     supportsSteps: false,
     supportsGuidance: false,
     supportsSeed: false,
@@ -226,7 +230,8 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     maxReferenceImages: 10
   )
 
-  /// Google `gemini-3.1-flash-image`, tuned for sequential art.
+  /// Google `gemini-3.1-flash-image`, tuned for sequential art. Documents 4:1
+  /// (1K = 2048×512); source: `docs/CLOUD_MODEL_SIZES.md`.
   public static let gemini31FlashImage = CloudModelDescriptor(
     id: "google-gemini-3.1-flash-image",
     displayName: "Gemini 3.1 Flash Image",
@@ -234,7 +239,7 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
     vendorModelID: "gemini-3.1-flash-image",
     defaultSteps: 1,
     defaultGuidance: 1.0,
-    supportedAspectRatios: widescreenRatios,
+    supportedAspectRatios: withStripRatios,
     supportsSteps: false,
     supportsGuidance: false,
     supportsSeed: false,
@@ -249,7 +254,7 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
   /// - https://aistudio.google.com/docs/models/gemini-3.1-flash-lite-image
   ///   (formerly ai.google.dev/gemini-api/docs/models/...): 14 aspect ratios
   ///   including 1:1, 3:2, 16:9, 9:16 and 21:9 (so every ratio in
-  ///   `widescreenRatios` is covered); 1K output only (no 2K/4K); a 1K image is
+  ///   `widescreenRatios` is covered; no 4:1, so the strip is not offered); 1K output only (no 2K/4K); a 1K image is
   ///   1,120 tokens at $30 per 1M, about $0.0336 per image.
   /// - https://aistudio.google.com/docs/image-generation: the model is "not
   ///   optimized for multiple reference inputs"; seed and negative prompt are
@@ -273,6 +278,7 @@ public struct CloudModelDescriptor: ModelDescriptor, Hashable {
   )
 
   /// Google `gemini-3-pro-image`, for text rendering and production assets.
+  /// Documents no 4:1, so the strip is not offered (`docs/CLOUD_MODEL_SIZES.md`).
   public static let gemini3ProImage = CloudModelDescriptor(
     id: "google-gemini-3-pro-image",
     displayName: "Gemini 3 Pro Image",

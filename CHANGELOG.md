@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- The 4:1 strip for `gemini-nano-banana-2.1` and `gemini-3.1-flash-image`, the two Google models that document it (1K = 2048×512), in `CloudModelDescriptor` and `ModelSummary.cloud`. `GeminiImageClient` sends `"4:1"`. `gemini-3-pro-image`, `gemini-3.1-flash-lite-image` and the OpenAI models (3:1 limit) stay without it.
+- `docs/CLOUD_MODEL_SIZES.md`: the vendor size reference (supported ratios, size tiers and pixel sizes per cloud model).
 - `CloudEngineError.modelUnavailable(provider:modelID:reason:)` and `.keyRejected(provider:reason:)`: vendor responses that mean a model is gone or the key is refused are classified per vendor, never retried, and thrown unwrapped. The vendor's message is kept for `modelUnavailable` only.
 - Vendor model listings: each adapter can ask its vendor which models a key can use (OpenAI and Google list models; Black Forest Labs and Stability AI check the key through their credit endpoints).
 - `CloudModelAvailability`, reachable as `VinetasClient.cloudAvailability`: per-provider `CloudAvailabilitySnapshot`s with `snapshot(for:)`, `refresh(_:force:)`, `availableModels()`, `isAvailable(_:)` and an `updates` stream. Snapshots are cached for 24 hours, invalidated by a key change, kept on disk without any key material, bounded to 40 seconds per check, and backed off for 5 minutes after a failure.
@@ -18,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `CloudImageEngine` now refuses an aspect ratio outside the model's `supportedAspectRatios` before any request, with the new `CloudEngineError.unsupportedAspectRatio(modelID:requested:supported:)` (the CLI maps it to the validation exit code). Before, OpenAI fell back to size `auto` and Google snapped to 21:9, so the request was sent and returned a different shape than asked for. The requested ratio is the nearest Vinetas ratio to the request's width and height, so sizes near a supported ratio still go through. Fixes #116.
 - A provider whose key the vendor rejected no longer offers any models, and a vendor listing that was already in flight when a key changed or was rejected can no longer undo that invalidation when it finishes.
 
 ### Changed

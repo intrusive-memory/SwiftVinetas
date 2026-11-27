@@ -138,6 +138,17 @@ public actor CloudImageEngine: ImageGenerationEngine {
         model: model.id, max: model.maxReferenceImages, got: references.count)
     }
 
+    // Refuse a shape the model can't produce before anything is sent. The
+    // adapters would otherwise fall back (OpenAI: size `auto`) or snap to a
+    // different preset (Google, Stability), and the caller would get a
+    // different shape than asked for, silently.
+    let requestedRatio = CloudDimensions.nearestAspectRatio(
+      width: request.width, height: request.height)
+    guard model.supportedAspectRatios.contains(requestedRatio) else {
+      throw CloudEngineError.unsupportedAspectRatio(
+        modelID: model.id, requested: requestedRatio, supported: model.supportedAspectRatios)
+    }
+
     // Cloud models follow instructions rather than sampler parameters, so the
     // structured bundle (style, frame, aspect, character, reference roles) is
     // spelled out in the prompt itself. Hand-built requests without a bundle

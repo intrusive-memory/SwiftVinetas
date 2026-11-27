@@ -229,7 +229,7 @@ public enum CLIExitCode {
     case .moderated: return moderated
     case .modelUnavailable: return vendorError
     case .httpStatus, .invalidResponse, .timedOut, .imageDecodingFailed: return vendorError
-    case .noModelLoaded, .unsupportedModel, .unsupportedFeature:
+    case .noModelLoaded, .unsupportedModel, .unsupportedFeature, .unsupportedAspectRatio:
       return ExitCode.validationFailure.rawValue
     }
   }

@@ -171,6 +171,9 @@ private func reference() throws -> CGImage {
   try CloudHTTP.decodeImage(acceptancePNG, provider: .openAI)
 }
 
+/// Google documents 4:1 for these two only; see `docs/CLOUD_MODEL_SIZES.md`.
+private let stripModelIDs: Set<String> = ["gemini-nano-banana-2.1", "gemini-3.1-flash-image"]
+
 // MARK: - AC-2 / AC-3
 
 @Suite("Cloud model acceptance (offline)", .serialized)
@@ -312,33 +315,100 @@ struct CloudModelAcceptanceTests {
     #expect(AcceptanceStubURLProtocol.requests.isEmpty, "a request left before the limit check")
   }
 
-  @Test("the 4:1 strip is not offered for the model", arguments: acceptanceModels)
-  func stripNotOffered(model: CloudModelDescriptor) {
-    #expect(!model.supportedAspectRatios.contains(.strip))
+  @Test("the 4:1 strip is offered only where the vendor documents it", arguments: acceptanceModels)
+  func stripOfferedOnlyWhereDocumented(model: CloudModelDescriptor) {
+    #expect(
+      model.supportedAspectRatios.contains(.strip)
+        == stripModelIDs.contains(model.vendorModelID))
   }
 
   @Test(
-    "the 4:1 strip is refused by the adapter rather than sent",
-    arguments: acceptanceModels)
-  func stripRefusedByAdapter(model: CloudModelDescriptor) async throws {
-    // AC-3 says the adapter refuses an unsupported ratio. Today neither adapter
-    // does: OpenAI falls back to size "auto" and Google snaps to 21:9, so the
-    // request is sent. Recorded as a known issue (see the PR); when an adapter
-    // starts refusing, this test fails as "unexpectedly passed" and the
-    // `withKnownIssue` wrapper should be removed.
+    "a ratio the model doesn't list is refused before any request",
+    arguments: CloudModelDescriptor.all)
+  func unsupportedRatioRefused(model: CloudModelDescriptor) async throws {
+    for ratio in AspectRatio.allCases where !model.supportedAspectRatios.contains(ratio) {
+      defer { AcceptanceStubURLProtocol.reset() }
+      AcceptanceStubURLProtocol.handler = { try stubSuccess(model.provider, url: $0.url) }
+      let engine = makeEngine(for: model)
+      try await engine.loadModel(model, progress: { _ in })
+      await #expect(
+        throws: CloudEngineError.unsupportedAspectRatio(
+          modelID: model.id, requested: ratio, supported: model.supportedAspectRatios)
+      ) {
+        _ = try await engine.generate(
+          request: makeAcceptanceRequest(width: ratio.desiredWidth, height: ratio.desiredHeight),
+          stepProgress: nil)
+      }
+      #expect(
+        AcceptanceStubURLProtocol.requests.isEmpty,
+        "\(model.id) sent a request for \(ratio.rawValue)")
+    }
+  }
+
+  @Test("OpenAI, Google and Stability each have a ratio to refuse")
+  func everyRefusingProviderIsCovered() {
+    let covered = Set(
+      CloudModelDescriptor.all.filter {
+        $0.supportedAspectRatios.count < AspectRatio.allCases.count
+      }.map(\.provider))
+    #expect(covered.isSuperset(of: [.openAI, .google, .stabilityAI]))
+  }
+
+  @Test("an off-preset size nearer an unsupported ratio is refused too")
+  func offPresetSizeNearStripRefused() async throws {
+    let model = CloudModelDescriptor.gemini3ProImage
     defer { AcceptanceStubURLProtocol.reset() }
     AcceptanceStubURLProtocol.handler = { try stubSuccess(model.provider, url: $0.url) }
     let engine = makeEngine(for: model)
     try await engine.loadModel(model, progress: { _ in })
-    let strip = AspectRatio.strip
-    await withKnownIssue("AC-3: adapters do not refuse the 4:1 strip") {
-      await #expect(throws: (any Error).self) {
-        _ = try await engine.generate(
-          request: makeAcceptanceRequest(
-            width: strip.desiredWidth, height: strip.desiredHeight),
-          stepProgress: nil)
-      }
-      #expect(AcceptanceStubURLProtocol.requests.isEmpty)
+    await #expect(throws: CloudEngineError.self) {
+      _ = try await engine.generate(
+        request: makeAcceptanceRequest(width: 1792, height: 512), stepProgress: nil)  // 3.5:1
     }
+    #expect(AcceptanceStubURLProtocol.requests.isEmpty)
+  }
+
+  @Test(
+    "a supported ratio still goes through, as one request",
+    arguments: acceptanceModels)
+  func supportedRatioStillSent(model: CloudModelDescriptor) async throws {
+    for ratio in model.supportedAspectRatios {
+      defer { AcceptanceStubURLProtocol.reset() }
+      AcceptanceStubURLProtocol.handler = { try stubSuccess(model.provider, url: $0.url) }
+      let engine = makeEngine(for: model)
+      try await engine.loadModel(model, progress: { _ in })
+      _ = try await engine.generate(
+        request: makeAcceptanceRequest(width: ratio.desiredWidth, height: ratio.desiredHeight),
+        stepProgress: nil)
+      #expect(AcceptanceStubURLProtocol.requests.count == 1, "\(model.id) \(ratio.rawValue)")
+    }
+  }
+
+  @Test(
+    "the Google models that document 4:1 send \"4:1\" for the strip",
+    arguments: acceptanceModels.filter {
+      $0.provider == .google && stripModelIDs.contains($0.vendorModelID)
+    })
+  func googleSendsFourToOne(model: CloudModelDescriptor) async throws {
+    defer { AcceptanceStubURLProtocol.reset() }
+    AcceptanceStubURLProtocol.handler = { try stubSuccess(model.provider, url: $0.url) }
+    let engine = makeEngine(for: model)
+    try await engine.loadModel(model, progress: { _ in })
+    _ = try await engine.generate(
+      request: makeAcceptanceRequest(width: 2048, height: 512), stepProgress: nil)
+    let sent = try #require(AcceptanceStubURLProtocol.requests.first)
+    let body = try #require(
+      try JSONSerialization.jsonObject(with: sent.acceptanceBody) as? [String: Any])
+    let format = try #require(body["response_format"] as? [String: Any])
+    #expect(format["aspect_ratio"] as? String == "4:1")
+  }
+
+  @Test("the refusal names the model and lists what it supports")
+  func refusalMessage() {
+    let error = CloudEngineError.unsupportedAspectRatio(
+      modelID: "m", requested: .strip, supported: [.square, .wide])
+    #expect(
+      error.errorDescription
+        == "Model m does not support the strip aspect ratio. Supported: square, wide.")
   }
 }

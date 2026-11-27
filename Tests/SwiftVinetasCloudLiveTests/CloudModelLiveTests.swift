@@ -140,7 +140,7 @@ private func request(
 private let googleOneKSizes: [String: (width: Int, height: Int)] = [
   "1:1": (1024, 1024), "3:2": (1264, 848), "2:3": (848, 1264), "4:3": (1200, 896),
   "3:4": (896, 1200), "5:4": (1152, 928), "4:5": (928, 1152), "16:9": (1376, 768),
-  "9:16": (768, 1376), "21:9": (1584, 672),
+  "9:16": (768, 1376), "21:9": (1584, 672), "4:1": (2048, 512),
 ]
 
 /// The smallest request, at `ratio`, for which the OpenAI adapter sends an
