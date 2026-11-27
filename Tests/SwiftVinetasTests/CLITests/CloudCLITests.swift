@@ -511,6 +511,7 @@ struct CloudCLITests {
     }
     #expect(
       cloudIDs == [
+        "openai-gpt-image-2.6-flare", "openai-gpt-image-2.6-sunburst",
         "openai-gpt-image-2.5-flare", "openai-gpt-image-2.5-sunburst", "bfl-flux-2-pro",
         "bfl-flux-2-flex",
       ])

@@ -119,7 +119,7 @@ struct CloudCatalogTests {
   func cloudModelIDsAreUniqueAndResolvable() {
     let ids = CloudModelDescriptor.all.map(\.id)
     #expect(Set(ids).count == ids.count)
-    #expect(ids.count == 9)
+    #expect(ids.count == 12)
     for model in CloudModelDescriptor.all {
       #expect(CloudModelDescriptor.byID[model.id] == model)
       #expect(model.engineID.hasPrefix("cloud-"))

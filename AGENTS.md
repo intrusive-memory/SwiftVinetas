@@ -22,7 +22,7 @@ updated: 2026-10-18
 - **Engines**: `Flux2Engine` (wraps Flux2Core), `PixArtEngine` (wraps PixArtBackbone via SwiftTubería pipeline), and one `CloudImageEngine` per `CloudProvider` (OpenAI, Google, Black Forest Labs, Stability AI — the user's own API key, never Pro-gated; `Sources/SwiftVinetas/Cloud/`)
 - **Public API**: `VinetasClient` (instance-based, `.shared` singleton) — replaces deprecated static `Vinetas` enum
 - **CLI**: `vinetas` for testing and standalone use
-- **Models**: FLUX.2 Klein 4B (default, the only on-device FLUX model) and PixArt-Sigma XL, plus nine cloud `CloudModelDescriptor`s addressed by id (`openai-gpt-image-2.5-flare`, `bfl-flux-2-pro`, …); extensible via `ModelDescriptor` protocol
+- **Models**: FLUX.2 Klein 4B (default, the only on-device FLUX model) and PixArt-Sigma XL, plus twelve cloud `CloudModelDescriptor`s addressed by id (`openai-gpt-image-2.5-flare`, `bfl-flux-2-pro`, …); extensible via `ModelDescriptor` protocol
 - **Cloud keys**: `ChainedAPIKeyStore.default` — environment (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `BFL_API_KEY`, `STABILITY_API_KEY`) then the shared keychain group. Never written to disk in plaintext, never printed; no `--api-key` flag. See [docs/REQUIREMENTS-CLOUD-ENGINES.md](docs/REQUIREMENTS-CLOUD-ENGINES.md)
 - **Style**: LoRA adapters in safetensors format, tagged with `compatibleEngines: [String]`
 - **Prompt files**: YAML parsed via `marcprux/universal`
@@ -189,7 +189,7 @@ SwiftVinetas/
 │   │   │   └── PixArtEngine.swift           # PixArt-Sigma conformance
 │   │   ├── Cloud/              # API-key-backed vendor engines (v0.23.0+)
 │   │   │   ├── CloudProvider.swift          # Vendor enum: engine id, env var, catalog
-│   │   │   ├── CloudModelDescriptor.swift   # The nine cloud models
+│   │   │   ├── CloudModelDescriptor.swift   # The twelve cloud models
 │   │   │   ├── CloudImageEngine.swift       # ImageGenerationEngine over HTTPS
 │   │   │   ├── CloudAPIKeyStore.swift       # Keychain / Environment / Chained / InMemory stores
 │   │   │   ├── CloudHTTP.swift              # Shared HTTP, retry, decoding, dimension fitting

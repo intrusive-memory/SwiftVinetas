@@ -32,7 +32,7 @@ Every generating subcommand takes `--model`. Two vocabularies are accepted:
 | Kind | `--model` values | Runs | Pro gate | Key |
 |---|---|---|---|---|
 | On-device | `klein4b` (default), `pixart-sigma` | locally on Apple Silicon | FLUX.2 (`klein4b`) requires the Vinetas Pro unlock; PixArt is free | none |
-| Cloud | `openai-gpt-image-2.5-flare`, `openai-gpt-image-2.5-sunburst`, `google-nano-banana-2.1`, `google-gemini-3.1-flash-image`, `google-gemini-3-pro-image`, `bfl-flux-2-pro`, `bfl-flux-2-flex`, `stability-core`, `stability-ultra` | on the vendor's servers | **never** — you pay the vendor | your own API key |
+| Cloud | `openai-gpt-image-2.6-flare`, `openai-gpt-image-2.6-sunburst`, `openai-gpt-image-2.5-flare`, `openai-gpt-image-2.5-sunburst`, `google-nano-banana-2.1`, `google-gemini-3.1-flash-image`, `google-gemini-3.1-flash-lite-image`, `google-gemini-3-pro-image`, `bfl-flux-2-pro`, `bfl-flux-2-flex`, `stability-core`, `stability-ultra` | on the vendor's servers | **never** — you pay the vendor | your own API key |
 
 An unknown value is a validation error naming both lists. `vinetas list`
 shows every model and, for cloud models, whether a key resolves.

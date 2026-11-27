@@ -254,6 +254,48 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     .square, .wide, .ultrawide, .portrait, .panel,
   ]
 
+  /// GPT Image 2.6 Flare (cloud, OpenAI).
+  public static let openaiGPTImage26Flare = ModelSummary(
+    id: "openai-gpt-image-2.6-flare",
+    displayName: "GPT Image 2.6 Flare",
+    engineID: "cloud-openai",
+    cliName: "openai-gpt-image-2.6-flare",
+    minimumMemoryGB: 0,
+    approximateDownloadSize: "Cloud",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: widescreenRatios,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: false,
+    supportsNegativePrompt: false,
+    engineName: "OpenAI",
+    subtitle: "OpenAI · $30/1M image output tokens",
+    isCloud: true,
+    maxReferenceImages: 10
+  )
+
+  /// GPT Image 2.6 Sunburst (cloud, OpenAI).
+  public static let openaiGPTImage26Sunburst = ModelSummary(
+    id: "openai-gpt-image-2.6-sunburst",
+    displayName: "GPT Image 2.6 Sunburst",
+    engineID: "cloud-openai",
+    cliName: "openai-gpt-image-2.6-sunburst",
+    minimumMemoryGB: 0,
+    approximateDownloadSize: "Cloud",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: widescreenRatios,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: false,
+    supportsNegativePrompt: false,
+    engineName: "OpenAI",
+    subtitle: "OpenAI · $30/1M image output tokens",
+    isCloud: true,
+    maxReferenceImages: 10
+  )
+
   /// GPT Image 2.5 Flare (cloud, OpenAI).
   public static let openaiGPTImage25Flare = ModelSummary(
     id: "openai-gpt-image-2.5-flare",
@@ -334,6 +376,27 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     supportsNegativePrompt: false,
     engineName: "Gemini",
     subtitle: "Google · ~$0.07–0.15/image",
+    isCloud: true,
+    maxReferenceImages: 10
+  )
+
+  /// Gemini 3.1 Flash Lite Image (cloud, Google).
+  public static let googleGemini31FlashLiteImage = ModelSummary(
+    id: "google-gemini-3.1-flash-lite-image",
+    displayName: "Gemini 3.1 Flash Lite Image",
+    engineID: "cloud-google",
+    cliName: "google-gemini-3.1-flash-lite-image",
+    minimumMemoryGB: 0,
+    approximateDownloadSize: "Cloud",
+    defaultSteps: 1,
+    defaultGuidance: 1.0,
+    supportedAspectRatios: widescreenRatios,
+    supportsSteps: false,
+    supportsGuidance: false,
+    supportsSeed: false,
+    supportsNegativePrompt: false,
+    engineName: "Gemini",
+    subtitle: "Google · ~$0.034/image (1K)",
     isCloud: true,
     maxReferenceImages: 10
   )
@@ -443,16 +506,19 @@ public struct ModelSummary: Hashable, Sendable, Identifiable, Codable {
     maxReferenceImages: 0
   )
 
-  /// The nine cloud models, in the order of the core's cloud catalog.
+  /// The twelve cloud models, in the order of the core's cloud catalog.
   ///
   /// Hand-maintained: this module links no networking, so it cannot read the
   /// core's cloud catalog. `SwiftVinetasTests` asserts the list equals the
   /// core's own mapping, so a drift fails the build.
   public static let cloud: [ModelSummary] = [
+    openaiGPTImage26Flare,
+    openaiGPTImage26Sunburst,
     openaiGPTImage25Flare,
     openaiGPTImage25Sunburst,
     googleNanoBanana21,
     googleGemini31FlashImage,
+    googleGemini31FlashLiteImage,
     googleGemini3ProImage,
     bflFluxPro,
     bflFluxFlex,
