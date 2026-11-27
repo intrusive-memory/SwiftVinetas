@@ -251,7 +251,8 @@ struct CloudModelAvailabilityTests {
     #expect(client.requests == 3)
   }
 
-  @Test("After a failed check the vendor is left alone for 5 minutes unless forced or the key changed")
+  @Test(
+    "After a failed check the vendor is left alone for 5 minutes unless forced or the key changed")
   func failureBacksOff() async throws {
     let outcome = Outcome()
     outcome.fail(with: URLError(.notConnectedToInternet))
