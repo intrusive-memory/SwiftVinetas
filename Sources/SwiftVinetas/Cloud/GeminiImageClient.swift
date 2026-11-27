@@ -23,11 +23,13 @@ struct GeminiImageClient: CloudProviderClient {
   /// The model listing endpoint. Overridable for tests.
   var modelsEndpoint = URL(string: "https://generativelanguage.googleapis.com/v1beta/models")!
 
-  /// The vendor's aspect-ratio presets.
+  /// The vendor's aspect-ratio presets. `4:1` is documented for
+  /// `gemini-nano-banana-2.1` and `gemini-3.1-flash-image` only;
+  /// ``CloudImageEngine`` refuses it for the other models before this runs.
   static let aspectRatios: [(label: String, ratio: Double)] = [
     ("1:1", 1.0), ("3:2", 1.5), ("2:3", 2.0 / 3.0),
     ("4:3", 4.0 / 3.0), ("3:4", 0.75), ("5:4", 1.25), ("4:5", 0.8),
-    ("16:9", 16.0 / 9.0), ("9:16", 9.0 / 16.0), ("21:9", 21.0 / 9.0),
+    ("16:9", 16.0 / 9.0), ("9:16", 9.0 / 16.0), ("21:9", 21.0 / 9.0), ("4:1", 4.0),
   ]
 
   func generate(

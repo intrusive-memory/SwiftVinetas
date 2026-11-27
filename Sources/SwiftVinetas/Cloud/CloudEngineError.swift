@@ -36,6 +36,12 @@ public enum CloudEngineError: LocalizedError, Sendable, Equatable {
   /// The returned bytes could not be decoded as an image.
   case imageDecodingFailed(provider: CloudProvider)
 
+  /// The requested aspect ratio is not one the model supports. Thrown before
+  /// any request is made, so nothing is sent and nothing is billed.
+  /// `requested` is the nearest Vinetas ratio to the request's width and
+  /// height; `supported` is the model's ``CloudModelDescriptor/supportedAspectRatios``.
+  case unsupportedAspectRatio(modelID: String, requested: AspectRatio, supported: [AspectRatio])
+
   /// The vendor no longer offers the model, or this key can't use it (for
   /// example, an OpenAI organisation that must be verified first). `modelID`
   /// is the Vinetas model ID (``CloudModelDescriptor/id``). `reason` is the
@@ -104,6 +110,10 @@ public enum CloudEngineError: LocalizedError, Sendable, Equatable {
       return "Model \(modelID) is not served by engine \(engineID)."
     case .unsupportedFeature(let feature, let provider):
       return "\(feature) is not supported by \(provider.displayName)."
+    case .unsupportedAspectRatio(let modelID, let requested, let supported):
+      return
+        "Model \(modelID) does not support the \(requested.rawValue) aspect ratio. "
+        + "Supported: \(supported.map(\.rawValue).joined(separator: ", "))."
     case .httpStatus(let provider, let status, let rawMessage):
       let message =
         rawMessage == Self.authFallbackMessage

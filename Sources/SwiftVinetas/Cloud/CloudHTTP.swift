@@ -284,6 +284,20 @@ enum CloudDimensions {
     return (snap(width), snap(height))
   }
 
+  /// The numeric shape of each Vinetas ratio. Fixed nominal values, so the
+  /// answer does not depend on the platform's pixel tier.
+  private static let nominalRatios: [(label: AspectRatio, ratio: Double)] = [
+    (.square, 1.0), (.wide, 16.0 / 9.0), (.ultrawide, 2.4),
+    (.portrait, 9.0 / 16.0), (.panel, 1.5), (.strip, 4.0),
+  ]
+
+  /// The Vinetas ratio nearest to `width / height`. Any size maps to one, so
+  /// a size near a supported ratio is accepted and one nearer an unsupported
+  /// ratio (such as 3.5:1, which is nearer 4:1 than 2.4:1) is not.
+  static func nearestAspectRatio(width: Int, height: Int) -> AspectRatio {
+    nearestRatio(width: width, height: height, candidates: nominalRatios)
+  }
+
   /// Picks the candidate whose numeric ratio is closest to `width / height`.
   static func nearestRatio<Label>(
     width: Int, height: Int,
