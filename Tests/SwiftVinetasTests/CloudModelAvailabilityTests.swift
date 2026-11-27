@@ -490,6 +490,172 @@ struct CloudModelAvailabilityTests {
   }
 }
 
+// MARK: - A rejected key offers no models (R-8a)
+
+@Suite("Cloud availability rejected key")
+struct CloudAvailabilityRejectedKeyTests {
+
+  @Test("A .keyRejected check after an .available snapshot leaves no available models")
+  func rejectedCheckReplacesGoodSnapshot() async {
+    let outcome = Outcome()
+    let client = FakeListingClient(.openAI) {
+      if let error = outcome.currentError { throw error }
+      return fullListing(.openAI)
+    }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+
+    let good = await harness.service.refresh(.openAI)
+    #expect(good.status == .available)
+    #expect(!good.modelIDs.isEmpty)
+
+    outcome.fail(with: CloudEngineError.keyRejected(provider: .openAI, reason: .expired))
+    let rejected = await harness.service.refresh(.openAI, force: true)
+    #expect(rejected.status == .keyRejected(reason: .expired))
+    #expect(rejected.modelIDs.isEmpty)
+    #expect(rejected.shutdownDates.isEmpty)
+    #expect(rejected.vendorModelIDs.isEmpty)
+    #expect(await harness.service.availableModels().isEmpty)
+    #expect(await harness.service.isAvailable(CloudProvider.openAI.models[0].id) == false)
+
+    // A failed retry doesn't bring the models back either.
+    outcome.fail(with: URLError(.notConnectedToInternet))
+    let retry = await harness.service.refresh(.openAI, force: true)
+    #expect(retry.status == .keyRejected(reason: .expired))
+    #expect(retry.modelIDs.isEmpty)
+  }
+
+  @Test("A key-rejected snapshot read from disk with models is emptied")
+  func diskSnapshotWithModelsIsEmptied() async throws {
+    let harness = Harness(clients: [.openAI: FakeListingClient(.openAI) { fullListing(.openAI) }])
+    defer { harness.cleanUp() }
+    let key = harness.keys.apiKey(for: .openAI)!
+    let fingerprint = try harness.store.fingerprint(apiKey: key)
+    let bad = CloudAvailabilitySnapshot(
+      provider: .openAI, status: .keyRejected(reason: .invalid),
+      modelIDs: Set(CloudProvider.openAI.models.map(\.id)),
+      checkedAt: harness.clock.now, keyFingerprint: fingerprint,
+      vendorModelIDs: Set(CloudProvider.openAI.models.map(\.vendorModelID)))
+    try harness.store.write(bad)
+
+    let read = await harness.service.snapshot(for: .openAI)
+    #expect(read?.modelIDs.isEmpty == true)
+    #expect(read?.vendorModelIDs.isEmpty == true)
+    #expect(await harness.service.availableModels().isEmpty)
+  }
+
+  @Test(
+    "A generation-time keyRejected (Google API_KEY_INVALID) empties the provider with one update")
+  func generationTimeKeyRejected() async {
+    let harness = Harness(
+      keys: [.google: "availability-test-key-not-real"],
+      clients: [.google: FakeListingClient(.google) { fullListing(.google) }])
+    defer { harness.cleanUp() }
+    await harness.service.refresh(.google)
+    #expect(await harness.service.snapshot(for: .google)?.modelIDs.isEmpty == false)
+
+    let updates = harness.service.updates
+    await harness.service.handle(.keyRejected(provider: .google, reason: .invalid))
+    var iterator = updates.makeAsyncIterator()
+    let update = await iterator.next()
+    #expect(update?.status == .keyRejected(reason: .invalid))
+    #expect(update?.modelIDs.isEmpty == true)
+
+    let snapshot = await harness.service.snapshot(for: .google)
+    #expect(snapshot?.status == .keyRejected(reason: .invalid))
+    #expect(snapshot?.vendorModelIDs.isEmpty == true)
+    #expect(await harness.service.availableModels().isEmpty)
+    #expect(harness.store.read(.google)?.status == .keyRejected(reason: .invalid))
+
+    // The same rejection again changes nothing and yields nothing.
+    await harness.service.handle(.keyRejected(provider: .google, reason: .invalid))
+  }
+
+  @Test("A listing in flight during a keyRejected invalidation can't overwrite it")
+  func inFlightListingDoesNotOverwriteKeyRejected() async {
+    let gate = Gate()
+    let (entered, enteredContinuation) = AsyncStream.makeStream(of: Void.self)
+    let client = FakeListingClient(.openAI) {
+      enteredContinuation.yield()
+      await gate.wait()
+      return fullListing(.openAI)
+    }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+    let service = harness.service
+
+    let check = Task { await service.refresh(.openAI, force: true) }
+    var iterator = entered.makeAsyncIterator()
+    _ = await iterator.next()  // the listing is blocked
+
+    await service.handle(.keyRejected(provider: .openAI, reason: .expired))
+    await gate.open()
+    let returned = await check.value
+
+    #expect(returned.status == .keyRejected(reason: .expired))
+    let snapshot = await service.snapshot(for: .openAI)
+    #expect(snapshot?.status == .keyRejected(reason: .expired))
+    #expect(snapshot?.modelIDs.isEmpty == true)
+    #expect(harness.store.read(.openAI)?.status == .keyRejected(reason: .expired))
+
+    // The next trigger checks again instead of trusting the discarded answer.
+    await service.refresh(.openAI)
+    #expect(client.requests == 2)
+  }
+
+  @Test("A listing in flight during a modelUnavailable invalidation can't bring the model back")
+  func inFlightListingDoesNotOverwriteModelUnavailable() async {
+    let gate = Gate()
+    let (entered, enteredContinuation) = AsyncStream.makeStream(of: Void.self)
+    let client = FakeListingClient(.openAI) {
+      enteredContinuation.yield()
+      await gate.wait()
+      return fullListing(.openAI)
+    }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+    let service = harness.service
+    let model = CloudProvider.openAI.models[0]
+
+    let check = Task { await service.refresh(.openAI, force: true) }
+    var iterator = entered.makeAsyncIterator()
+    _ = await iterator.next()
+
+    await service.handle(
+      .modelUnavailable(provider: .openAI, modelID: model.id, reason: nil))
+    await gate.open()
+    _ = await check.value
+
+    let snapshot = await service.snapshot(for: .openAI)
+    #expect(snapshot?.modelIDs.contains(model.id) == false)
+  }
+
+  @Test("Saving a new key clears .keyRejected on the next refresh")
+  func newKeyClearsKeyRejected() async throws {
+    let outcome = Outcome()
+    outcome.fail(with: CloudEngineError.keyRejected(provider: .openAI, reason: .invalid))
+    let client = FakeListingClient(.openAI) {
+      if let error = outcome.currentError { throw error }
+      return fullListing(.openAI)
+    }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+
+    let rejected = await harness.service.refresh(.openAI)
+    #expect(rejected.status == .keyRejected(reason: .invalid))
+    // Same key, still fresh: no new request.
+    await harness.service.refresh(.openAI)
+    #expect(client.requests == 1)
+
+    outcome.succeed()
+    try harness.keys.setAPIKey("a-different-key-not-real", for: .openAI)
+    let fixed = await harness.service.refresh(.openAI)
+    #expect(fixed.status == .available)
+    #expect(!fixed.modelIDs.isEmpty)
+    #expect(client.requests == 2)
+  }
+}
+
 // MARK: - Through the real adapter
 
 private final class AvailabilityStubURLProtocol: URLProtocol, @unchecked Sendable {
@@ -562,5 +728,229 @@ struct CloudModelAvailabilityAdapterTests {
       let data = (try? Data(contentsOf: directory.appendingPathComponent(name))) ?? Data()
       #expect(data.range(of: Data("adapter-test-key-not-real".utf8)) == nil)
     }
+  }
+}
+
+// MARK: - Smart expiry (R-7a)
+
+/// A copy of `model` with different vendor aliases.
+private func withAliases(_ model: CloudModelDescriptor, _ aliases: [String])
+  -> CloudModelDescriptor
+{
+  CloudModelDescriptor(
+    id: model.id, displayName: model.displayName, provider: model.provider,
+    vendorModelID: model.vendorModelID, defaultSteps: model.defaultSteps,
+    defaultGuidance: model.defaultGuidance, supportedAspectRatios: model.supportedAspectRatios,
+    supportsSteps: model.supportsSteps, supportsGuidance: model.supportsGuidance,
+    supportsSeed: model.supportsSeed, supportsNegativePrompt: model.supportsNegativePrompt,
+    pricingHint: model.pricingHint, maxReferenceImages: model.maxReferenceImages,
+    vendorAliases: aliases)
+}
+
+@Suite("Cloud availability smart expiry")
+struct CloudAvailabilitySmartExpiryTests {
+
+  private let key = "availability-test-key-not-real"
+  private let otherDigest = "0000000000000000"
+
+  @Test("The digest comes from the model table; an alias or a new descriptor changes it")
+  func digestFollowsModelTable() {
+    let models = CloudProvider.openAI.models
+    let digest = CloudAvailabilitySnapshot.catalogDigest(for: .openAI)
+    #expect(digest == CloudAvailabilitySnapshot.catalogDigest(of: models))
+    #expect(digest.count == 16)
+    #expect(digest.allSatisfy { $0.isHexDigit })
+    // The order of the table doesn't matter.
+    #expect(CloudAvailabilitySnapshot.catalogDigest(of: models.reversed()) == digest)
+    #expect(digest != CloudAvailabilitySnapshot.catalogDigest(for: .google))
+
+    var aliased = models
+    aliased[0] = withAliases(models[0], models[0].vendorAliases + ["new-dated-alias"])
+    #expect(CloudAvailabilitySnapshot.catalogDigest(of: aliased) != digest)
+
+    let added = withAliases(models[0], [])
+    let extra = CloudModelDescriptor(
+      id: "openai-future-model", displayName: "Future", provider: .openAI,
+      vendorModelID: "future-model", defaultSteps: added.defaultSteps,
+      defaultGuidance: added.defaultGuidance,
+      supportedAspectRatios: added.supportedAspectRatios, supportsSteps: false,
+      supportsGuidance: false, supportsSeed: false, supportsNegativePrompt: false,
+      pricingHint: "")
+    #expect(CloudAvailabilitySnapshot.catalogDigest(of: models + [extra]) != digest)
+    #expect(CloudAvailabilitySnapshot.catalogDigest(of: Array(models.dropLast())) != digest)
+  }
+
+  @Test("A check records the raw vendor IDs and this build's digest, and they round-trip")
+  func checkRecordsVendorIDs() async {
+    let listed = CloudProvider.openAI.models[0]
+    let shutdown = Date(timeIntervalSince1970: 1_900_000_000)
+    let client = FakeListingClient(.openAI) {
+      CloudVendorListing(
+        modelIDs: [listed.vendorModelID, "dall-e-3"],
+        shutdownDates: [listed.vendorModelID: shutdown])
+    }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+
+    let snapshot = await harness.service.refresh(.openAI)
+    #expect(snapshot.vendorModelIDs == [listed.vendorModelID, "dall-e-3"])
+    #expect(snapshot.vendorListsModels)
+    #expect(snapshot.vendorShutdownDates == [listed.vendorModelID: shutdown])
+    #expect(snapshot.catalogDigest == CloudAvailabilitySnapshot.catalogDigest(for: .openAI))
+    #expect(harness.store.read(.openAI) == snapshot)
+  }
+
+  @Test("A snapshot with another catalog digest is stale and checked again")
+  func otherDigestIsStale() async throws {
+    let client = FakeListingClient(.openAI) { fullListing(.openAI) }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+
+    await harness.service.refresh(.openAI)
+    #expect(await harness.relaunched().refresh(.openAI).status == .available)
+    #expect(client.requests == 1)
+
+    var written = try #require(harness.store.read(.openAI))
+    written.catalogDigest = otherDigest
+    try harness.store.write(written)
+
+    let rechecked = await harness.relaunched().refresh(.openAI)
+    #expect(client.requests == 2)
+    #expect(rechecked.catalogDigest == CloudAvailabilitySnapshot.catalogDigest(for: .openAI))
+    #expect(harness.store.read(.openAI)?.catalogDigest == rechecked.catalogDigest)
+  }
+
+  @Test("A file with another schema version is ignored and left on disk")
+  func otherSchemaIgnoredNotDeleted() async throws {
+    let client = FakeListingClient(.openAI) { fullListing(.openAI) }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+
+    // A v1 file, as SwiftVinetas before R-7a wrote it.
+    let v1 = """
+      {
+        "schemaVersion" : 1,
+        "snapshot" : {
+          "checkedAt" : "2027-01-15T08:00:00Z",
+          "keyFingerprint" : "abcdef0123456789",
+          "modelIDs" : [ "\(CloudProvider.openAI.models[0].id)" ],
+          "provider" : "openai",
+          "shutdownDates" : { },
+          "status" : { "state" : "available" }
+        }
+      }
+      """
+    try FileManager.default.createDirectory(
+      at: harness.directory, withIntermediateDirectories: true)
+    let url = harness.store.fileURL(for: .openAI)
+    try Data(v1.utf8).write(to: url)
+
+    #expect(harness.store.read(.openAI) == nil)
+    #expect(await harness.service.snapshot(for: .openAI) == nil)
+    #expect(client.requests == 0)
+    #expect(FileManager.default.fileExists(atPath: url.path))
+    #expect(try Data(contentsOf: url) == Data(v1.utf8))
+  }
+
+  @Test("Re-mapping from vendorModelIDs exposes a newly added known model with no request")
+  func remapExposesNewModel() async throws {
+    let client = FakeListingClient(.openAI) { fullListing(.openAI) }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+    let models = CloudProvider.openAI.models
+    let shutdown = Date(timeIntervalSince1970: 1_900_000_000)
+
+    // An older build knew only models[0]; the vendor also listed models[1].
+    try harness.store.write(
+      CloudAvailabilitySnapshot(
+        provider: .openAI, status: .available, modelIDs: [models[0].id],
+        checkedAt: harness.clock.now,
+        keyFingerprint: try harness.store.fingerprint(apiKey: key),
+        vendorModelIDs: [models[0].vendorModelID, models[1].vendorModelID],
+        vendorShutdownDates: [models[1].vendorModelID: shutdown],
+        catalogDigest: otherDigest))
+
+    let seen = try #require(await harness.service.snapshot(for: .openAI))
+    #expect(seen.modelIDs == [models[0].id, models[1].id])
+    #expect(seen.shutdownDates == [models[1].id: shutdown])
+    #expect(seen.availableModelIDs(now: harness.clock.now) == [models[0].id, models[1].id])
+    #expect(seen.catalogDigest == otherDigest)
+    #expect(client.requests == 0)
+  }
+
+  @Test("Re-mapping drops a model the reader doesn't know")
+  func remapDropsUnknownModel() async throws {
+    let client = FakeListingClient(.openAI) { fullListing(.openAI) }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+    let known = CloudProvider.openAI.models[0]
+    let shutdown = Date(timeIntervalSince1970: 1_900_000_000)
+
+    // A newer build knew "openai-future-model"; this build doesn't.
+    try harness.store.write(
+      CloudAvailabilitySnapshot(
+        provider: .openAI, status: .available,
+        modelIDs: [known.id, "openai-future-model"],
+        checkedAt: harness.clock.now,
+        keyFingerprint: try harness.store.fingerprint(apiKey: key),
+        shutdownDates: ["openai-future-model": shutdown],
+        vendorModelIDs: [known.vendorModelID, "future-model"],
+        vendorShutdownDates: ["future-model": shutdown],
+        catalogDigest: otherDigest))
+
+    let seen = try #require(await harness.service.snapshot(for: .openAI))
+    #expect(seen.modelIDs == [known.id])
+    #expect(seen.shutdownDates.isEmpty)
+    #expect(client.requests == 0)
+
+    // The next refresh checks the vendor and writes this build's view.
+    let rechecked = await harness.service.refresh(.openAI)
+    #expect(client.requests == 1)
+    #expect(rechecked.modelIDs == Set(CloudProvider.openAI.models.map(\.id)))
+  }
+
+  @Test("A key-check-only snapshot re-maps to every known model; key errors stay empty")
+  func remapUnsupportedAndRejected() {
+    let unsupported = CloudAvailabilitySnapshot(
+      provider: .blackForestLabs, status: .unreachable, modelIDs: [],
+      checkedAt: Date(timeIntervalSince1970: 1_800_000_000), vendorListsModels: false,
+      catalogDigest: otherDigest
+    ).remappedForCurrentCatalog()
+    #expect(unsupported.modelIDs == Set(CloudProvider.blackForestLabs.models.map(\.id)))
+
+    let rejected = CloudAvailabilitySnapshot(
+      provider: .openAI, status: .keyRejected(reason: .invalid),
+      checkedAt: Date(timeIntervalSince1970: 1_800_000_000), vendorListsModels: false,
+      catalogDigest: otherDigest
+    ).remappedForCurrentCatalog()
+    #expect(rejected.modelIDs.isEmpty)
+  }
+
+  @Test("minimumCheckedAt expires an older snapshot")
+  func minimumCheckedAtExpires() async {
+    let client = FakeListingClient(.openAI) { fullListing(.openAI) }
+    let harness = Harness(clients: [.openAI: client])
+    defer { harness.cleanUp() }
+    #expect(CloudAvailabilityStore.minimumCheckedAt == .distantPast)
+
+    let first = await harness.service.refresh(.openAI)
+    #expect(client.requests == 1)
+
+    func service(minimumCheckedAt: Date) -> CloudModelAvailability {
+      let clock = harness.clock
+      return CloudModelAvailability(
+        keyStore: harness.keys, session: nil,
+        store: CloudAvailabilityStore(
+          directory: harness.directory, minimumCheckedAt: minimumCheckedAt),
+        client: { _ in client }, now: { clock.now })
+    }
+
+    // Checked exactly at the minimum: still fresh.
+    await service(minimumCheckedAt: first.checkedAt).refresh(.openAI)
+    #expect(client.requests == 1)
+
+    // A release raised the minimum past the check: stale.
+    await service(minimumCheckedAt: first.checkedAt.addingTimeInterval(1)).refresh(.openAI)
+    #expect(client.requests == 2)
   }
 }

@@ -7,6 +7,7 @@ type: supervisor-state
 > **Mission**: a definable, testable scope of work. **Sortie**: one agent's atomic task within it.
 
 ## Mission Metadata
+- Tracking issue: intrusive-memory/Vinetas#186 (source of truth for progress; sub-issues + blocked-by across SwiftVinetas, Vinetas, vinetas.github.io)
 - Operation: OPERATION ROLL CALL
 - Plan: docs/EXECUTION_PLAN.md
 - Starting point commit: 8893496005989fcfdc1108595482a8ccbb7016f4
@@ -24,15 +25,15 @@ type: supervisor-state
 
 ## Plan Summary
 - Work units: 3
-- Total sorties: 9
+- Total sorties: 14 (S10–S14 added 2026-11-27)
 - Dependency structure: layers (WU-A + WU-C layer 0; WU-B layer 1 after G-2), human gates G-1/G-2/G-3
 - Dispatch mode: dynamic
 
 ## Work Units
 ### WU-A SwiftVinetas
-- Work unit state: RUNNING
-- Current sortie: 6 of 6
-- Sortie state: DISPATCHED
+- Work unit state: REOPENED (amendment S10–S12; G-2 held)
+- Current sortie: 10 of 12 (next)
+- Sortie state: PENDING
 - Model: sonnet
 - Sortie type: code
 - Model: sonnet
@@ -47,7 +48,7 @@ type: supervisor-state
 - Attempt: 1 of 3
 
 ### WU-B Vinetas app
-- Work unit state: NOT_STARTED (waits on G-2)
+- Work unit state: NOT_STARTED (S7, S8, S13 wait on G-2; S14 can start now)
 
 ## Active Agents
 | Work Unit | Sortie | Role | State | Attempt | Verifier Round | Model | Score | Agent | Start Commit | Dispatched |
@@ -80,3 +81,8 @@ type: supervisor-state
 | 2026-11-27 | WU-A | 5 | PARTIAL (5482b3e): offline hang (600s shared session) + outage retry storm; continuation sent to same agent | supervisor review of agent-flagged risks |
 | 2026-11-27 | WU-A | 5 | COMPLETED (aa26bcf, bbaffa4): listing session 15s/30s, 40s check deadline, 5-min failure backoff; 1009 tests pass | |
 | 2026-11-27 | WU-A | 6 | Dispatched, sonnet | integration + docs + PR |
+| 2026-11-27 | WU-A | 6 | COMPLETED: PR #104 merged into development (764b8dc). WU-A COMPLETED. Known minor: in-flight listing can overwrite a generation-time invalidation | |
+| 2026-11-27 | WU-A | G-2 | Waiting on human: minor release 0.28.0 | human gate |
+| 2026-11-27 | all | — | Requirements amended (R-7a, R-8a, V-4a, R-22 text, §8.2). Plan gains S10–S14 and gate G-2a; G-2 (0.28.0) held until S10–S12 merge | user: smart expiry, greyed rejected keys, App Store text, acceptance criteria |
+| 2026-11-27 | WU-A | — | origin/development (764b8dc) fast-forwarded into mission branch | prep for S10 |
+| 2026-11-27 | all | — | Tracking issue Vinetas#186 created; sub-issues SwiftVinetas#105–109, Vinetas#181–185, vinetas.github.io#22 with blocked-by links | user: track in GitHub |

@@ -39,15 +39,30 @@ R-20, V-4, V-3's Refresh button, Escribir (§7.2) and `vinetas-skills` (§7.3).
 
 | Work Unit | Directory | Sorties | Layer | Dependencies |
 |-----------|-----------|---------|-------|-------------|
-| WU-A SwiftVinetas | `~/Projects/package-collection/pkg/SwiftVinetas` | 6 (S1–S6) | 0 | none |
+| WU-A SwiftVinetas | `~/Projects/package-collection/pkg/SwiftVinetas` | 9 (S1–S6, S10–S12) | 0 | none |
 | WU-C Privacy page | `~/Projects/websites/vinetas.github.io` | 1 (S9) | 0 | none |
-| WU-B Vinetas app | `~/Projects/apps/Vinetas` | 2 (S7–S8) | 1 | WU-A released (our next minor release of SwiftVinetas) |
+| WU-B Vinetas app | `~/Projects/apps/Vinetas` | 4 (S7, S8, S13, S14) | 1 | WU-A released (our next minor release of SwiftVinetas); S14 has none |
 
 Human gates between layers (not sorties):
 
 - **G-1, after S1:** merge the model-table PR into `development`, then release it as our next patch release of SwiftVinetas (`/ship-swift-library patch`; a human merges into `main`).
-- **G-2, after S6:** merge the discovery PR into `development`, then release our next minor release of SwiftVinetas (`/ship-swift-library minor`).
-- **G-3, after S8:** the Vinetas development → main PR (TestFlight), the real-key smoke test in requirements § 8 step 3, then tag `1.2.0-rc7`.
+- **G-2a, after S12 (added 2026-11-27):** run the live acceptance suite
+  (`make test-cloud-models`, requirements § 8.2 B; paid, about $1, your keys) and
+  commit `docs/cloud-model-acceptance.md`. If a check fails, fix the descriptor on
+  the mission branch before G-2.
+- **G-2, after S6 and S10–S12 and G-2a:** merge the second discovery PR into `development`, then release our next minor release of SwiftVinetas (`/ship-swift-library minor`). **Held** until S10–S12 land, so 0.28.0 ships smart expiry and the rejected-key rule.
+- **G-3, after S8 and S13 (S14 merged):** the Vinetas development → main PR (TestFlight), then requirements § 8 step 3: the real-key smoke test including a rejected key and AC-9, privacy PR vinetas.github.io#21 merged and live, the App Store description in both metadata files. Then tag `1.2.0-rc7`.
+
+### Tracking
+
+Progress is tracked in GitHub, not in this file: **intrusive-memory/Vinetas#186** (tracking issue), with one sub-issue per open sortie and gate across all three repos, linked by blocked-by dependencies. Gates: G-2a SwiftVinetas#108, G-2 SwiftVinetas#109, G-3 Vinetas#185, privacy page vinetas.github.io#22. A sortie agent works only in its own repo and closes its issue through its PR.
+
+### Amendment, 2026-11-27
+
+Requirements amended after WU-A finished (R-7a smart expiry, R-8a rejected key, V-4a
+greyed row, R-22 App Store text, § 8.2 acceptance tests). New sorties S10–S14. WU-A is
+reopened on the same mission branch: merge `origin/development` first (PR #104 is
+merged), then S10 → S11 → S12, and S12 opens the second PR.
 
 ---
 
@@ -192,6 +207,89 @@ S1 ends with a PR from it into `development` (G-1). After G-1's release, merge `
 - [ ] `gh pr checks` shows no failing check (passing or pending only).
 - [ ] `gh pr view --json autoMergeRequest` is non-null.
 
+### Sortie 10: Smart cache expiry (R-7a)
+
+**Issue**: intrusive-memory/SwiftVinetas#105
+
+**Priority**: 10 — first of the amendment; changes the snapshot file, which S11 and WU-B read. Builds: yes. Model: opus (file format change shared across processes and versions).
+
+**Entry criteria**:
+- [ ] S6 merged (PR #104, `764b8dc`); `origin/development` merged into `mission/roll-call/01`.
+- [ ] `CloudAvailabilityStore.schemaVersion == 1` and `CloudAvailabilitySnapshot.mapping(of:provider:)` maps vendor IDs at write time (`CloudModelAvailability.swift:299`).
+
+**Tasks**:
+1. Add `vendorModelIDs: Set<String>` (the raw IDs the vendor returned) and `catalogDigest: String` to `CloudAvailabilitySnapshot`, encoded with `decodeIfPresent` like `keyFingerprint`.
+2. Add a `catalogDigest(for: CloudProvider)` that hashes the provider's known models: each `id`, `vendorModelID` and sorted `vendorAliases`, the models sorted by `id`, SHA-256, first 16 hex characters. Computed from `CloudProvider.models`, never hand-maintained.
+3. Bump `CloudAvailabilityStore.schemaVersion` to 2. A file with another version is ignored and **not deleted** (an older process may still read it).
+4. On read, when the snapshot's `catalogDigest` differs from the reader's, re-map `vendorModelIDs` through the reader's own `mapping(of:provider:)` for `modelIDs` and `shutdownDates`, and mark the snapshot stale so the next `refresh` makes a network call.
+5. Add `CloudAvailabilityStore.minimumCheckedAt: Date` (start it at `.distantPast`); a snapshot with `checkedAt` before it is stale.
+6. Tests (temp directory, `StubURLProtocol`):
+   - a different digest makes the snapshot stale
+   - a v1 file is ignored and left on disk
+   - re-mapping from `vendorModelIDs` exposes a newly added known model with no request
+   - re-mapping drops a model the reader doesn't know
+   - `minimumCheckedAt` expires an older snapshot
+   - adding an alias to a descriptor changes the digest
+
+**Exit criteria**:
+- [ ] `make build`, `make test-unit` and `make lint-check` exit 0.
+- [ ] `grep -n 'schemaVersion = 2' Sources/SwiftVinetas/Cloud/CloudAvailabilityStore.swift` finds the line.
+- [ ] `grep -c 'catalogDigest\|vendorModelIDs' Sources/SwiftVinetas/Cloud/CloudAvailabilitySnapshot.swift` is at least 4.
+- [ ] [judgment] Nothing in the digest is hand-maintained: adding a descriptor to `CloudProvider.models` changes it with no other edit.
+
+### Sortie 11: A rejected key offers no models (R-8a)
+
+**Issue**: intrusive-memory/SwiftVinetas#106
+
+**Priority**: 11 — WU-B's greyed row (S13) reads this. Builds: yes. Model: sonnet.
+
+**Entry criteria**:
+- [ ] Sortie 10 exit criteria met.
+- [ ] S6 already writes `.keyRejected` on generation (`CloudModelAvailability.swift:267–280`) and on the check (`:307`).
+
+**Tasks**:
+1. Confirm, and enforce where missing, that every `.keyRejected` snapshot has empty `modelIDs` and `shutdownDates`. A `.keyRejected` result always replaces the last good snapshot (R-8 keeps it only for `.unreachable`).
+2. `availableModels()` and `isAvailable(_:)` return nothing for a `.keyRejected` provider.
+3. Fix the known race from S6 (Decisions Log): an in-flight listing that started before a generation-time invalidation (`modelUnavailable` or `keyRejected`) must not overwrite it. Give each provider an invalidation counter: a listing records it at start and discards its result if it changed. The next trigger checks again.
+4. Tests:
+   - a `.keyRejected` check after an `.available` snapshot leaves no available models
+   - a generation-time `keyRejected` (Google `400 API_KEY_INVALID`) empties the provider at once and yields one update
+   - the race: start a stubbed listing that blocks, invalidate, release the listing, and assert the invalidation holds
+   - saving a new key (fingerprint change) clears `.keyRejected` on the next refresh
+
+**Exit criteria**:
+- [ ] `make build`, `make test-unit` and `make lint-check` exit 0.
+- [ ] The race test is deterministic (uses a continuation or semaphore in the stub, no sleeps).
+
+### Sortie 12: New-model acceptance tests (requirements § 8.2 A and B)
+
+**Issue**: intrusive-memory/SwiftVinetas#107
+
+**Priority**: 12 — closes the amendment's WU-A work; G-2a and G-2 follow. Builds: yes. Model: sonnet.
+
+**Entry criteria**:
+- [ ] Sortie 11 exit criteria met.
+- [ ] `make help` lists no `test-cloud-models` target yet.
+
+**Tasks**:
+1. Offline (AC-1 to AC-3), in `Tests/SwiftVinetasTests/`, run by `make test-unit`: request-body golden tests through the real adapters with `StubURLProtocol`, for `gpt-image-2.6-flare`, `gpt-image-2.6-sunburst` and `gemini-3.1-flash-lite-image`:
+   - the model field
+   - the size for each supported ratio, within the vendor's documented rules
+   - no unsupported parameter is sent
+   - `maxReferenceImages` references build; one more is refused before any request
+   - the 4:1 strip is refused
+   Write them table-driven over `CloudModelDescriptor.all`, so later models are covered automatically.
+2. Live (AC-4 to AC-7): a separate test target or test plan, skipped unless `VINETAS_LIVE_CLOUD_TESTS=1`, that reads keys only through `ChainedAPIKeyStore.default`. Add `make test-cloud-models` (modelled on `test-integration`), excluded from `test-unit`, `test` and every workflow under `.github/`. It writes its results table to `docs/cloud-model-acceptance.md`.
+3. Add `docs/cloud-model-acceptance.md` with the table header, `type: report` frontmatter and no results. The supervisor fills it at G-2a.
+4. CHANGELOG entries for S10–S12. Open a ready PR from `mission/roll-call/01` into `development` with `/create-pull-request` and enable auto-merge.
+
+**Exit criteria**:
+- [ ] `make build`, `make test-unit` and `make lint-check` exit 0, with no network access.
+- [ ] `make help` lists `test-cloud-models`; `grep -rn 'test-cloud-models\|VINETAS_LIVE_CLOUD_TESTS' .github/` finds nothing.
+- [ ] No test file contains a literal key or reads a key outside `ChainedAPIKeyStore`.
+- [ ] `gh pr view --json baseRefName,isDraft,autoMergeRequest` shows `development`, `false`, non-null.
+- [ ] The sortie makes **no** paid call; the live suite is run at G-2a only.
+
 ---
 
 ## WU-C — Privacy page (vinetas.github.io)
@@ -221,6 +319,8 @@ on `release/1.2.0`; switch only after confirming it is clean.
 
 ### Sortie 7: Registry and refresh triggers (V-1, V-2, V-3 without the button)
 
+**Issue**: intrusive-memory/Vinetas#181
+
 **Priority**: 7 — after G-2. Builds: yes (Xcode MCP).
 
 **Entry criteria**:
@@ -240,6 +340,8 @@ on `release/1.2.0`; switch only after confirming it is clean.
 - [ ] `grep -n 'availableCloudModelIDs' Vinetas/Cloud/CloudProviderRegistry.swift` finds the property.
 
 ### Sortie 8: Studio pickers, fallback and notice (V-5, V-6, V-7)
+
+**Issue**: intrusive-memory/Vinetas#182
 
 **Priority**: 8 — last; gate G-3 follows. Builds: yes (Xcode MCP).
 
@@ -262,16 +364,60 @@ on `release/1.2.0`; switch only after confirming it is clean.
 - [ ] [judgment] The notice text is the same in both apps and names both models.
 - [ ] A ready PR into `development` is open, with auto-merge on.
 
+### Sortie 13: Greyed-out rejected key in Settings (V-4a, R-8a)
+
+**Issue**: intrusive-memory/Vinetas#183
+
+**Priority**: 13 — after S8, on the same branch; G-3 follows. Builds: yes (Xcode MCP).
+
+**Entry criteria**:
+- [ ] Sortie 8 exit criteria met (its PR may still be open; S13 commits on the same branch before it merges, or on a follow-up branch off `development` after).
+- [ ] The SwiftVinetas floor already includes S11 (0.28.0).
+
+**Tasks**:
+1. `CloudProviderRegistry` publishes each released provider's latest snapshot status (`availabilityStatus(for:)` or a dictionary), fed from `cloudAvailability.updates`.
+2. In `SettingsCloudTab.swift` (macOS and iPad), a provider whose status is `.keyRejected` is drawn greyed out (secondary foreground), with one line: "Key expired" or "Key not valid" (from the reason). Its models are listed greyed out under it. Replace and Remove stay enabled.
+3. Confirm the studio pickers and the Defaults tab offer none of that provider's models (they already filter on `availableCloudModelIDs`; add the assertion).
+4. Tests: a stubbed `.keyRejected` snapshot greys the row, shows the reason, and removes the provider's models from `cloudModels` and `availableModels`; a forced refresh after a new key restores them.
+
+**Exit criteria**:
+- [ ] Both schemes build with `BuildProject`.
+- [ ] `RunSomeTests` for the new tests passes.
+- [ ] [judgment] `RenderPreview` (or a screenshot) of Settings → Cloud Engines with one rejected and one working key shows the rejected row greyed with its reason, on macOS and iPad.
+- [ ] A ready PR into `development` is open, with auto-merge on.
+
+### Sortie 14: App Store description says the key is checked (R-22)
+
+**Issue**: intrusive-memory/Vinetas#184
+
+**Priority**: runs any time, in parallel with WU-A — no build, metadata only. Model: haiku.
+
+**Entry criteria**:
+- [ ] First sortie of its branch. Both `metadata-ios/version/1.2.0/en-US.json` and `metadata-mac/version/1.2.0/en-US.json` contain "nothing is sent until you add a key".
+
+**Tasks**:
+1. Branch `docs/app-store-key-check` off `origin/development` in a separate worktree (the local checkout is on `release/1.2.0` and is used by WU-B; don't switch it).
+2. In both files' `description`, replace the paragraph under "BRING YOUR OWN CLOUD ENGINE (OPTIONAL)" with the text in requirements R-22, exactly. Change nothing else.
+3. Validate both files with `python3 -m json.tool`, and check the description stays under App Store Connect's 4,000-character limit.
+4. Open a ready PR into `development` and enable auto-merge.
+
+**Exit criteria**:
+- [ ] `grep -c 'nothing is sent until you add a key'` in both files prints 0; `grep -c 'sending only the key, never your prompts'` prints 1 in each.
+- [ ] Both files parse as JSON and each `description` is at most 4,000 characters.
+- [ ] `git diff origin/development --stat` touches only the two metadata files.
+- [ ] A ready PR into `development` is open, with auto-merge on.
+
 ---
 
 ## Parallelism Structure
 
-**Critical path**: S1 → G-1 → S2 → S3 → S4 → S5 → S6 → G-2 → S7 → S8 → G-3 (8 sorties, 3 human gates).
+**Critical path**: S1 → G-1 → S2 → S3 → S4 → S5 → S6 → S10 → S11 → S12 → G-2a → G-2 → S7 → S8 → S13 → G-3 (12 sorties, 4 human gates).
 
 **Parallel groups**:
 - **Group 1**: S1 (WU-A, builds) and S9 (WU-C, no build) at the same time.
-- **Group 2**: S2 → S6 in sequence. They share files (`CloudHTTP.swift`, `CloudEngineError.swift`), so they can't run in parallel.
-- **Group 3**: S7 → S8 in sequence, after G-2.
+- **Group 2**: S2 → S6, then S10 → S12, in sequence. They share files (`CloudHTTP.swift`, `CloudEngineError.swift`, `CloudModelAvailability.swift`), so they can't run in parallel.
+- **Group 3**: S7 → S8 → S13 in sequence, after G-2.
+- **Group 4**: S14 (no build, its own worktree) at any time; dispatch it alongside S10.
 
 **Agent constraints**: at most one building sortie at a time (S9 is the only one without a build). The human gates, not agent count, limit how fast this goes.
 
@@ -324,7 +470,7 @@ on `release/1.2.0`; switch only after confirming it is clean.
 | Metric | Value |
 |--------|-------|
 | Work units | 3 |
-| Total sorties | 9 |
+| Total sorties | 14 (S10–S14 added 2026-11-27) |
 | Open questions | 0 (OQ-1 to OQ-3 resolved 2026-11-26) |
 | Dependencies mapped | 3 |
 | Dependency structure | layers: WU-A and WU-C (layer 0) → G-2 → WU-B (layer 1) |

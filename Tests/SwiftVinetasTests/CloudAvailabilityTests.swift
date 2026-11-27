@@ -163,12 +163,15 @@ struct CloudAvailabilityStoreTests {
 
     try store.write(sample(.openAI))
     let good = try String(contentsOf: url, encoding: .utf8)
-    try good.replacingOccurrences(of: "\"schemaVersion\" : 1", with: "\"schemaVersion\" : 99")
-      .write(to: url, atomically: true, encoding: .utf8)
+    try good.replacingOccurrences(
+      of: "\"schemaVersion\" : \(CloudAvailabilityStore.schemaVersion)",
+      with: "\"schemaVersion\" : 99"
+    )
+    .write(to: url, atomically: true, encoding: .utf8)
     #expect(store.read(.openAI) == nil)
 
     // A future file whose body no longer decodes, but names its version.
-    try Data(#"{"schemaVersion":2,"snapshot":{"shape":"new"}}"#.utf8).write(to: url)
+    try Data(#"{"schemaVersion":3,"snapshot":{"shape":"new"}}"#.utf8).write(to: url)
     #expect(store.read(.openAI) == nil)
 
     try store.write(sample(.google))

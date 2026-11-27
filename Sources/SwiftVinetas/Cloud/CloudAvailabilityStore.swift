@@ -9,8 +9,19 @@ import SwiftAcervo
 /// Tests pass their own directory.
 struct CloudAvailabilityStore: Sendable {
 
-  /// Bump when the file shape changes; files with another version are ignored.
-  static let schemaVersion = 1
+  /// Bump when the file shape or its meaning changes (R-7a). A file with
+  /// another version is ignored, as if the vendor was never checked, and is
+  /// never deleted: an older process may still read its own version.
+  ///
+  /// - 1: S6 snapshot.
+  /// - 2: adds `vendorModelIDs`, `vendorListsModels`, `vendorShutdownDates`
+  ///   and `catalogDigest`.
+  static let schemaVersion = 2
+
+  /// A release can force every snapshot checked before this date to expire
+  /// (R-7a), for a vendor change the catalog digest can't see. Raise it in a
+  /// release; `.distantPast` expires nothing.
+  static let minimumCheckedAt: Date = .distantPast
 
   static let appGroupDirectoryName = "vinetas-cloud-availability"
   static let cachesDirectoryPath = "io.intrusive-memory.Vinetas/cloud-availability"
@@ -19,8 +30,13 @@ struct CloudAvailabilityStore: Sendable {
 
   let directory: URL
 
-  init(directory: URL) {
+  /// Snapshots checked before this are stale. ``minimumCheckedAt`` unless a
+  /// test passes its own.
+  let minimumCheckedAt: Date
+
+  init(directory: URL, minimumCheckedAt: Date = CloudAvailabilityStore.minimumCheckedAt) {
     self.directory = directory
+    self.minimumCheckedAt = minimumCheckedAt
   }
 
   /// A store in the default location for this process.
@@ -30,6 +46,7 @@ struct CloudAvailabilityStore: Sendable {
   ) {
     self.directory = Self.resolveDirectory(
       appGroupContainer: appGroupContainer, cachesDirectory: cachesDirectory)
+    self.minimumCheckedAt = Self.minimumCheckedAt
   }
 
   /// The App Group container root, the way the CLI finds it: the parent of
@@ -68,7 +85,9 @@ struct CloudAvailabilityStore: Sendable {
   }
 
   /// The stored snapshot, or `nil` when there is none, the file is corrupt,
-  /// it has another schema version, or it belongs to another provider.
+  /// it has another schema version, or it belongs to another provider. A file
+  /// with another schema version is left on disk. The snapshot is returned as
+  /// written; the service re-maps it for its own catalog (R-7a).
   func read(_ provider: CloudProvider) -> CloudAvailabilitySnapshot? {
     guard let data = try? Data(contentsOf: fileURL(for: provider)) else { return nil }
     let decoder = Self.decoder()
