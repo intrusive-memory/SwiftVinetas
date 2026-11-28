@@ -146,12 +146,13 @@ private func request(
     mode: references.isEmpty ? .textToImage : .imageToImage(references: references))
 }
 
-/// Google's documented 1K output size per aspect-ratio preset. Confirm against
-/// the vendor's image-generation docs when reading the results at G-2a.
+/// Google's 1K output size per aspect-ratio preset, from the vendor's docs.
+/// 4:1 is the size both models returned in the 2026-11-27 live run (2064x512):
+/// the 2048x512 we had came from a summary of Google's table, not the page.
 private let googleOneKSizes: [String: (width: Int, height: Int)] = [
   "1:1": (1024, 1024), "3:2": (1264, 848), "2:3": (848, 1264), "4:3": (1200, 896),
   "3:4": (896, 1200), "5:4": (1152, 928), "4:5": (928, 1152), "16:9": (1376, 768),
-  "9:16": (768, 1376), "21:9": (1584, 672), "4:1": (2048, 512),
+  "9:16": (768, 1376), "21:9": (1584, 672), "4:1": (2064, 512),
 ]
 
 /// The smallest request, at `ratio`, for which the OpenAI adapter sends an

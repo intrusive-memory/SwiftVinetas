@@ -36,7 +36,7 @@ is set by total pixels and the maximum by total pixels or the 3840 px edge.
 |---|---|---|
 | square 1:1 | 816×816 | 2880×2880 |
 | wide 16:9 | 1088×608 | 3840×2160 |
-| ultrawide 2.4:1 | 1264×528 | 3840×1616 (Vinetas asks for 3840×1600) |
+| ultrawide 2.4:1 | 1264×528 (Vinetas sends 1248×528, accepted) | 3840×1616 (Vinetas asks for 3840×1600) |
 | portrait 9:16 | 608×1088 | 2160×3840 |
 | panel 3:2 | 1008×672 | 3520×2352 |
 | strip 4:1 | **not supported** (wider than 3:1) | — |
@@ -66,7 +66,11 @@ Pixel sizes (W×H). Every model that offers a tier uses the same size for it:
 | ultrawide → 21:9 | 792×168 * | 1584×672 | 3168×1344 | 6336×2688 |
 | portrait 9:16 | 384×688 | 768×1376 | 1536×2752 | 3072×5504 |
 | panel → 3:2 | 632×424 | 1264×848 | 2528×1696 | 5056×3392 |
-| strip 4:1 | 1024×256 | 2048×512 | 4096×1024 | 8192×2048 |
+| strip 4:1 | 1024×256 † | **2064×512** (measured) | 4096×1024 † | 8192×2048 † |
+
+† Unverified. The 4:1 row came from a summary of Google's table, and its 1K value
+(2048×512) was wrong: both 4:1 models returned 2064×512 in the live run of
+2026-11-27. Treat the other 4:1 tiers as unverified until measured.
 
 \* 792×168 is 4.7:1, not 21:9. This is as published and is probably a typo in
 Google's table. Vinetas doesn't use the 512px tier.
@@ -75,7 +79,7 @@ Each model's min and max, by its own tiers:
 
 | Model | Min (1:1) | Max |
 |---|---|---|
-| `gemini-nano-banana-2.1` | 1024×1024 | 4K: 4096×4096 (1:1), 5504×3072 (16:9), 8192×2048 (4:1) |
+| `gemini-nano-banana-2.1` | 1024×1024 | 4K: 4096×4096 (1:1), 5504×3072 (16:9), 4:1 unverified |
 | `gemini-3.1-flash-image` | 512×512 (512px tier; Vinetas uses 1K and up) | as 2.1 |
 | `gemini-3-pro-image` | 1024×1024 | 4K: 4096×4096 (1:1), 5504×3072 (16:9); no 4:1 |
 | `gemini-3.1-flash-lite-image` | 1024×1024 | 1K only: 1376×768 (16:9), 1584×672 (21:9) |
@@ -86,9 +90,11 @@ Each model's min and max, by its own tiers:
   maximum number of edit input images.
 - **Google:** a size table for `gemini-3.1-flash-lite-image` beyond 1024×1024. Its
   page says "14 aspect ratios" but names only 10. The table above assumes Flash Lite
-  uses the shared 1K sizes, and the live suite (AC-5) confirms or refutes that.
-- **Google:** a numeric reference-image limit for Flash Lite. Vinetas assumes 10, and
-  AC-6 tests it.
+  uses the shared 1K sizes. The live run of 2026-11-27 (AC-5) confirmed it for all
+five Vinetas ratios.
+- **Google:** a numeric reference-image limit for Flash Lite. Vinetas assumes 10. In
+  AC-6 the vendor accepted 11, so 10 is Vinetas's own cap.
+- **OpenAI:** the edits endpoint also accepted 11 references in AC-6.
 - The Google size table comes from the guide's tabs, not the model pages. Re-check it
   when a model is added.
 
