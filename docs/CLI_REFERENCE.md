@@ -100,9 +100,9 @@ and reaches no network endpoint other than the chosen vendor's documented API.
 
 | Condition | Exit code | Meaning (`sysexits`) |
 |---|---|---|
-| No API key resolved for the vendor | **78** | `EX_CONFIG` — the stderr line names the variable to set |
+| No API key resolved for the vendor, or the vendor rejected the key (expired, invalid, not permitted) | **78** | `EX_CONFIG` — the stderr line names the variable to set |
 | The vendor declined the prompt or output (moderation) | **65** | `EX_DATAERR` — rewrite the prompt |
-| Vendor HTTP error, timeout, or undecodable reply | **69** | `EX_UNAVAILABLE` — the vendor's own message is on stderr verbatim |
+| Vendor HTTP error, timeout, undecodable reply, or the model is gone or unusable with this key | **69** | `EX_UNAVAILABLE` — the vendor's own message is on stderr verbatim |
 | Unknown model, or `--lora` / `--preview` with a cloud model, or `-r` beyond the model's limit | 64 | `EX_USAGE` |
 
 Every cloud failure is printed as `error: …` on stderr before the process

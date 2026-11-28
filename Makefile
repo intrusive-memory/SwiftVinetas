@@ -17,6 +17,7 @@
 #   test-perf         SwiftVinetasTests (filtered)    Performance/timing suites only (local, never CI)
 #   test-gpu          SwiftVinetasGPUTests            All GPU tests (unit + integration)
 #   test-integration  SwiftVinetasGPUTests (filtered) Integration suites only (by class name)
+#   test-cloud-models SwiftVinetasCloudLiveTests    LIVE paid cloud calls (needs your keys); local only, never CI
 #
 # Performance tests NEVER run in CI. Suites that assert on elapsed time or
 # throughput are listed in PERF_SUITES; test-unit / test-unit-ios pass them as
@@ -39,6 +40,7 @@ DESTINATION_IOS = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'
 SCHEME_LIB = SwiftVinetas
 SCHEME_CLI = vinetas
 SCHEME_PKG = SwiftVinetas-Package
+CLOUD_KEYCHAIN_SERVICE = io.intrusive-memory.Vinetas.cloudAPIKeys
 BINDIR = ./bin
 
 # Directory where WeightLoader looks for pre-hardlinked PixArt safetensors.
@@ -82,7 +84,7 @@ PERF_SUITES = \
 SKIP_PERF_SUITES = $(addprefix -skip-testing:,$(PERF_SUITES))
 ONLY_PERF_SUITES = $(addprefix -only-testing:,$(PERF_SUITES))
 
-.PHONY: build release test test-unit test-perf test-gpu test-integration test-fixtures test-pixart-repro profile-pixart-memory test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help check-acervo-warnings test-telemetry-debug codesign-cli lint-check verify-ui-isolation
+.PHONY: build release test test-unit test-perf test-gpu test-integration test-cloud-models test-fixtures test-pixart-repro profile-pixart-memory test-ios test-unit-ios build-ios install clean resolve lint link-test-models link-pixart-models help check-acervo-warnings test-telemetry-debug codesign-cli lint-check verify-ui-isolation
 
 help: ## Show all available targets with descriptions
 	@echo "SwiftVinetas — Makefile targets"
@@ -97,6 +99,7 @@ help: ## Show all available targets with descriptions
 	@echo "  make test-perf        # Performance/timing suites only (local, never CI)"
 	@echo "  make test-gpu         # GPU tests only (requires Apple Silicon + model)"
 	@echo "  make test-integration # Integration tests only (download + generation)"
+	@echo "  make test-cloud-models # LIVE cloud-model checks (paid, local only, never CI)"
 	@echo "  make test-ios         # Run all iOS Simulator tests"
 	@echo "  make test-unit-ios    # iOS unit tests only (no GPU)"
 	@echo "  make install          # Release build + copy to ./bin/vinetas"
@@ -142,7 +145,8 @@ test: ## Run all macOS tests (unit + GPU)
 	TEST_RUNNER_CI=$${CI:-} TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_MACOS) \
-		-derivedDataPath $(DERIVED_DATA)
+		-derivedDataPath $(DERIVED_DATA) \
+		-skip-testing:SwiftVinetasCloudLiveTests
 
 test-unit: ## Run macOS unit tests only (no GPU or model required; perf suites skipped); output captured to build/test-output.log
 	@mkdir -p build
@@ -229,6 +233,29 @@ test-integration: link-test-models ## Run integration tests only (model download
 		-parallel-testing-enabled NO \
 		$(INTEGRATION_SUITES)
 
+test-cloud-models: ## LIVE cloud-model acceptance (AC-4..7): calls OpenAI/Google with YOUR keys, costs ~$1; writes docs/cloud-model-acceptance.md. Local only, never CI
+	@echo "test-cloud-models: live vendor calls, billed to the keys in your environment or keychain"
+	@set -e; \
+	if [ -z "$$GEMINI_API_KEY" ] && [ -n "$$GOOGLE_API_KEY" ]; then GEMINI_API_KEY="$$GOOGLE_API_KEY"; fi; \
+	for pair in openai:OPENAI_API_KEY google:GEMINI_API_KEY; do \
+		account="$${pair%%:*}"; var="$${pair##*:}"; \
+		if [ -z "$${!var}" ]; then \
+			key="$$(security find-generic-password -s $(CLOUD_KEYCHAIN_SERVICE) -a "$$account" -w 2>/dev/null || true)"; \
+			if [ -z "$$key" ]; then \
+				echo "test-cloud-models: FAILED: no $$var in the environment and no readable keychain item (service $(CLOUD_KEYCHAIN_SERVICE), account $$account)" >&2; \
+				exit 1; \
+			fi; \
+			printf -v "$$var" '%s' "$$key"; key=""; \
+		fi; \
+		export "TEST_RUNNER_$$var=$${!var}"; \
+	done; \
+	TEST_RUNNER_VINETAS_LIVE_CLOUD_TESTS=1 xcodebuild test \
+		-scheme $(SCHEME_PKG) \
+		-destination $(DESTINATION_MACOS) \
+		-derivedDataPath $(DERIVED_DATA) \
+		-parallel-testing-enabled NO \
+		-only-testing:SwiftVinetasCloudLiveTests
+
 test-telemetry-debug: link-test-models ## Run the Flux2 + PixArt telemetry integration tests; pipes log to /tmp/test-telemetry.log and prints the trace paths
 	@TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) TEST_RUNNER_ACERVO_MODELS_DIR=$(PIXART_TEST_MODELS) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
@@ -268,7 +295,8 @@ test-ios: ## Run all iOS Simulator tests
 	TEST_RUNNER_ACERVO_APP_GROUP_ID=group.intrusive-memory.models TEST_RUNNER_ACERVO_CDN_BASE_URL=$(ACERVO_CDN_BASE_URL) xcodebuild test \
 		-scheme $(SCHEME_PKG) \
 		-destination $(DESTINATION_IOS) \
-		-derivedDataPath $(DERIVED_DATA)
+		-derivedDataPath $(DERIVED_DATA) \
+		-skip-testing:SwiftVinetasCloudLiveTests
 
 test-unit-ios: ## Run iOS Simulator unit tests only (no GPU or model required; perf suites skipped); output captured to build/test-output-ios.log
 	@mkdir -p build

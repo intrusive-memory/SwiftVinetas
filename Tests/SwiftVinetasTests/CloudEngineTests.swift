@@ -604,16 +604,16 @@ struct CloudVendorAdapterTests {
   func openAISurfacesVendorErrorMessage() async throws {
     defer { StubURLProtocol.reset() }
     StubURLProtocol.handler = { request in
-      let json: [String: Any] = ["error": ["message": "Incorrect API key provided"]]
+      let json: [String: Any] = ["error": ["message": "The server had an error"]]
       return (
-        httpResponse(request.url, status: 401), try JSONSerialization.data(withJSONObject: json)
+        httpResponse(request.url, status: 500), try JSONSerialization.data(withJSONObject: json)
       )
     }
     let engine = engine(.openAI, client: OpenAIImageClient())
     try await engine.loadModel(CloudModelDescriptor.gptImage25Flare, progress: { _ in })
     await #expect(
       throws: CloudEngineError.httpStatus(
-        provider: .openAI, status: 401, message: "Incorrect API key provided")
+        provider: .openAI, status: 500, message: "The server had an error")
     ) {
       _ = try await engine.generate(request: makeRequest(), stepProgress: nil)
     }

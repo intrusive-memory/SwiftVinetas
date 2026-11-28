@@ -118,7 +118,7 @@ let package = Package(
     // must be validated against a pinned Apple root — swift-certificates does
     // the X.509 work, swift-crypto the ES256 signature check.
     .package(url: "https://github.com/apple/swift-certificates.git", from: "1.21.1"),
-    .package(url: "https://github.com/apple/swift-crypto.git", from: "3.15.1"),
+    .package(url: "https://github.com/apple/swift-crypto.git", "3.15.1"..<"5.0.0"),
     .package(url: "https://github.com/apple/swift-asn1.git", from: "1.7.4"),
   ],
   targets: [
@@ -197,6 +197,14 @@ let package = Package(
         .product(name: "SwiftASN1", package: "swift-asn1"),
         .product(name: "Crypto", package: "swift-crypto"),
       ]
+    ),
+
+    // Live cloud-model acceptance tests (requirements §8.2 B). Skipped unless
+    // VINETAS_LIVE_CLOUD_TESTS=1; makes paid vendor calls. Run only through
+    // `make test-cloud-models`; never from CI.
+    .testTarget(
+      name: "SwiftVinetasCloudLiveTests",
+      dependencies: ["SwiftVinetas"]
     ),
 
     // Vocabulary unit tests (no GPU or MLX required — safe for CI)

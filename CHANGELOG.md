@@ -1,3 +1,7 @@
+---
+type: doc
+---
+
 # Changelog
 
 All notable changes to this project are documented in this file.
@@ -5,6 +9,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+
+### Added
+
+- The 4:1 strip for `gemini-nano-banana-2.1` and `gemini-3.1-flash-image`, the two Google models that document it (1K = 2048×512), in `CloudModelDescriptor` and `ModelSummary.cloud`. `GeminiImageClient` sends `"4:1"`. `gemini-3-pro-image`, `gemini-3.1-flash-lite-image` and the OpenAI models (3:1 limit) stay without it.
+- `docs/CLOUD_MODEL_SIZES.md`: the vendor size reference (supported ratios, size tiers and pixel sizes per cloud model).
+- `CloudEngineError.modelUnavailable(provider:modelID:reason:)` and `.keyRejected(provider:reason:)`: vendor responses that mean a model is gone or the key is refused are classified per vendor, never retried, and thrown unwrapped. The vendor's message is kept for `modelUnavailable` only.
+- Vendor model listings: each adapter can ask its vendor which models a key can use (OpenAI and Google list models; Black Forest Labs and Stability AI check the key through their credit endpoints).
+- `CloudModelAvailability`, reachable as `VinetasClient.cloudAvailability`: per-provider `CloudAvailabilitySnapshot`s with `snapshot(for:)`, `refresh(_:force:)`, `availableModels()`, `isAvailable(_:)` and an `updates` stream. Snapshots are cached for 24 hours, invalidated by a key change, kept on disk without any key material, bounded to 40 seconds per check, and backed off for 5 minutes after a failure.
+- A generation that fails with `modelUnavailable` removes the model from the provider's snapshot, and one that fails with `keyRejected` marks the snapshot `.keyRejected`; each publishes one update and the original error is still thrown. `CloudImageEngine.setCloudErrorHandler(_:)` exposes the hook.
+- Smart expiry for availability snapshots: a snapshot records the raw vendor model IDs and a digest of the catalog (`CloudProvider.models`) of the build that wrote it. A snapshot written by a build with a different catalog is re-mapped through the reader's own model table until the next check, so adding, removing or re-aliasing a model needs no other edit. The on-disk store is now schema version 2; files with another version are ignored, not deleted.
+- Offline acceptance tests (`CloudModelAcceptanceTests`) over every OpenAI and Google model in `CloudModelDescriptor.all`: model field, request size per supported ratio, no unsupported parameter sent, reference limit, and the 4:1 strip. A model added to the catalog is covered automatically.
+- `make test-cloud-models` and the `SwiftVinetasCloudLiveTests` target: live acceptance checks (listed, every ratio, reference limit, error classification) for the 2.6 and Flash Lite models. They make paid vendor calls, run only when `VINETAS_LIVE_CLOUD_TESTS=1` (the target sets it), read keys only through `ChainedAPIKeyStore.default`, are skipped by `make test` and `make test-ios`, and are never run in CI. Results go to `docs/cloud-model-acceptance.md`.
+
+### Fixed
+
+- `CloudImageEngine` now refuses an aspect ratio outside the model's `supportedAspectRatios` before any request, with the new `CloudEngineError.unsupportedAspectRatio(modelID:requested:supported:)` (the CLI maps it to the validation exit code). Before, OpenAI fell back to size `auto` and Google snapped to 21:9, so the request was sent and returned a different shape than asked for. The requested ratio is the nearest Vinetas ratio to the request's width and height, so sizes near a supported ratio still go through. Fixes #116.
+- A provider whose key the vendor rejected no longer offers any models, and a vendor listing that was already in flight when a key changed or was rejected can no longer undo that invalidation when it finishes.
+
+### Changed
+
+- `swift-crypto` is now required as `"3.15.1"..<"5.0.0"` (was `from: "3.15.1"`, which stopped at 4.0.0). A package that links SwiftVinetas beside mlx-audio-swift 0.10 (SwiftEchada's `EchadaVoice`), which needs swift-crypto 4.5.0 or later, failed to resolve before. swift-certificates 1.21 already accepts swift-crypto below 6.0.0. Only `VinetasCLICore` imports swift-crypto (`P256.Signing`, whose API 4.x keeps); the `SwiftVinetas` library uses CryptoKit.
+- `vinetas` exit codes: a rejected API key exits 78 (`EX_CONFIG`), like a missing key; a model the vendor no longer offers, or the key can't use, exits 69 (`EX_UNAVAILABLE`).
 
 ## [0.27.2] - 2026-11-26
 

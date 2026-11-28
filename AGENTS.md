@@ -5,7 +5,7 @@ updated: 2026-10-18
 
 # SwiftVinetas - AI Agent Instructions
 
-**Version**: 0.27.2
+**Version**: 0.27.2-dev
 **Purpose**: Guide AI agents working on SwiftVinetas
 **Audience**: Claude Code, Gemini, and other AI development assistants
 
@@ -24,6 +24,13 @@ updated: 2026-10-18
 - **CLI**: `vinetas` for testing and standalone use
 - **Models**: FLUX.2 Klein 4B (default, the only on-device FLUX model) and PixArt-Sigma XL, plus twelve cloud `CloudModelDescriptor`s addressed by id (`openai-gpt-image-2.5-flare`, `bfl-flux-2-pro`, …); extensible via `ModelDescriptor` protocol
 - **Cloud keys**: `ChainedAPIKeyStore.default` — environment (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `BFL_API_KEY`, `STABILITY_API_KEY`) then the shared keychain group. Never written to disk in plaintext, never printed; no `--api-key` flag. See [docs/REQUIREMENTS-CLOUD-ENGINES.md](docs/REQUIREMENTS-CLOUD-ENGINES.md)
+- **Cloud model availability**: `VinetasClient.cloudAvailability` (`CloudModelAvailability`, an actor in `Sources/SwiftVinetas/Cloud/`) asks each vendor which models the configured key can use. Nothing touches the network at init.
+  - *API*: `snapshot(for:)` (cached, no network), `refresh(_:force:)`, `availableModels()`, `isAvailable(_:)`, and `updates` (an `AsyncStream<CloudAvailabilitySnapshot>`; each access is its own stream). A `CloudAvailabilitySnapshot` carries `status` (`available`, `noKey`, `keyRejected(reason:)`, `unreachable`, `unsupported`), `modelIDs` (Vinetas ids), `checkedAt`, `shutdownDates`, and `isChecked`. **UIs render from `snapshot(for:)` and `updates`**, not by awaiting `availableModels()` / `isAvailable(_:)`, which may wait up to 40 s on a network check.
+  - *Cache*: fresh for 24 h; stale at once when the key's salted fingerprint changes or a key is added or removed. No key means `.noKey` with no request. A failed check keeps the last good models with status `.unreachable`, and the vendor is not asked again for 5 minutes unless `force` is set or the key changed. With no earlier snapshot a failure yields every known model, *not checked* (`isChecked == false`, memory only). Each check, retries and pages included, is cut off after 40 s; concurrent refreshes of one vendor share one check.
+  - *Files*: one `<provider>.json` per vendor plus `fingerprint-salt.bin`, in `vinetas-cloud-availability/` of the App Group container, else `io.intrusive-memory.Vinetas/cloud-availability/` in Caches. They hold model ids, dates and a salted key fingerprint, never a key.
+  - *Generation-time invalidation (R-10)*: `CloudImageEngine` hands every `CloudEngineError.modelUnavailable` and `.keyRejected` it throws to an `onCloudError` hook before rethrowing the same error. `VinetasClient.init()` points it at the availability service, which drops the model from the snapshot (or marks the snapshot `.keyRejected` with no models), persists it and publishes one update. Engines built any other way (for example `VinetasClient(router:)`) have no hook until `CloudImageEngine.setCloudErrorHandler(_:)` is called.
+  - *Sizes and ratios*: `CloudImageEngine` refuses a ratio outside `CloudModelDescriptor.supportedAspectRatios` before any request (`CloudEngineError.unsupportedAspectRatio`). Per-model vendor sizes, tiers and the 4:1 availability are in [docs/CLOUD_MODEL_SIZES.md](docs/CLOUD_MODEL_SIZES.md).
+  - *Keys (R-18)*: a key goes only to its own vendor's host, in its auth header, and never into a URL, body, error text or file; `CloudKeyContainmentTests` checks every listing and generation path.
 - **Style**: LoRA adapters in safetensors format, tagged with `compatibleEngines: [String]`
 - **Prompt files**: YAML parsed via `marcprux/universal`
 - **Model cache**: App Group container (`group.intrusive-memory.models`) via SwiftAcervo, with Application Support fallback — sandbox-safe on all platforms

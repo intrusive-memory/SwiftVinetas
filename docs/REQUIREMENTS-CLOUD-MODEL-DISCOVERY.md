@@ -1,7 +1,7 @@
 ---
 type: requirements
 state: ready
-updated: 2026-11-26
+updated: 2026-11-27
 ---
 
 # Requirements — Discover which cloud models a key can use
@@ -145,9 +145,47 @@ What this means for the design:
     or a generation reports the model is gone (R-10).
   - The cache is persisted so a cold start doesn't wait on the network. Where it
     lives is decision D-4.
+- **R-7a. Smart expiry.** A snapshot is shared by every process that links
+  SwiftVinetas (D-4), and those processes can run different SwiftVinetas versions:
+  the app, its bundled CLI, Escribir. A snapshot therefore records what it was
+  built against, and a reader expires it automatically when that no longer matches
+  its own build:
+  - **`schemaVersion`** (already in the file; `CloudAvailabilityStore.schemaVersion`).
+    Bump it whenever the file shape *or its meaning* changes. A reader that finds
+    another version ignores the file and treats the vendor as never checked (D-2).
+    It doesn't delete the file, so an older process can still read its own version.
+  - **`catalogDigest`**: a SHA-256 prefix computed at build time from the provider's
+    known models (each `id`, `vendorModelID` and `vendorAliases`, sorted). Nobody
+    has to remember to bump it: adding, removing or re-aliasing a model changes it.
+    A reader whose digest differs marks the snapshot stale, so the next trigger
+    (launch, key change, V-3) re-checks with a network call.
+  - **`vendorModelIDs`**: the raw IDs the vendor returned, stored next to the mapped
+    `modelIDs`. Until the re-check finishes, a reader re-maps these against its own
+    model table instead of trusting `modelIDs`. A model added in a new release
+    shows up at once, and an older process never hides a model it doesn't know
+    about from a newer one. Listing calls aren't billed (§10.1), so the occasional
+    re-check when two versions take turns writing costs nothing.
+  - **A release can force expiry:** `CloudAvailabilityStore.minimumCheckedAt`, a
+    date built into the release. A snapshot checked before it is stale. Use it when
+    a vendor changes behaviour that the digest can't see, for example a new
+    retirement policy.
+  - Tests: changing the digest makes a snapshot stale; a different schema version
+    is ignored; re-mapping from `vendorModelIDs` exposes a newly added model
+    without a network call; `minimumCheckedAt` expires an older snapshot.
 - **R-8.** When a check fails, the last good snapshot is kept, with status
   `.unreachable` and its original `checkedAt`. Its models stay available, so a flaky
   network never empties a picker. With no earlier snapshot, the result is decision D-2.
+  This applies only to failures to reach the vendor. A **rejected key is not a
+  failure to reach the vendor**: a `.keyRejected` result always replaces the last
+  good snapshot, and its `modelIDs` is empty (R-8a).
+- **R-8a. A rejected key offers no models.** A vendor whose latest snapshot is
+  `.keyRejected` contributes nothing to `availableModels()`, and none of its models
+  appear as selectable in any picker or default-model resolver. That holds whether
+  the rejection came from the check or from a generation (R-10 with the Google
+  `400 API_KEY_INVALID` / OpenAI `401` / BFL `403` key cases): a key rejected during
+  generation writes a `.keyRejected` snapshot right away, with no wait for the next
+  check. The vendor shows as greyed out in the list of connections (V-4a). Saving a
+  new key clears the state with a forced check (V-3).
 - **R-9.** For a vendor with no way to list models (BFL and Stability, §4), the check
   calls the vendor's balance endpoint (`GET /v1/credits` for BFL,
   `GET /v1/user/balance` for Stability). On success every known model counts as
@@ -236,9 +274,35 @@ What this means for the design:
 
 - **R-22.** The check sends the key, and nothing the user wrote, to the vendor the
   user chose. It doesn't need the per-vendor prompt consent. The App Store
-  description and privacy policy should still say that Vinetas contacts the vendor to
-  check which models the key can use. Update both (`metadata-*/version/<next>/`, and
-  the policy page in `vinetas.github.io`) in the release that ships this.
+  description and privacy policy must still say that Vinetas contacts the vendor to
+  check which models the key can use. Both ship with 1.2.0 (§8, step 3).
+  - **Privacy policy** (`vinetas.github.io/privacy.md`): done in
+    [vinetas.github.io#21](https://github.com/intrusive-memory/vinetas.github.io/pull/21),
+    open into `main`, "Last updated: November 26, 2026". The new text: "Once you
+    add a key, Vinetas sends that key, and nothing you wrote, to that key's vendor
+    to check which models it can use, about once a day. Your prompts go to a vendor
+    only when you choose one of its models in the model picker and generate." It
+    must be merged (by a human; it targets `main`) before `1.2.0-rc7` is submitted.
+  - **App Store description**, in `metadata-ios/version/1.2.0/en-US.json` and
+    `metadata-mac/version/1.2.0/en-US.json`, `description`, under "BRING YOUR OWN
+    CLOUD ENGINE (OPTIONAL)". Today it says "nothing is sent until you add a key,
+    pick a cloud model, and agree to send your prompts to that vendor". That is no
+    longer true, because adding a key now sends it to the vendor. Replace the
+    paragraph with:
+
+    > Add your own API key for OpenAI or Google, and the models your key can use
+    > appear in the picker right beside the on-device ones. When you add a key,
+    > Vinetas checks with that vendor which models it can use, sending only the
+    > key, never your prompts, and rechecks about once a day. Your prompts go to a
+    > vendor only when you pick one of its models, agree to send prompts to that
+    > vendor, and generate, under your own account and their terms. Keys are stored
+    > in your keychain.
+
+    On iOS, "PRIVATE BY DESIGN" says Vinetas "works completely offline with the
+    built-in models". That stays true and needs no change.
+  - **App Privacy answers** in App Store Connect: no change. The key goes from the
+    device straight to the vendor the user chose; Intrusive Memory Productions
+    collects nothing new.
 
 ## 7. Consumer changes
 
@@ -259,6 +323,14 @@ What this means for the design:
   "Couldn't reach Google; showing the last list", "This vendor can't list models;
   all known models shown." It replaces the static model names in
   `SettingsCloudTab.swift:109` with the available ones.
+- **V-4a. Rejected keys are greyed out (1.2.0).** In Settings → Cloud Engines, a
+  vendor whose snapshot is `.keyRejected` is drawn greyed out (secondary
+  foreground, the same treatment as a disabled row), with one line of reason:
+  "Key expired" or "Key not valid" (R-5's reason), and the actions to replace or
+  remove the key stay enabled. Its models are listed greyed out under it, not as
+  available, and they never appear in the studio pickers or the Defaults tab
+  (R-8a). This is the only status line from V-4 that ships in 1.2.0; the rest of
+  V-4 stays in 1.2.1.
 - **V-5.** When the selected model becomes unavailable, the studio moves the
   selection to the first available model and shows a one-line notice: "<model> isn't
   available for your key; switched to <model>." The same notice is added for a removed
@@ -274,6 +346,8 @@ What this means for the design:
   Defaults tab already reads `CloudProviderRegistry.availableModels` (V-2).
 - **V-8.** Tests:
   - the registry filter
+  - a `.keyRejected` snapshot removes the vendor's models from both pickers and the
+    Defaults tab, and greys out the vendor row (V-4a)
   - the selection fallback
   - the Settings status text for each snapshot status
   - a stubbed `modelUnavailable` generation that removes the model from the picker
@@ -318,9 +392,19 @@ Vinetas 1.2.0 is blocked on steps 1–3. Steps 4 and 5 don't block it.
 2. **Vinetas app** (§7.1) on `development`: raise the SwiftVinetas floor (V-1) and land
    V-2 to V-8, then the usual development → main PR, which ships a TestFlight build.
 3. **Vinetas `1.2.0-rc7`** tagged on main and merged into `release/1.2.0`. Before
-   submitting, smoke-test on TestFlight with a real OpenAI key and a real Google key:
-   the picker lists only models the key can use, and a removed key empties its
-   vendor's section. Don't submit build 340 (`rc6`) in the meantime.
+   submitting:
+   - Smoke-test on TestFlight with a real OpenAI key and a real Google key: the
+     picker lists only models the key can use; a removed key empties its vendor's
+     section; an invalid key greys the vendor out and offers none of its models
+     (V-4a).
+   - The new-model acceptance tests (§8.2) have passed, and their results are
+     recorded.
+   - The privacy policy PR (vinetas.github.io#21) is merged and live on vinetas.app.
+   - The App Store description (R-22) is updated in both `metadata-*/version/1.2.0/`
+     files on `development`, carried through `main` into `release/1.2.0`, and
+     pushed to App Store Connect with the build.
+
+   Don't submit build 340 (`rc6`) in the meantime.
 4. **`vinetas-skills`** update (§7.3), once step 1 is tagged, because the skills call
    the bundled CLI.
 5. **Escribir** (§7.2), after decision D-4 settles where snapshots live. Escribir
@@ -340,10 +424,21 @@ models a key can't use. The rest follows in 1.2.1.
     `shutdown_date`. The `retiringSoon` flag and "Retires on" text wait.
   - Google's `400 API_KEY_INVALID` is a key error on the generation path as well as
     in the check (R-5).
-- **Vinetas app:** V-1, V-2, V-5 (including the notice), V-6, V-7.
+  - R-7a (smart expiry) and R-8a (a rejected key offers no models).
+- **Vinetas app:** V-1, V-2, V-4a, V-5 (including the notice), V-6, V-7.
   - V-3 without the Refresh button: launch, key saved or removed, and
     `modelUnavailable`.
-  - V-8 without the Settings status-text tests.
+  - V-8 without the Settings status-text tests, except V-4a's greyed-out row.
+- **No "not checked" marking in 1.2.0.** Per D-2, a vendor that has never been
+  checked successfully (no snapshot, or one ignored under R-7a, and the vendor
+  unreachable) offers every known model. In 1.2.0 those models look exactly like
+  available ones: the app has nowhere to show the difference until R-12 and V-4
+  land in 1.2.1. This is deliberate. Generation needs the network anyway, and if
+  a model really is gone, R-10 removes it on first use. The snapshot records this
+  case as `.unreachable` with `checkedAt == .distantPast`, so 1.2.1 can mark these
+  models without a format change.
+- **Release gates:** §8 step 3 (privacy policy, App Store description, §8.2
+  acceptance tests, TestFlight smoke test).
 
 **In 1.2.1:**
 
@@ -354,6 +449,76 @@ models a key can't use. The rest follows in 1.2.1.
 - Telemetry: R-20.
 - Settings → Cloud Engines status text and Refresh button: V-4, and V-3's button.
 - Escribir (§7.2) and `vinetas-skills` (§7.3).
+- The "not checked" marking from D-2 (with R-12 and V-4).
+
+### 8.2 Acceptance tests for new cloud models
+
+D-6 added `gpt-image-2.6-flare`, `gpt-image-2.6-sunburst` and
+`gemini-3.1-flash-lite-image` in v0.27.2. Each was proved by **one** 1:1 generation
+(OQ-1). That shows the ID works, but not the capabilities the descriptor claims. All
+three descriptors offer five aspect ratios and 10 reference images, and for all three
+the reference limit is **assumed** from a sibling model, not documented. Any of
+those claims could still fail the first time someone uses it.
+
+These criteria apply to these three models before 1.2.0, and to **every model added
+to the table from now on**. "Supported" below means what the model's
+`CloudModelDescriptor` declares.
+
+**A. Offline (CI, every PR):**
+
+- **AC-1.** The parity test passes: `CloudModelDescriptor` and `ModelSummary.cloud`
+  agree on ID, ratios, flags and reference limit.
+- **AC-2.** Request-body golden tests, one per new model, built through the real
+  adapter with a stubbed `URLSession`:
+  - the `model` field carries `vendorModelID` exactly
+  - each supported ratio maps to a size the vendor documents (OpenAI: multiples of
+    16, edges ≤ 3840, ratio within 1:3–3:1; Gemini: its 1K preset for that ratio)
+  - no seed, steps, guidance or negative-prompt field is sent when the descriptor
+    says it isn't supported
+  - a request with `maxReferenceImages` references builds, and one with more is
+    refused by Vinetas before any network call
+- **AC-3.** A ratio the model doesn't support (the 4:1 strip) isn't offered for it
+  in `supportedAspectRatios`, and the adapter refuses it rather than sending it.
+
+**B. Live (local only, never CI; your keys; `make test-cloud-models`, a new target
+modelled on `test-integration`):**
+
+- **AC-4. Listed.** The vendor's model list contains `vendorModelID`, and for
+  OpenAI, `shutdown_date` is null or more than 90 days out. Free.
+- **AC-5. Every supported ratio generates.** One generation per supported ratio, at
+  the smallest size the adapter would send for it. Pass: `200`, a decodable image,
+  and pixel dimensions equal to the requested size (OpenAI) or Google's documented
+  1K size for that ratio, within ±1 px.
+- **AC-6. References work up to the declared limit.** One generation with 1
+  reference and one with `maxReferenceImages` references (small 512 px images).
+  Pass: `200` and a decodable image. Then one request with `maxReferenceImages + 1`,
+  sent directly (bypassing Vinetas's own limit), to learn the vendor's real limit:
+  - The vendor rejects it: the limit is confirmed.
+  - The vendor accepts it: the limit is Vinetas's own cap, which is fine. Note it.
+  - The vendor rejects a request *at or below* the declared limit: **fail**. Lower
+    `maxReferenceImages` to what passed, in a patch release.
+- **AC-7. Errors classify correctly.** An invalid size returns the vendor's size
+  error as `httpStatus`, not `modelUnavailable` (R-10a). An unbilled request with a
+  misspelled model ID returns `modelUnavailable`.
+- **AC-8. Pricing hint is current.** `pricingHint` matches the vendor's pricing page
+  on the test date (manual check; cite the URL).
+
+**C. In the app (part of the §8 step 3 TestFlight smoke test):**
+
+- **AC-9.** On macOS and iPad, each new model appears in the studio picker after a
+  forced check with a real key, generates one panel at the default ratio, and that
+  panel appears in the gallery with the model's display name.
+
+**Recording and cost:**
+
+- The live suite writes a dated results table to `docs/cloud-model-acceptance.md`:
+  model, check, pass or fail, actual dimensions, the vendor's real reference limit,
+  and approximate cost. It is committed with the release that relies on it.
+- Expected cost per run for these three models is about **21 generations, around $1**
+  (5 ratios + 2 reference cases each). OQ-1's three 1:1 images cost about $0.10;
+  Flash Lite is about $0.034 per image. AC-4 and AC-7 aren't billed.
+- If AC-5 or AC-6 fails, fix the descriptor (drop the ratio, lower the limit) in a
+  SwiftVinetas patch release before 1.2.0. Don't widen anything to make a check pass.
 
 ## 9. Decisions
 
@@ -362,7 +527,7 @@ All six decided on 2026-11-26 as recommended.
 | # | Question | Options | Decision |
 |---|---|---|---|
 | D-1 | Show image models the vendor lists that Vinetas has no built-in entry for? | (a) Never; (b) CLI only, with conservative defaults and a warning; (c) app and CLI | **(a) for now.** Without known size rules and capabilities, the adapter can send a request the vendor rejects. Revisit with D-5. |
-| D-2 | First run with no snapshot and the vendor unreachable: what to offer? | (a) Nothing until a check succeeds; (b) every known model, marked "not checked" | **(b).** Generation needs the network anyway, and the vendor's own error then explains the problem. |
+| D-2 | First run with no snapshot and the vendor unreachable: what to offer? | (a) Nothing until a check succeeds; (b) every known model, marked "not checked" | **(b).** Generation needs the network anyway, and the vendor's own error then explains the problem. In 1.2.0 the models are shown **unmarked**; the "not checked" marking lands in 1.2.1 with R-12 and V-4 (§8.1). |
 | D-3 | How long is a snapshot fresh? | 1 h / 24 h / 7 d | **24 h.** Retirements are announced weeks ahead; access changes are rare. |
 | D-4 | Where do snapshots live? | (a) each process's own caches folder; (b) the shared App Group container (`group.intrusive-memory.models`, already used by SwiftAcervo) | **(b).** The app, the CLI and Escribir then share one answer, and Escribir (§7.2) needs it. Snapshots hold no key material (R-5). |
 | D-5 | Should the built-in model table move to a catalog file that updates without an app release? | (a) No; (b) a signed JSON catalog on the CDN, cached, with the built-in table as a fallback | **(a) in this change.** It is a separate project with its own security review. Discovery already covers retirement and per-key access. |
