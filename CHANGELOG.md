@@ -1,3 +1,7 @@
+---
+type: doc
+---
+
 # Changelog
 
 All notable changes to this project are documented in this file.
@@ -25,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `swift-crypto` is now required as `"3.15.1"..<"5.0.0"` (was `from: "3.15.1"`, which stopped at 4.0.0). A package that links SwiftVinetas beside mlx-audio-swift 0.10 (SwiftEchada's `EchadaVoice`), which needs swift-crypto 4.5.0 or later, failed to resolve before. swift-certificates 1.21 already accepts swift-crypto below 6.0.0. Only `VinetasCLICore` imports swift-crypto (`P256.Signing`, whose API 4.x keeps); the `SwiftVinetas` library uses CryptoKit.
 - `vinetas` exit codes: a rejected API key exits 78 (`EX_CONFIG`), like a missing key; a model the vendor no longer offers, or the key can't use, exits 69 (`EX_UNAVAILABLE`).
 
 ## [0.27.2] - 2026-11-26
