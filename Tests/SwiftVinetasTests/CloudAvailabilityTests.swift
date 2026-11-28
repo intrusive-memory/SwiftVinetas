@@ -147,7 +147,7 @@ struct CloudAvailabilityStoreTests {
     #expect(store.read(.openAI) == sample(.openAI))
     #expect(store.read(.google) == sample(.google))
     #expect(store.read(.blackForestLabs) == nil)
-    #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("openAI.json").path))
+    #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("openai.json").path))
   }
 
   @Test("A corrupt, wrong-schema or wrong-provider file reads as nil")
